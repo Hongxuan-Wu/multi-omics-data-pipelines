@@ -1,0 +1,47 @@
+{
+  "input_path": "/data/p252701008/datasets/SRA/NCBI_SRA_Metadata_Full_20260516/SRA_Accessions",
+  "start_byte": 20264028420,
+  "end_byte": 21277229841,
+  "data_lines": 4613905,
+  "prefix_counts": {
+    "OTHER": 4524171,
+    "SRA": 89734
+  },
+  "type_counts": {
+    "RUN": 1632958,
+    "EXPERIMENT": 1572404,
+    "SAMPLE": 1291500,
+    "SUBMISSION": 89734,
+    "STUDY": 26090,
+    "ANALYSIS": 1219
+  },
+  "status_counts": {
+    "live": 4217956,
+    "unpublished": 338624,
+    "suppressed": 57325
+  },
+  "visibility_counts": {
+    "public": 4309917,
+    "controlled_access": 303988
+  },
+  "presence_counts": {
+    "BioSample": 4112778,
+    "BioProject": 2902647,
+    "Study": 2879806,
+    "Sample": 2879796,
+    "Loaded": 1634177,
+    "Experiment": 1462923
+  },
+  "prefix_type_matrix": {
+    "OTHER": {
+      "RUN": 1632958,
+      "EXPERIMENT": 1572404,
+      "SAMPLE": 1291500,
+      "STUDY": 26090,
+      "ANALYSIS": 1219
+    },
+    "SRA": {
+      "SUBMISSION": 89734
+    }
+  }
+}

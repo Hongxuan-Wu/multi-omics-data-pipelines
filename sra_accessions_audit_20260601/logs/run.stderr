@@ -1,0 +1,33 @@
+Traceback (most recent call last):
+  File "/home/m252202014/sra_accessions_audit_20260601/code/sra_accessions_audit.py", line 316, in <module>
+    main()
+  File "/home/m252202014/sra_accessions_audit_20260601/code/sra_accessions_audit.py", line 306, in main
+    result = audit_file(args.input)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/m252202014/sra_accessions_audit_20260601/code/sra_accessions_audit.py", line 215, in audit_file
+    for row in reader:
+_csv.Error: field larger than field limit (131072)
+Command exited with non-zero status 1
+	Command being timed: "/usr/bin/python3 code/sra_accessions_audit.py --input /data/p252701008/datasets/SRA/NCBI_SRA_Metadata_20260516/SRA_Accessions --outdir outputs --script-path /home/m252202014/sra_accessions_audit_20260601/code/sra_accessions_audit.py"
+	User time (seconds): 294.14
+	System time (seconds): 2.05
+	Percent of CPU this job got: 11%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 43:39.04
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 31744
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5154
+	Voluntary context switches: 5277
+	Involuntary context switches: 992
+	Swaps: 0
+	File system inputs: 14472
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

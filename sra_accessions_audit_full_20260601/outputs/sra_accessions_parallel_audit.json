@@ -1,0 +1,132 @@
+{
+  "input_path": "/data/p252701008/datasets/SRA/NCBI_SRA_Metadata_Full_20260516/SRA_Accessions",
+  "generated_at_utc": "2026-06-01T08:37:25.956059+00:00",
+  "script_paths": [
+    "/home/m252202014/sra_accessions_audit_full_20260601/code/sra_accessions_chunk_audit.cpp",
+    "/home/m252202014/sra_accessions_audit_full_20260601/code/merge_sra_accessions_chunks.py"
+  ],
+  "chunk_count": 32,
+  "total_lines_including_header": 148211049,
+  "data_lines": 148211048,
+  "column_count": 20,
+  "header": [
+    "Accession",
+    "Submission",
+    "Status",
+    "Updated",
+    "Published",
+    "Received",
+    "Type",
+    "Center",
+    "Visibility",
+    "Alias",
+    "Experiment",
+    "Sample",
+    "Study",
+    "Loaded",
+    "Spots",
+    "Bases",
+    "Md5sum",
+    "BioSample",
+    "BioProject",
+    "ReplacedBy"
+  ],
+  "prefix_counts": [
+    {
+      "value": "OTHER",
+      "count": 140313900
+    },
+    {
+      "value": "ERA",
+      "count": 5542197
+    },
+    {
+      "value": "SRA",
+      "count": 2329786
+    },
+    {
+      "value": "DRA",
+      "count": 25165
+    }
+  ],
+  "type_counts": [
+    {
+      "value": "RUN",
+      "count": 50013612
+    },
+    {
+      "value": "EXPERIMENT",
+      "count": 44607471
+    },
+    {
+      "value": "SAMPLE",
+      "count": 44540766
+    },
+    {
+      "value": "SUBMISSION",
+      "count": 7897148
+    },
+    {
+      "value": "STUDY",
+      "count": 807530
+    },
+    {
+      "value": "ANALYSIS",
+      "count": 344521
+    }
+  ],
+  "status_counts": [
+    {
+      "value": "live",
+      "count": 131929435
+    },
+    {
+      "value": "unpublished",
+      "count": 11084693
+    },
+    {
+      "value": "suppressed",
+      "count": 5194233
+    },
+    {
+      "value": "withdrawn",
+      "count": 2687
+    }
+  ],
+  "visibility_counts": [
+    {
+      "value": "public",
+      "count": 139153756
+    },
+    {
+      "value": "controlled_access",
+      "count": 9057292
+    }
+  ],
+  "presence_counts": {
+    "Experiment": 42295745,
+    "Sample": 82027321,
+    "Study": 82139095,
+    "Loaded": 50358133,
+    "BioSample": 123423527,
+    "BioProject": 82141907
+  },
+  "prefix_type_matrix": {
+    "DRA": {
+      "SUBMISSION": 25165
+    },
+    "ERA": {
+      "SUBMISSION": 5542197
+    },
+    "OTHER": {
+      "RUN": 50013612,
+      "EXPERIMENT": 44607471,
+      "SAMPLE": 44540766,
+      "STUDY": 807530,
+      "ANALYSIS": 344521
+    },
+    "SRA": {
+      "SUBMISSION": 2329786
+    }
+  }
+}
