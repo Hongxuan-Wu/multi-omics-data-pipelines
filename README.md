@@ -1,13 +1,43 @@
-# Transcriptomics Pipelines
+# transcriptomics-pipelines 通用处理流程
 
-> DSS 分支。TSS / 转录组数据构建流水线。
+## SRA Metadata 下载
 
-## 目录结构
+[SRA数据库官网](https://www.ncbi.nlm.nih.gov/sra/?term=)
 
-```text
-.
-├── README.md                                 # 本文件
-├── TSS数据处理.md                            # 顶层设计：RefSeq↔SRA 关联方案
-├── sra_accessions_audit_full_20260601/       # SRA_Accessions.tab 并行审计（full 版）
-└── sra_xml_index_cpp/                        # SRA XML 实体关系索引 C++ 流水线
+[数据来源 - https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/](https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/)
+
+### 方法一
+
+```bash
+# 1. 全量元数据包 (~15GB)
+curl -C - -o NCBI_SRA_Metadata_Full_20260516.tar.gz "https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/NCBI_SRA_Metadata_Full_20260516.tar.gz"
+
+# 2. 全库登录号索引 (~30GB)
+curl -C - -o SRA_Accessions.tab "https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/SRA_Accessions.tab"
+
+# 3. 最新每日元数据包 (~6.5GB)
+curl -C - -o NCBI_SRA_Metadata_20260528.tar.gz "https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/NCBI_SRA_Metadata_20260528.tar.gz"
 ```
+
+### 方法二
+
+[【教程】Linux使用aria2c多线程满速下载](https://blog.csdn.net/sxf1061700625/article/details/136158389)
+
+```bash
+aria2c -x 16 -s 16 -c -o NCBI_SRA_Metadata_Full_20260516.tar.gz "https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/NCBI_SRA_Metadata_Full_20260516.tar.gz"
+
+aria2c -x 16 -s 16 -c -o SRA_Accessions.tab "https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/SRA_Accessions.tab"
+
+aria2c -x 16 -s 16 -c -o NCBI_SRA_Metadata_20260528.tar.gz "https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/NCBI_SRA_Metadata_20260528.tar.gz"
+```
+
+## 常用命令
+
+```bash
+# 看头10行（含表头）
+head -10 "/data/p252701008/datasets/SRA/NCBI_SRA_Metadata_20260516/SRA_Accessions"
+
+# 统计总条目数（减1行表头）
+wc -l "/data/p252701008/datasets/SRA/NCBI_SRA_Metadata_20260516/SRA_Accessions"
+```
+>>>>>>> main

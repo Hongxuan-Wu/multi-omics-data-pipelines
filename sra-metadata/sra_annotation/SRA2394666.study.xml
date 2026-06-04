@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<STUDY_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <STUDY center_name="BioProject" alias="PRJNA1465934" accession="SRP700402">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRP700402</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioProject" label="primary">PRJNA1465934</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <DESCRIPTOR>
+      <STUDY_TITLE>Pharmacodynamic evaluation of short versus long course of aminoglycosides when combined with beta-lactam antibiotics against Pseudomonas aeruginosa</STUDY_TITLE>
+      <STUDY_TYPE existing_study_type="Other"/>
+      <STUDY_ABSTRACT>Pseudomonas aeruginosa is a common cause of various infections including pulmonary exacerbation in cystic fibrosis, surgical wounds, ventilator associated pneumonia, catheter associated urinary tract infections, and other systemic infections. The treatment of these infections is often challenging because of the ability the bacteria to develop resistance to multiple antibiotics. Therefore, the treatment of these severe infections often involves the combination of two or more antibiotics such as the combination of aminoglycosides and beta-lactam antibiotics. However, the optimal duration of aminoglycosides when combined with beta-lactam antibiotics is poorly defined.Therefore, the objective of this genomic study was to characterise the change in the genome of P. aeruginosa during the treatment course of comparing the antibacterial effects of short versus long course of aminoglycosides co-administered with beta-lactam antibiotics in hollow fibre infection model.</STUDY_ABSTRACT>
+    </DESCRIPTOR>
+  </STUDY>
+</STUDY_SET>

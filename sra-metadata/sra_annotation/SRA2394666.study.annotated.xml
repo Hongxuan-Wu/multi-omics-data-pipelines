@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+================================================================================
+STUDY_SET: 研究项目集合
+- XML命名空间声明，指向NCBI SRA XML schema
+- xsi:schemaLocation指定了XMLSchema实例的位置
+================================================================================
+-->
+<STUDY_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!--
+  -----------------------------------------------------------------------------
+  STUDY: 单个研究项目
+  -----------------------------------------------------------------------------
+  属性说明:
+  - center_name: 提交中心/数据库名称 (BioProject = NCBI BioProject数据库)
+  - alias: 研究项目的别名/提交者自定义标识 (对应BioProject ID: PRJNA1465934)
+  - accession: SRA数据库分配的研究项目唯一 accession 号 (SRP开头 = Study)
+  -->
+  <STUDY center_name="BioProject" alias="PRJNA1465934" accession="SRP700402">
+
+    <!--
+    ==========================================================================
+    IDENTIFIERS: 研究项目的多重标识符
+    ==========================================================================
+    -->
+    <IDENTIFIERS>
+      <!-- PRIMARY_ID: SRA系统分配的主ID (SRP700402) -->
+      <PRIMARY_ID>SRP700402</PRIMARY_ID>
+
+      <!--
+      EXTERNAL_ID: 外部数据库ID
+      - namespace: 外部数据库名称 (BioProject = NCBI BioProject)
+      - label: 标识类型 (primary = 主标识符)
+      -->
+      <EXTERNAL_ID namespace="BioProject" label="primary">PRJNA1465934</EXTERNAL_ID>
+    </IDENTIFIERS>
+
+    <!--
+    ==========================================================================
+    DESCRIPTOR: 研究项目描述信息
+    ==========================================================================
+    -->
+    <DESCRIPTOR>
+
+      <!-- STUDY_TITLE: 研究项目的标题/名称 -->
+      <STUDY_TITLE>Pharmacodynamic evaluation of short versus long course of aminoglycosides when combined with beta-lactam antibiotics against Pseudomonas aeruginosa</STUDY_TITLE>
+
+      <!--
+      STUDY_TYPE: 研究类型
+      - existing_study_type: 预定义的SRA研究类型
+      - Other = 其他类型研究 (不是Amplicon/Metagenome/WGS等标准类型)
+      -->
+      <STUDY_TYPE existing_study_type="Other"/>
+
+      <!--
+      STUDY_ABSTRACT: 研究摘要/背景描述
+      包含以下信息:
+      - 铜绿假单胞菌是多种感染的原因
+      - 治疗挑战: 细菌对多种抗生素产生耐药性
+      - 联合用药: 氨基糖苷类+β-内酰胺类抗生素
+      - 研究目的: 在HFIM(中空纤维感染模型)中比较短疗程vs长疗程效果
+      - 研究方法: 全基因组测序分析治疗过程中基因组变化
+      -->
+      <STUDY_ABSTRACT>Pseudomonas aeruginosa is a common cause of various infections including pulmonary exacerbation in cystic fibrosis, surgical wounds, ventilator associated pneumonia, catheter associated urinary tract infections, and other systemic infections. The treatment of these infections is often challenging because of the ability the bacteria to develop resistance to multiple antibiotics. Therefore, the treatment of these severe infections often involves the combination of two or more antibiotics such as the combination of aminoglycosides and beta-lactam antibiotics. However, the optimal duration of aminoglycosides when combined with beta-lactam antibiotics is poorly defined.Therefore, the objective of this genomic study was to characterise the change in the genome of P. aeruginosa during the treatment course of comparing the antibacterial effects of short versus long course of aminoglycosides co-administered with beta-lactam antibiotics in hollow fibre infection model.</STUDY_ABSTRACT>
+
+    </DESCRIPTOR>
+
+  </STUDY>
+</STUDY_SET>
