@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+================================================================================
+SAMPLE_SET: 样本集合
+================================================================================
+一个STUDY可包含多个SAMPLE，每个SAMPLE代表一个独立的生物样本
+================================================================================
+-->
+<SAMPLE_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!--
+  ============================================================================
+  SAMPLE: 单个生物样本 (以YMHF12_A29为例)
+  ============================================================================
+  属性说明:
+  - alias: 样本别名/提交者自定义名称
+    * YMHF12 = HFIM-12实验, A29 = Arm A
+  - accession: SRA分配的样本唯一ID (SRS开头 = Sample)
+  -->
+  <SAMPLE alias="YMHF12_A29" accession="SRS29149171">
+
+    <!--
+    ==========================================================================
+    IDENTIFIERS: 样本的多重标识符
+    ==========================================================================
+    -->
+    <IDENTIFIERS>
+      <!-- PRIMARY_ID: SRA系统分配的主ID -->
+      <PRIMARY_ID>SRS29149171</PRIMARY_ID>
+
+      <!-- EXTERNAL_ID: 外部数据库ID (namespace=BioSample) -->
+      <EXTERNAL_ID namespace="BioSample">SAMN59841677</EXTERNAL_ID>
+    </IDENTIFIERS>
+
+    <!--
+    ==========================================================================
+    SAMPLE_NAME: 样本的生物学分类名称
+    ==========================================================================
+    -->
+    <SAMPLE_NAME>
+      <!-- TAXON_ID: NCBI Taxonomy数据库中的物种ID (287 = Pseudomonas aeruginosa) -->
+      <TAXON_ID>287</TAXON_ID>
+
+      <!-- SCIENTIFIC_NAME: 物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+
+    <!--
+    ==========================================================================
+    SAMPLE_LINKS: 样本的相关链接
+    ==========================================================================
+    -->
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <!-- XREF_LINK: 交叉引用链接 (DB=bioproject) -->
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+
+    <!--
+    ==========================================================================
+    SAMPLE_ATTRIBUTES: 样本属性/元数据 (20个标准属性字段)
+    ==========================================================================
+    -->
+
+    <!-- strain: 菌株编号 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>strain</TAG>
+      <VALUE>CTAP-31</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- isolate: 分离来源描述 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>isolate</TAG>
+      <VALUE>Pseudomonas aeruginosa from HFIM-12 arm A</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- collected_by: 样本采集者 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>collected_by</TAG>
+      <VALUE>Missing</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- collection_date: 采集日期 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>collection_date</TAG>
+      <VALUE>Missing</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- geo_loc_name: 地理位置 (国家: 城市) -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>geo_loc_name</TAG>
+      <VALUE>Australia: Brisbane</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- host: 宿主物种 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>host</TAG>
+      <VALUE>Homo sapiens</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- host_disease: 宿主相关疾病 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>host_disease</TAG>
+      <VALUE>Missing</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- isolation_source: 分离来源 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>isolation_source</TAG>
+      <VALUE>Missing</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- lat_lon: 经纬度坐标 -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>lat_lon</TAG>
+      <VALUE>Missing</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+    <!-- BioSampleModel: BioSample数据模型类型 (Pathogen.cl = 病原体) -->
+    <SAMPLE_ATTRIBUTE>
+      <TAG>BioSampleModel</TAG>
+      <VALUE>Pathogen.cl</VALUE>
+    </SAMPLE_ATTRIBUTE>
+
+  </SAMPLE>
+
+  <!--
+  ============================================================================
+  SAMPLE_SET包含19个样本，完整列表:
+  ============================================================================
+  菌株CTAP-31:
+    - YMHF12_A29 (SRS29149171) - HFIM-12 Arm A
+    - YMHF12_B29 (SRS29149172) - HFIM-12 Arm B
+    - YMHF12_C29 (SRS29149182) - HFIM-12 Arm C
+    - YMHF12_D29 (SRS29149183) - HFIM-12 Arm D
+    - YMHF_31_0 (SRS29149179) - 临床分离株 2024年2月
+  
+  菌株CTAP-32:
+    - YMHF22_B22 (SRS29149173) - HFIM-22 Arm B
+    - YMHF22_C22 (SRS29149174) - HFIM-22 Arm C
+    - YMHF22_A22 (SRS29149189) - HFIM-22 Arm A
+    - YMHF_32_0 (SRS29149180) - 临床分离株 2020年2月
+  
+  菌株CTAP-72:
+    - YMHF13_A29 (SRS29149184) - HFIM-13 Arm A
+    - YMHF13_B29 (SRS29149185) - HFIM-13 Arm B
+    - YMHF13_C29 (SRS29149186) - HFIM-13 Arm C
+    - YMHF13_D29 (SRS29149187) - HFIM-13 Arm D
+    - YMHF13_E29 (SRS29149188) - HFIM-13 Arm E
+    - YMHF23_A22 (SRS29149175) - HFIM-23 Arm A
+    - YMHF23_B22 (SRS29149176) - HFIM-23 Arm B
+    - YMHF23_C22 (SRS29149177) - HFIM-23 Arm C
+    - YMHF23_D22 (SRS29149178) - HFIM-23 Arm D
+    - YMHF_72_0 (SRS29149181) - 临床分离株 2010年3月
+  ============================================================================
+  -->
+
+</SAMPLE_SET>

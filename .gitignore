@@ -1,4 +1,5 @@
-.vscode
-.claude
-.codex
-.workbuddy
+.vscode/
+.claude/
+.codex/
+.workbuddy/
+*.tsv
