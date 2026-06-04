@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RUN_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <RUN accession="SRR29306512" alias="9_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306512</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="8">9_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823569">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S794</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306513" alias="8_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306513</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="7">8_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823568">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S793</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306514" alias="7_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306514</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="6">7_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823567">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S792</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306515" alias="6_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306515</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="5">6_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823566">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S791</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306516" alias="5_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306516</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="4">5_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823565">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S790</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306517" alias="4_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306517</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="3">4_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823564">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S789</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306518" alias="3_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306518</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="2">3_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823563">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S788</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306519" alias="2_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306519</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="1">2_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823562">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S787</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR29306520" alias="1_1.fq">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR29306520</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB14493712" label="0">1_1.fq</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX24823561">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB14493712">S786</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+</RUN_SET>
