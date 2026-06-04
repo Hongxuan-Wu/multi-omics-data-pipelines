@@ -1,0 +1,1162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SAMPLE_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SAMPLE alias="YMHF12_A29" accession="SRS29149171">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149171</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841677</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-31</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-12 arm A</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF12_B29" accession="SRS29149172">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149172</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841678</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-31</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-12 Arm B</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF22_B22" accession="SRS29149173">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149173</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841687</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-32</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-22 Arm B</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF22_C22" accession="SRS29149174">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149174</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841688</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-32</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-22 Arm C</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF23_A22" accession="SRS29149175">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149175</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841689</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-23 Arm A</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF23_B22" accession="SRS29149176">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149176</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841690</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-23 Arm B</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF23_C22" accession="SRS29149177">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149177</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841691</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-23 Arm C</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF23_D22" accession="SRS29149178">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149178</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841692</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-23 Arm D</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF_31_0" accession="SRS29149179">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149179</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841693</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-31</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa clinical isolate collected in Februray 2024</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF_32_0" accession="SRS29149180">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149180</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841694</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-32</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa isolate collected in February 2020</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF_72_0" accession="SRS29149181">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149181</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841695</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa isolate collected in March 2010</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF12_C29" accession="SRS29149182">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149182</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841679</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-31</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-12 Arm C</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF12_D29" accession="SRS29149183">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149183</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841680</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-31</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-12 Arm D</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF13_A29" accession="SRS29149184">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149184</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841681</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-13 Arm A</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF13_B29" accession="SRS29149185">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149185</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841682</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-13 Arm B</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF13_C29" accession="SRS29149186">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149186</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841683</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-13 Arm C</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF13_D29" accession="SRS29149187">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149187</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841684</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-13 Arm D</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF13_E29" accession="SRS29149188">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149188</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841685</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-72</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-13 Arm E</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="YMHF22_A22" accession="SRS29149189">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS29149189</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN59841686</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <SAMPLE_NAME>
+      <TAXON_ID>287</TAXON_ID>
+      <SCIENTIFIC_NAME>Pseudomonas aeruginosa</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>1465934</ID>
+          <LABEL>PRJNA1465934</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>strain</TAG>
+        <VALUE>CTAP-32</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>Pseudomonas aeruginosa from HFIM-22 Arm A</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collected_by</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>collection_date</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>geo_loc_name</TAG>
+        <VALUE>Australia: Brisbane</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host</TAG>
+        <VALUE>Homo sapiens</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>host_disease</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolation_source</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>lat_lon</TAG>
+        <VALUE>Missing</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Pathogen.cl</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+</SAMPLE_SET>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+================================================================================
+SUBMISSION: 提交记录
+- 记录整个数据集的提交元信息
+- 包括提交者信息、提交时间等
+================================================================================
+-->
+<SUBMISSION
+  <!-- lab_name: 提交实验室名称 -->
+  lab_name="Frazer Institute-Herston"
+
+  <!-- center_name: 提交中心/机构名称 -->
+  center_name="The University of Queensland"
+
+  <!-- accession: SRA分配的提交记录唯一ID (SRA + 数字) -->
+  accession="SRA2394666"
+
+  <!-- alias: 提交别名/提交者定义标识 -->
+  alias="SUB16135400"
+/>

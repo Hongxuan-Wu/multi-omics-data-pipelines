@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+================================================================================
+EXPERIMENT_SET: 实验集合
+================================================================================
+一个STUDY可包含多个EXPERIMENT，每个EXPERIMENT代表一个独立的测序实验/建库方案
+================================================================================
+-->
+<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!--
+  ============================================================================
+  EXPERIMENT: 单个测序实验 (以SRX33410523为例)
+  ============================================================================
+  属性说明:
+  - accession: SRA分配的实验唯一ID (SRX开头 = Experiment)
+  - alias: 实验别名/提交者自定义名称
+  -->
+  <EXPERIMENT accession="SRX33410523" alias="NS109-22_S22">
+
+    <!--
+    ==========================================================================
+    IDENTIFIERS: 实验的多重标识符
+    ==========================================================================
+    -->
+    <IDENTIFIERS>
+      <!-- PRIMARY_ID: SRA系统分配的主ID -->
+      <PRIMARY_ID>SRX33410523</PRIMARY_ID>
+
+      <!-- SUBMITTER_ID: 提交者定义的ID (namespace=提交者编号) -->
+      <SUBMITTER_ID namespace="SUB16135400">NS109-22_S22</SUBMITTER_ID>
+    </IDENTIFIERS>
+
+    <!-- TITLE: 实验标题 -->
+    <TITLE>WGS of Pseudomonas aerugionosa</TITLE>
+
+    <!--
+    ==========================================================================
+    STUDY_REF: 关联的研究项目
+    ==========================================================================
+    -->
+    <STUDY_REF accession="SRP700402">
+      <IDENTIFIERS>
+        <PRIMARY_ID>SRP700402</PRIMARY_ID>
+        <SUBMITTER_ID namespace="SUB16135400">bp0</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+
+    <!--
+    ==========================================================================
+    DESIGN: 实验设计信息
+    ==========================================================================
+    -->
+    <DESIGN>
+
+      <!-- DESIGN_DESCRIPTION: 实验设计描述 -->
+      <DESIGN_DESCRIPTION>Paired and library 150bp</DESIGN_DESCRIPTION>
+
+      <!--
+      ==========================================================================
+      SAMPLE_DESCRIPTOR: 关联的样本 (SRS号)
+      ==========================================================================
+      -->
+      <SAMPLE_DESCRIPTOR accession="SRS29149171">
+        <IDENTIFIERS>
+          <PRIMARY_ID>SRS29149171</PRIMARY_ID>
+          <!-- namespace格式: pda|邮箱@orcid -->
+          <SUBMITTER_ID namespace="pda|uqywale@orcid">YMHF12_A29</SUBMITTER_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+
+      <!--
+      ==========================================================================
+      LIBRARY_DESCRIPTOR: 文库描述信息
+      ==========================================================================
+      -->
+      <LIBRARY_DESCRIPTOR>
+
+        <!-- LIBRARY_NAME: 文库名称 -->
+        <LIBRARY_NAME>NS109-22_S22</LIBRARY_NAME>
+
+        <!--
+        LIBRARY_STRATEGY: 文库构建策略
+        - WGS = Whole Genome Sequencing (全基因组测序)
+        其他常见值: WXS, RNA-Seq, AMPLICON, METAGENOME
+        -->
+        <LIBRARY_STRATEGY>WGS</LIBRARY_STRATEGY>
+
+        <!--
+        LIBRARY_SOURCE: 文库来源
+        - GENOMIC = 基因组DNA
+        其他常见值: TRANSCRIPTIC, METAGENOMIC, SYNTHETIC
+        -->
+        <LIBRARY_SOURCE>GENOMIC</LIBRARY_SOURCE>
+
+        <!--
+        LIBRARY_SELECTION: 文库选择方法
+        - RANDOM = 随机选择
+        其他常见值: PCR, Hybridization, size fractionation
+        -->
+        <LIBRARY_SELECTION>RANDOM</LIBRARY_SELECTION>
+
+        <!--
+        LIBRARY_LAYOUT: 文库布局/测序模式
+        - PAIRED = 双端测序 (paired-end)
+        - SINGLE = 单端测序 (single-end)
+        -->
+        <LIBRARY_LAYOUT>
+          <PAIRED/>
+        </LIBRARY_LAYOUT>
+
+      </LIBRARY_DESCRIPTOR>
+
+    </DESIGN>
+
+    <!--
+    ==========================================================================
+    PLATFORM: 测序平台信息
+    ==========================================================================
+    -->
+    <PLATFORM>
+      <!-- ILLUMINA: Illumina测序平台 -->
+      <ILLUMINA>
+        <!-- INSTRUMENT_MODEL: 测序仪型号 -->
+        <INSTRUMENT_MODEL>Illumina Genome Analyzer</INSTRUMENT_MODEL>
+      </ILLUMINA>
+    </PLATFORM>
+
+  </EXPERIMENT>
+
+  <!--
+  ============================================================================
+  EXPERIMENT_SET包含19个EXPERIMENT，完整对应关系:
+  ============================================================================
+  SRX33410523 -> SRS29149171 (YMHF12_A29)
+  SRX33410524 -> SRS29149172 (YMHF12_B29)
+  SRX33410525 -> SRS29149173 (YMHF22_B22)
+  SRX33410526 -> SRS29149174 (YMHF22_C22)
+  SRX33410527 -> SRS29149175 (YMHF23_A22)
+  SRX33410528 -> SRS29149176 (YMHF23_B22)
+  SRX33410529 -> SRS29149177 (YMHF23_C22)
+  SRX33410530 -> SRS29149178 (YMHF23_D22)
+  SRX33410531 -> SRS29149179 (YMHF_31_0)
+  SRX33410532 -> SRS29149180 (YMHF_32_0)
+  SRX33410533 -> SRS29149181 (YMHF_72_0)
+  SRX33410534 -> SRS29149182 (YMHF12_C29)
+  SRX33410535 -> SRS29149183 (YMHF12_D29)
+  SRX33410536 -> SRS29149184 (YMHF13_A29)
+  SRX33410537 -> SRS29149185 (YMHF13_B29)
+  SRX33410538 -> SRS29149186 (YMHF13_C29)
+  SRX33410539 -> SRS29149187 (YMHF13_D29)
+  SRX33410540 -> SRS29149188 (YMHF13_E29)
+  SRX33410541 -> SRS29149189 (YMHF22_A22)
+  ============================================================================
+  -->
+
+</EXPERIMENT_SET>
