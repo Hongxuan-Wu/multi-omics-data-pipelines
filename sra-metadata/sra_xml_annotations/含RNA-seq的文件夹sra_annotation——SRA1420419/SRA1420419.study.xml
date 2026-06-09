@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<STUDY_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <STUDY center_name="BioProject" alias="PRJNA838128" accession="SRP375270">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRP375270</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioProject" label="primary">PRJNA838128</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <DESCRIPTOR>
+      <STUDY_TITLE>Homo sapiens Transcriptome or Gene expression</STUDY_TITLE>
+      <STUDY_TYPE existing_study_type="Other"/>
+      <STUDY_ABSTRACT>Identification of plasma miRNAs as prenatal biomarkers for nonsyndromic cleft lip with palate by RNA sequencing analyses</STUDY_ABSTRACT>
+      <CENTER_PROJECT_NAME>Homo sapiens</CENTER_PROJECT_NAME>
+    </DESCRIPTOR>
+  </STUDY>
+</STUDY_SET>

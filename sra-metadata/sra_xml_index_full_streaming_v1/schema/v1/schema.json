@@ -1,0 +1,353 @@
+{
+  "schema_version": "v1",
+  "source_snapshot_id_semantics": "Real source snapshot only, for example 20260516. Build labels such as smoke_1k must not be encoded in source_snapshot_id.",
+  "manifest_subset_type_enum": ["targeted", "deterministic_random", "prefix_stratified", "stress_mixed", "full"],
+  "build_status_enum": ["running", "succeeded", "failed"],
+  "validation_failure_reason_enum": [
+    "parser_wrong",
+    "index_join_wrong",
+    "normalization_difference",
+    "ambiguous_source",
+    "missing_in_xml_because_path_absent"
+  ],
+  "tables": {
+    "build_manifest": {
+      "path": "build_manifest.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "build_scope", "type": "string", "nullable": false},
+        {"name": "build_label", "type": "string", "nullable": false},
+        {"name": "manifest_subset_type", "type": "string", "nullable": false, "enum": ["targeted", "deterministic_random", "prefix_stratified", "stress_mixed", "full"]},
+        {"name": "manifest_row_count", "type": "int64", "nullable": false},
+        {"name": "source_root", "type": "string", "nullable": false},
+        {"name": "output_root", "type": "string", "nullable": false},
+        {"name": "schema_version", "type": "string", "nullable": false},
+        {"name": "parser_version", "type": "string", "nullable": false},
+        {"name": "parser_git_commit", "type": "string", "nullable": false},
+        {"name": "build_status", "type": "string", "nullable": false, "enum": ["running", "succeeded", "failed"]},
+        {"name": "started_at", "type": "timestamp", "nullable": false},
+        {"name": "finished_at", "type": "timestamp", "nullable": true},
+        {"name": "thread_count", "type": "int64", "nullable": false},
+        {"name": "enable_selected_field_long", "type": "bool", "nullable": false},
+        {"name": "manifest_hash", "type": "string", "nullable": false},
+        {"name": "chunk_manifest_hash", "type": "string", "nullable": false},
+        {"name": "schema_contract_hash", "type": "string", "nullable": false},
+        {"name": "parser_config_hash", "type": "string", "nullable": false}
+      ]
+    },
+    "directory_manifest": {
+      "path": "manifest/directory_manifest.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "manifest_row_id", "type": "int64", "nullable": false},
+        {"name": "directory_id", "type": "string", "nullable": false},
+        {"name": "directory_accession", "type": "string", "nullable": false},
+        {"name": "directory_prefix", "type": "string", "nullable": false},
+        {"name": "relative_directory_path", "type": "string", "nullable": false},
+        {"name": "absolute_directory_path", "type": "string", "nullable": false}
+      ]
+    },
+    "chunk_manifest": {
+      "path": "manifest/chunk_manifest.parquet",
+      "required": true,
+      "fields": [
+        {"name": "chunk_id", "type": "string", "nullable": false},
+        {"name": "start_row", "type": "int64", "nullable": false},
+        {"name": "row_count", "type": "int64", "nullable": false},
+        {"name": "manifest_row_id_start", "type": "int64", "nullable": false},
+        {"name": "manifest_row_id_end", "type": "int64", "nullable": false},
+        {"name": "expected_directory_count", "type": "int64", "nullable": false}
+      ]
+    },
+    "chunk_status_summary": {
+      "path": "chunk_status_summary.parquet",
+      "required": true,
+      "fields": [
+        {"name": "chunk_id", "type": "string", "nullable": false},
+        {"name": "start_row", "type": "int64", "nullable": false},
+        {"name": "row_count", "type": "int64", "nullable": false},
+        {"name": "started_at", "type": "timestamp", "nullable": false},
+        {"name": "finished_at", "type": "timestamp", "nullable": true},
+        {"name": "exit_code", "type": "int64", "nullable": false},
+        {"name": "parser_version", "type": "string", "nullable": false},
+        {"name": "schema_version", "type": "string", "nullable": false},
+        {"name": "input_manifest_hash", "type": "string", "nullable": false},
+        {"name": "output_tables", "type": "string", "nullable": false},
+        {"name": "row_counts_by_table", "type": "string", "nullable": false},
+        {"name": "warning_count", "type": "int64", "nullable": false},
+        {"name": "error_count", "type": "int64", "nullable": false}
+      ]
+    },
+    "directory_index": {
+      "path": "directory_index.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "directory_id", "type": "string", "nullable": false},
+        {"name": "directory_accession", "type": "string", "nullable": false},
+        {"name": "directory_prefix", "type": "string", "nullable": false},
+        {"name": "relative_directory_path", "type": "string", "nullable": false},
+        {"name": "absolute_directory_path", "type": "string", "nullable": false},
+        {"name": "file_count", "type": "int64", "nullable": false},
+        {"name": "run_xml_count", "type": "int64", "nullable": false},
+        {"name": "experiment_xml_count", "type": "int64", "nullable": false},
+        {"name": "sample_xml_count", "type": "int64", "nullable": false},
+        {"name": "study_xml_count", "type": "int64", "nullable": false},
+        {"name": "submission_xml_count", "type": "int64", "nullable": false},
+        {"name": "analysis_xml_count", "type": "int64", "nullable": false},
+        {"name": "other_xml_count", "type": "int64", "nullable": false},
+        {"name": "parse_success_file_count", "type": "int64", "nullable": false},
+        {"name": "parse_failed_file_count", "type": "int64", "nullable": false},
+        {"name": "scan_status", "type": "string", "nullable": false}
+      ]
+    },
+    "file_index": {
+      "path": "file_index.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "file_id", "type": "string", "nullable": false},
+        {"name": "directory_id", "type": "string", "nullable": false},
+        {"name": "directory_accession", "type": "string", "nullable": false},
+        {"name": "xml_kind", "type": "string", "nullable": false},
+        {"name": "xml_kind_from_filename", "type": "string", "nullable": false},
+        {"name": "xml_kind_from_root_tag", "type": "string", "nullable": false},
+        {"name": "xml_kind_consistency_status", "type": "string", "nullable": false},
+        {"name": "file_name", "type": "string", "nullable": false},
+        {"name": "relative_file_path", "type": "string", "nullable": false},
+        {"name": "absolute_file_path", "type": "string", "nullable": false},
+        {"name": "file_size", "type": "int64", "nullable": false},
+        {"name": "mtime", "type": "timestamp", "nullable": false},
+        {"name": "parse_status", "type": "string", "nullable": false, "enum": ["ok", "empty_file", "xml_parse_error", "unsupported_root", "oversized_xml", "io_error", "partial"]},
+        {"name": "root_tag", "type": "string", "nullable": false},
+        {"name": "root_entity_set_type", "type": "string", "nullable": false},
+        {"name": "entity_count", "type": "int64", "nullable": false},
+        {"name": "error_type", "type": "string", "nullable": false, "enum": ["none", "xml_syntax", "encoding", "missing_required_accession", "oversized_xml", "io", "unexpected_root", "unknown"]},
+        {"name": "error_message", "type": "string", "nullable": true},
+        {"name": "parser_warning_count", "type": "int64", "nullable": false}
+      ]
+    },
+    "entity_record_index": {
+      "path": "entity_record_index.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "entity_record_id", "type": "string", "nullable": false},
+        {"name": "entity_accession", "type": "string", "nullable": true},
+        {"name": "entity_type", "type": "string", "nullable": false},
+        {"name": "occurrence_role", "type": "string", "nullable": false},
+        {"name": "directory_id", "type": "string", "nullable": false},
+        {"name": "directory_accession", "type": "string", "nullable": false},
+        {"name": "file_id", "type": "string", "nullable": false},
+        {"name": "xml_kind", "type": "string", "nullable": false},
+        {"name": "root_tag", "type": "string", "nullable": false},
+        {"name": "entity_path", "type": "string", "nullable": false},
+        {"name": "entity_ordinal", "type": "int64", "nullable": false},
+        {"name": "accession_source_path", "type": "string", "nullable": true},
+        {"name": "alias", "type": "string", "nullable": true},
+        {"name": "primary_id", "type": "string", "nullable": true},
+        {"name": "submitter_id", "type": "string", "nullable": true},
+        {"name": "parse_status", "type": "string", "nullable": false, "enum": ["ok", "missing_accession", "invalid_accession", "partial"]}
+      ]
+    },
+    "entity_index": {
+      "path": "entity_index.parquet",
+      "required": true,
+      "primary_key": ["source_snapshot_id", "entity_type", "entity_accession"],
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "entity_accession", "type": "string", "nullable": false},
+        {"name": "entity_type", "type": "string", "nullable": false},
+        {"name": "record_count", "type": "int64", "nullable": false},
+        {"name": "primary_record_count", "type": "int64", "nullable": false},
+        {"name": "reference_record_count", "type": "int64", "nullable": false},
+        {"name": "has_primary_record", "type": "bool", "nullable": false},
+        {"name": "has_reference_record", "type": "bool", "nullable": false},
+        {"name": "entity_presence_status", "type": "string", "nullable": false, "enum": ["primary_present", "reference_only", "conflicted"]},
+        {"name": "file_count", "type": "int64", "nullable": false},
+        {"name": "directory_count", "type": "int64", "nullable": false},
+        {"name": "canonical_entity_record_id", "type": "string", "nullable": true},
+        {"name": "canonical_file_id", "type": "string", "nullable": true},
+        {"name": "canonical_directory_id", "type": "string", "nullable": true},
+        {"name": "canonical_rule", "type": "string", "nullable": false},
+        {"name": "has_conflict", "type": "bool", "nullable": false},
+        {"name": "conflict_type", "type": "string", "nullable": true},
+        {"name": "conflict_field_count", "type": "int64", "nullable": false}
+      ]
+    },
+    "external_accession_index": {
+      "path": "external_accession_index.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "external_record_id", "type": "string", "nullable": false},
+        {"name": "entity_record_id", "type": "string", "nullable": false},
+        {"name": "entity_accession", "type": "string", "nullable": true},
+        {"name": "entity_type", "type": "string", "nullable": false},
+        {"name": "namespace", "type": "string", "nullable": false},
+        {"name": "external_accession", "type": "string", "nullable": false},
+        {"name": "external_id_type", "type": "string", "nullable": false},
+        {"name": "raw_value", "type": "string", "nullable": false},
+        {"name": "source_path", "type": "string", "nullable": false},
+        {"name": "directory_id", "type": "string", "nullable": false},
+        {"name": "directory_accession", "type": "string", "nullable": false},
+        {"name": "file_id", "type": "string", "nullable": false}
+      ]
+    },
+    "relation_index": {
+      "path": "relation_index.parquet",
+      "required": true,
+      "fields": [
+        {"name": "source_snapshot_id", "type": "string", "nullable": false},
+        {"name": "relation_id", "type": "string", "nullable": false},
+        {"name": "src_entity_record_id", "type": "string", "nullable": false},
+        {"name": "src_accession", "type": "string", "nullable": true},
+        {"name": "src_type", "type": "string", "nullable": false},
+        {"name": "relation_type", "type": "string", "nullable": false},
+        {"name": "dst_accession", "type": "string", "nullable": false},
+        {"name": "dst_type", "type": "string", "nullable": false},
+        {"name": "dst_namespace", "type": "string", "nullable": true},
+        {"name": "dst_is_internal_entity", "type": "bool", "nullable": false},
+        {"name": "dst_entity_record_id", "type": "string", "nullable": true},
+        {"name": "dst_primary_exists", "type": "bool", "nullable": false},
+        {"name": "dst_entity_index_status", "type": "string", "nullable": false},
+        {"name": "dst_raw_value", "type": "string", "nullable": false},
+        {"name": "relation_source_path", "type": "string", "nullable": false},
+        {"name": "relation_ordinal", "type": "int64", "nullable": false},
+        {"name": "directory_id", "type": "string", "nullable": false},
+        {"name": "directory_accession", "type": "string", "nullable": false},
+        {"name": "file_id", "type": "string", "nullable": false},
+        {"name": "closure_status", "type": "string", "nullable": false, "enum": ["closed", "reference_only", "missing_dst_entity", "external_reference", "not_checked"]}
+      ]
+    },
+    "run_core_raw": {"path": "core/run_core_raw.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_record_id", "type": "string", "nullable": false},
+      {"name": "file_id", "type": "string", "nullable": false},
+      {"name": "run_accession", "type": "string", "nullable": false},
+      {"name": "alias", "type": "string", "nullable": true},
+      {"name": "experiment_accession", "type": "string", "nullable": true}
+    ]},
+    "experiment_core_raw": {"path": "core/experiment_core_raw.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_record_id", "type": "string", "nullable": false},
+      {"name": "file_id", "type": "string", "nullable": false},
+      {"name": "experiment_accession", "type": "string", "nullable": false},
+      {"name": "sample_accession", "type": "string", "nullable": true},
+      {"name": "study_accession", "type": "string", "nullable": true},
+      {"name": "library_strategy", "type": "string", "nullable": true},
+      {"name": "library_source", "type": "string", "nullable": true},
+      {"name": "library_selection", "type": "string", "nullable": true},
+      {"name": "platform", "type": "string", "nullable": true},
+      {"name": "instrument_model", "type": "string", "nullable": true}
+    ]},
+    "sample_core_raw": {"path": "core/sample_core_raw.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_record_id", "type": "string", "nullable": false},
+      {"name": "file_id", "type": "string", "nullable": false},
+      {"name": "sample_accession", "type": "string", "nullable": false},
+      {"name": "bio_sample_id", "type": "string", "nullable": true},
+      {"name": "taxon_id", "type": "string", "nullable": true},
+      {"name": "scientific_name", "type": "string", "nullable": true}
+    ]},
+    "study_core_raw": {"path": "core/study_core_raw.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_record_id", "type": "string", "nullable": false},
+      {"name": "file_id", "type": "string", "nullable": false},
+      {"name": "study_accession", "type": "string", "nullable": false},
+      {"name": "bioproject_id", "type": "string", "nullable": true},
+      {"name": "study_type", "type": "string", "nullable": true},
+      {"name": "study_title", "type": "string", "nullable": true}
+    ]},
+    "run_core": {"path": "core/run_core.parquet", "required": true, "like": "run_core_raw"},
+    "experiment_core": {"path": "core/experiment_core.parquet", "required": true, "like": "experiment_core_raw"},
+    "sample_core": {"path": "core/sample_core.parquet", "required": true, "like": "sample_core_raw"},
+    "study_core": {"path": "core/study_core.parquet", "required": true, "like": "study_core_raw"},
+    "sample_attribute_core": {"path": "core/sample_attribute_core.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_record_id", "type": "string", "nullable": false},
+      {"name": "file_id", "type": "string", "nullable": false},
+      {"name": "sample_accession", "type": "string", "nullable": true},
+      {"name": "bio_sample_id", "type": "string", "nullable": true},
+      {"name": "tag", "type": "string", "nullable": false},
+      {"name": "value", "type": "string", "nullable": true},
+      {"name": "attribute_ordinal", "type": "int64", "nullable": false},
+      {"name": "value_truncated", "type": "bool", "nullable": false}
+    ]},
+    "xml_path_inventory": {"path": "inventory/xml_path_inventory.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "xml_kind", "type": "string", "nullable": false},
+      {"name": "root_tag", "type": "string", "nullable": false},
+      {"name": "entity_type", "type": "string", "nullable": true},
+      {"name": "path_abs", "type": "string", "nullable": false},
+      {"name": "path_entity_relative", "type": "string", "nullable": true},
+      {"name": "is_attribute", "type": "bool", "nullable": false},
+      {"name": "node_occurrence_count", "type": "int64", "nullable": false},
+      {"name": "non_empty_occurrence_count", "type": "int64", "nullable": false},
+      {"name": "entity_coverage_count", "type": "int64", "nullable": false},
+      {"name": "file_coverage_count", "type": "int64", "nullable": false},
+      {"name": "max_value_length", "type": "int64", "nullable": false},
+      {"name": "example_value", "type": "string", "nullable": true},
+      {"name": "example_value_truncated", "type": "bool", "nullable": false},
+      {"name": "example_file_id", "type": "string", "nullable": true},
+      {"name": "example_entity_accession", "type": "string", "nullable": true}
+    ]},
+    "parse_qc_summary": {"path": "qc/parse_qc_summary.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "xml_kind", "type": "string", "nullable": false},
+      {"name": "file_count", "type": "int64", "nullable": false},
+      {"name": "parse_success_count", "type": "int64", "nullable": false},
+      {"name": "parse_failed_count", "type": "int64", "nullable": false},
+      {"name": "severity", "type": "string", "nullable": false, "enum": ["hard_fail", "warning", "report_only"]}
+    ]},
+    "entity_qc_summary": {"path": "qc/entity_qc_summary.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_type", "type": "string", "nullable": false},
+      {"name": "entity_record_count", "type": "int64", "nullable": false},
+      {"name": "unique_entity_accession_count", "type": "int64", "nullable": false},
+      {"name": "missing_accession_count", "type": "int64", "nullable": false},
+      {"name": "severity", "type": "string", "nullable": false, "enum": ["hard_fail", "warning", "report_only"]}
+    ]},
+    "relation_closure_qc": {"path": "qc/relation_closure_qc.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "relation_type", "type": "string", "nullable": false},
+      {"name": "src_type", "type": "string", "nullable": false},
+      {"name": "dst_type", "type": "string", "nullable": false},
+      {"name": "internal_relation_count", "type": "int64", "nullable": false},
+      {"name": "closed_count", "type": "int64", "nullable": false},
+      {"name": "closure_rate", "type": "double", "nullable": true},
+      {"name": "severity", "type": "string", "nullable": false, "enum": ["hard_fail", "warning", "report_only"]}
+    ]},
+    "core_missingness_qc": {"path": "qc/core_missingness_qc.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "table_name", "type": "string", "nullable": false},
+      {"name": "field_name", "type": "string", "nullable": false},
+      {"name": "missing_count", "type": "int64", "nullable": false},
+      {"name": "total_count", "type": "int64", "nullable": false},
+      {"name": "missing_rate", "type": "double", "nullable": true},
+      {"name": "severity", "type": "string", "nullable": false, "enum": ["hard_fail", "warning", "report_only"]}
+    ]},
+    "core_conflict_qc": {"path": "qc/core_conflict_qc.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "entity_type", "type": "string", "nullable": false},
+      {"name": "field_name", "type": "string", "nullable": false},
+      {"name": "entity_count", "type": "int64", "nullable": false},
+      {"name": "conflicted_entity_count", "type": "int64", "nullable": false},
+      {"name": "conflict_rate", "type": "double", "nullable": true},
+      {"name": "example_entity_accession", "type": "string", "nullable": true},
+      {"name": "example_values", "type": "string", "nullable": true},
+      {"name": "example_file_ids", "type": "string", "nullable": true},
+      {"name": "severity", "type": "string", "nullable": false, "enum": ["hard_fail", "warning", "report_only"]}
+    ]},
+    "directory_file_consistency_qc": {"path": "qc/directory_file_consistency_qc.parquet", "required": true, "fields": [
+      {"name": "source_snapshot_id", "type": "string", "nullable": false},
+      {"name": "directory_id", "type": "string", "nullable": false},
+      {"name": "directory_accession", "type": "string", "nullable": false},
+      {"name": "observed_xml_count", "type": "int64", "nullable": false},
+      {"name": "xml_kind_consistency_status", "type": "string", "nullable": false},
+      {"name": "severity", "type": "string", "nullable": false, "enum": ["hard_fail", "warning", "report_only"]}
+    ]}
+  }
+}

@@ -6,7 +6,6 @@ import collections
 import json
 import random
 import re
-import sys
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -18,11 +17,22 @@ import duckdb
 
 VALUE_LIMIT = 2000
 DESIGN_DESCRIPTION_LIMIT = 2000
+FETCH_BATCH_SIZE = 5000
+ACCURACY_DEFINITION = "exact_match_pass_count / checked_item_count"
+FAILURE_REASON_ENUM = [
+    "parser_wrong",
+    "index_join_wrong",
+    "normalization_difference",
+    "ambiguous_source",
+    "missing_in_xml_because_path_absent",
+]
 
 
 def norm(value: Any) -> str:
     if value is None:
         return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
     return re.sub(r"\s+", " ", str(value)).strip()
 
 
@@ -44,7 +54,7 @@ def children(elem: ET.Element, name: str | None = None) -> list[ET.Element]:
     return out
 
 
-def first_child(elem: ET.Element, name: str) -> ET.Element | None:
+def first_descendant(elem: ET.Element, name: str) -> ET.Element | None:
     for child in elem.iter():
         if child is elem:
             continue
@@ -54,7 +64,7 @@ def first_child(elem: ET.Element, name: str) -> ET.Element | None:
 
 
 def first_text(elem: ET.Element, name: str) -> str:
-    node = first_child(elem, name)
+    node = first_descendant(elem, name)
     if node is None:
         return ""
     return norm("".join(node.itertext()))
@@ -74,7 +84,7 @@ def accession_of(elem: ET.Element, tag_name: str) -> str:
 
 
 def child_attr_accession(elem: ET.Element, tag_name: str) -> str:
-    node = first_child(elem, tag_name)
+    node = first_descendant(elem, tag_name)
     return attr(node, "accession")
 
 
@@ -97,7 +107,7 @@ def xref_label_for_db(elem: ET.Element, db_name: str) -> str:
 
 
 def platform_child(elem: ET.Element) -> str:
-    platform = first_child(elem, "PLATFORM")
+    platform = first_descendant(elem, "PLATFORM")
     if platform is None:
         return ""
     for child in list(platform):
@@ -106,7 +116,7 @@ def platform_child(elem: ET.Element) -> str:
 
 
 def instrument_model(elem: ET.Element) -> str:
-    platform = first_child(elem, "PLATFORM")
+    platform = first_descendant(elem, "PLATFORM")
     if platform is not None:
         for child in list(platform):
             model = attr(child, "instrument_model")
@@ -250,7 +260,7 @@ def parse_expected(file_path: str) -> dict[str, list[dict[str, str]]]:
     for elem in entities(root, "STUDY"):
         acc = accession_of(elem, "STUDY")
         bp = external_id(elem, "BioProject")
-        study_type_node = first_child(elem, "STUDY_TYPE")
+        study_type_node = first_descendant(elem, "STUDY_TYPE")
         existing_study_type = attr(study_type_node, "existing_study_type")
         study_type = first_text(elem, "STUDY_TYPE") or existing_study_type
         expected["study_core"].append({
@@ -328,14 +338,30 @@ def row_multiset(rows: list[dict[str, str]], cols: tuple[str, ...]) -> collectio
 def fetch_rows(con: duckdb.DuckDBPyConnection, root: Path, table: str, file_ids: list[str]) -> list[dict[str, Any]]:
     if not file_ids:
         return []
-    path = root / table / "data.parquet"
-    placeholders = ",".join(["?"] * len(file_ids))
-    cur = con.execute(
-        f"SELECT * FROM read_parquet('{path}') WHERE file_id IN ({placeholders})",
-        file_ids,
-    )
-    cols = [d[0] for d in cur.description]
-    return [dict(zip(cols, row)) for row in cur.fetchall()]
+    path = parquet_path(root, table)
+    if not path.exists():
+        return []
+    out: list[dict[str, Any]] = []
+    for start in range(0, len(file_ids), FETCH_BATCH_SIZE):
+        batch = file_ids[start:start + FETCH_BATCH_SIZE]
+        placeholders = ",".join(["?"] * len(batch))
+        cur = con.execute(
+            f"SELECT * FROM read_parquet('{path}') WHERE file_id IN ({placeholders})",
+            batch,
+        )
+        cols = [d[0] for d in cur.description]
+        out.extend(dict(zip(cols, row)) for row in cur.fetchall())
+    return out
+
+
+def parquet_path(root: Path, table: str) -> Path:
+    single = root / f"{table}.parquet"
+    if single.exists():
+        return single
+    nested = root / table / "data.parquet"
+    if nested.exists():
+        return nested
+    return single
 
 
 def compare_entity_table(
@@ -349,13 +375,18 @@ def compare_entity_table(
     max_examples: int,
 ) -> None:
     indexed = rows_by_key(indexed_rows, (key_col,))
+    indexed_columns = set(indexed_rows[0].keys()) if indexed_rows else set()
+    expected_keys: set[tuple[str]] = set()
     for expected in expected_rows:
         key = norm(expected.get(key_col))
+        expected_keys.add((key,))
         actual = indexed.get((key,))
         if actual is None:
             metric.add(False, {"table": table_name, "file_id": file_id, "key": key, "reason": "missing_index_row"}, max_examples)
             continue
         for col in columns:
+            if col not in indexed_columns:
+                continue
             exp = norm(expected.get(col))
             got = norm(actual.get(col))
             metric.add(
@@ -363,6 +394,44 @@ def compare_entity_table(
                 {"table": table_name, "file_id": file_id, "key": key, "column": col, "expected": exp, "actual": got},
                 max_examples,
             )
+    for extra_key in sorted(set(indexed) - expected_keys):
+        metric.add(
+            False,
+            {"table": table_name, "file_id": file_id, "key": extra_key[0], "reason": "extra_index_row"},
+            max_examples,
+        )
+
+
+def compare_abnormal_index_absence(
+    metric: Metric,
+    per_file: dict[str, list[dict[str, Any]]],
+    file_row: dict[str, Any],
+    max_examples: int,
+) -> None:
+    checked_tables = [
+        "run_core",
+        "experiment_core",
+        "sample_core",
+        "study_core",
+        "submission_core",
+        "analysis_core",
+        "sample_attribute_core",
+        "relations",
+    ]
+    leaked = {table: len(per_file.get(table, [])) for table in checked_tables if per_file.get(table)}
+    metric.add(
+        not leaked,
+        {
+            "file_id": file_row["file_id"],
+            "directory_accession": file_row["directory_accession"],
+            "parse_status": file_row["parse_status"],
+            "xml_kind_consistency_status": file_row["xml_kind_consistency_status"],
+            "parser_warning_count": file_row["parser_warning_count"],
+            "reason": "abnormal_file_has_index_rows" if leaked else "abnormal_file_absent_from_index_tables",
+            "leaked_table_counts": leaked,
+        },
+        max_examples,
+    )
 
 
 def compare_special_ids(
@@ -420,26 +489,79 @@ def compare_sample_attributes(
             metric.add(False, {"file_id": file_id, "sample_attribute": key, "reason": "extra_index_attribute"}, max_examples)
 
 
-def load_sampled_files(con: duckdb.DuckDBPyConnection, root: Path, sample_size: int, seed: int) -> list[dict[str, Any]]:
-    path = root / "file_index" / "data.parquet"
-    rows = con.execute(
-        f"""
-        SELECT file_id, directory_accession, xml_kind, file_path
-        FROM read_parquet('{path}')
-        WHERE parse_status = 'ok'
-        """
-    ).fetchall()
-    rng = random.Random(seed)
-    rng.shuffle(rows)
-    rows = rows[:sample_size]
+def load_sampled_files(
+    con: duckdb.DuckDBPyConnection,
+    root: Path,
+    sample_size: int,
+    seed: int,
+    include_abnormal_cases: bool,
+    sample_unit: str,
+    max_abnormal_cases: int,
+) -> list[dict[str, Any]]:
+    path = parquet_path(root, "file_index")
+    cols = [row[0] for row in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()]
+    file_path_col = "absolute_file_path" if "absolute_file_path" in cols else "file_path"
+    if sample_size <= 0:
+        raise ValueError("--sample-size must be positive")
+    if sample_unit == "file":
+        rows = con.execute(
+            f"""
+            SELECT file_id, directory_accession, xml_kind, {file_path_col}, parse_status,
+                   xml_kind_consistency_status, parser_warning_count
+            FROM read_parquet('{path}')
+            WHERE parse_status = 'ok'
+            ORDER BY hash(file_id || ':{seed}')
+            LIMIT {sample_size}
+            """
+        ).fetchall()
+    elif sample_unit == "directory":
+        directory_path = parquet_path(root, "directory_index")
+        rows = con.execute(
+            f"""
+            WITH sampled_dirs AS (
+                SELECT directory_accession
+                FROM read_parquet('{directory_path}')
+                ORDER BY hash(directory_accession || ':{seed}')
+                LIMIT {sample_size}
+            )
+            SELECT f.file_id, f.directory_accession, f.xml_kind, f.{file_path_col}, f.parse_status,
+                   f.xml_kind_consistency_status, f.parser_warning_count
+            FROM read_parquet('{path}') f
+            JOIN sampled_dirs d
+              ON f.directory_accession = d.directory_accession
+            WHERE f.parse_status = 'ok'
+            ORDER BY f.directory_accession, f.file_id
+            """
+        ).fetchall()
+    else:
+        raise ValueError(f"unsupported sample unit: {sample_unit}")
+    if include_abnormal_cases:
+        abnormal_limit = "" if max_abnormal_cases <= 0 else f"LIMIT {max_abnormal_cases}"
+        abnormal_rows = con.execute(
+            f"""
+            SELECT file_id, directory_accession, xml_kind, {file_path_col}, parse_status,
+                   xml_kind_consistency_status, parser_warning_count
+            FROM read_parquet('{path}')
+            WHERE parse_status <> 'ok'
+               OR xml_kind_consistency_status <> 'consistent'
+               OR parser_warning_count > 0
+            ORDER BY hash(file_id || ':abnormal:{seed}')
+            {abnormal_limit}
+            """
+        ).fetchall()
+        seen = {row[0] for row in rows}
+        rows.extend(row for row in abnormal_rows if row[0] not in seen)
     return [
         {
             "file_id": norm(file_id),
             "directory_accession": norm(directory_accession),
             "xml_kind": norm(xml_kind),
             "file_path": norm(file_path),
+            "parse_status": norm(parse_status),
+            "xml_kind_consistency_status": norm(xml_kind_consistency_status),
+            "parser_warning_count": int(parser_warning_count or 0),
         }
-        for file_id, directory_accession, xml_kind, file_path in rows
+        for file_id, directory_accession, xml_kind, file_path, parse_status, xml_kind_consistency_status, parser_warning_count in rows
     ]
 
 
@@ -457,6 +579,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate SRA XML Parquet index against original XML files.")
     parser.add_argument("--parquet-root", required=True, type=Path)
     parser.add_argument("--sample-size", type=int, default=200)
+    parser.add_argument("--sample-unit", choices=["file", "directory"], default="file")
     parser.add_argument("--seed", type=int, default=20260604)
     parser.add_argument("--out-json", required=True, type=Path)
     parser.add_argument("--out-md", required=True, type=Path)
@@ -464,11 +587,21 @@ def main() -> int:
     parser.add_argument("--relation-threshold", type=float, default=0.999)
     parser.add_argument("--external-id-threshold", type=float, default=0.995)
     parser.add_argument("--max-examples", type=int, default=50)
+    parser.add_argument("--include-abnormal-cases", action="store_true")
+    parser.add_argument("--max-abnormal-cases", type=int, default=0, help="0 means include all abnormal/error cases.")
     args = parser.parse_args()
 
     t0 = time.time()
     con = duckdb.connect()
-    sampled_files = load_sampled_files(con, args.parquet_root, args.sample_size, args.seed)
+    sampled_files = load_sampled_files(
+        con,
+        args.parquet_root,
+        args.sample_size,
+        args.seed,
+        args.include_abnormal_cases,
+        args.sample_unit,
+        args.max_abnormal_cases,
+    )
     file_ids = [row["file_id"] for row in sampled_files]
 
     indexed = {
@@ -491,11 +624,35 @@ def main() -> int:
         "relation_fields": Metric(),
         "biosample_bioproject": Metric(),
         "sample_attributes": Metric(),
+        "abnormal_index_absence": Metric(),
     }
     parse_errors: list[dict[str, str]] = []
+    abnormal_files_loaded = [
+        {
+            "file_id": row["file_id"],
+            "directory_accession": row["directory_accession"],
+            "xml_kind": row["xml_kind"],
+            "file_path": row["file_path"],
+            "parse_status": row["parse_status"],
+            "xml_kind_consistency_status": row["xml_kind_consistency_status"],
+            "parser_warning_count": row["parser_warning_count"],
+        }
+        for row in sampled_files
+        if row["parse_status"] != "ok"
+        or row["xml_kind_consistency_status"] != "consistent"
+        or row["parser_warning_count"] > 0
+    ]
     entity_counts: collections.Counter[str] = collections.Counter()
 
     for file_row in sampled_files:
+        if file_row["parse_status"] != "ok":
+            compare_abnormal_index_absence(
+                metrics["abnormal_index_absence"],
+                indexed_by_file.get(file_row["file_id"], {}),
+                file_row,
+                args.max_examples,
+            )
+            continue
         file_id = file_row["file_id"]
         file_path = file_row["file_path"]
         try:
@@ -571,7 +728,7 @@ def main() -> int:
             file_id,
             "submission_core",
             args.max_examples,
-        )
+        ) if per_file.get("submission_core") else None
         compare_entity_table(
             metrics["core_fields"],
             expected["analysis_core"],
@@ -581,7 +738,7 @@ def main() -> int:
             file_id,
             "analysis_core",
             args.max_examples,
-        )
+        ) if per_file.get("analysis_core") else None
         compare_special_ids(
             metrics["biosample_bioproject"],
             expected["sample_core"],
@@ -603,10 +760,17 @@ def main() -> int:
     result = {
         "parquet_root": str(args.parquet_root),
         "sample_size_requested": args.sample_size,
+        "sample_unit": args.sample_unit,
         "sample_size_loaded": len(sampled_files),
+        "sampled_directory_count": len({row["directory_accession"] for row in sampled_files}),
         "seed": args.seed,
+        "accuracy_definition": ACCURACY_DEFINITION,
+        "failure_reason_enum": FAILURE_REASON_ENUM,
         "elapsed_seconds": time.time() - t0,
         "parse_errors": parse_errors,
+        "include_abnormal_cases": args.include_abnormal_cases,
+        "max_abnormal_cases": args.max_abnormal_cases,
+        "abnormal_files_loaded": abnormal_files_loaded,
         "entity_counts_in_sample": dict(entity_counts),
         "metrics": {name: metric_to_dict(metric) for name, metric in metrics.items()},
         "thresholds": {
@@ -625,9 +789,16 @@ def main() -> int:
         "",
         f"- Parquet root: `{args.parquet_root}`",
         f"- Sample size requested: {args.sample_size}",
+        f"- Sample unit: {args.sample_unit}",
         f"- Sample size loaded: {len(sampled_files)}",
+        f"- Sampled directory count: {result['sampled_directory_count']}",
         f"- Seed: {args.seed}",
+        f"- Accuracy definition: `{ACCURACY_DEFINITION}`",
+        f"- Failure reason enum: `{', '.join(FAILURE_REASON_ENUM)}`",
         f"- XML parse errors during validation: {len(parse_errors)}",
+        f"- Include abnormal/error cases: {args.include_abnormal_cases}",
+        f"- Max abnormal/error cases: {args.max_abnormal_cases}",
+        f"- Abnormal/error files loaded: {len(abnormal_files_loaded)}",
         f"- Elapsed seconds: {result['elapsed_seconds']:.2f}",
         "",
         "## Accuracy",

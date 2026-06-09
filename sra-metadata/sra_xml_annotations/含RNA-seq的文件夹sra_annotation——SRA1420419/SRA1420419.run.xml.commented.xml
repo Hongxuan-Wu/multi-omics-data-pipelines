@@ -1,0 +1,212 @@
+<!-- ============================================================ -->
+<!-- SRA运行元数据文件 (Run Metadata)                             -->
+<!-- 描述具体的测序运行，关联到实验和数据文件                     -->
+<!-- 关键字段：                                                   -->
+<!--   - accession: SRA运行访问号 (SRR格式)                       -->
+<!--   - EXPERIMENT_REF: 关联的实验访问号                         -->
+<!--   - alias: 原始文件名或提交者定义的标识                     -->
+<!-- ============================================================ -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 运行集合：包含多个测序运行记录 -->
+<RUN_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215443 -->
+  <RUN accession="SRR19215443" alias="M0068714187_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215443</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="9">M0068714187_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279484 -->
+    <EXPERIMENT_REF accession="SRX15279484">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L10</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215444 -->
+  <RUN accession="SRR19215444" alias="M006456249_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215444</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="8">M006456249_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279483 -->
+    <EXPERIMENT_REF accession="SRX15279483">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L9</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215445 -->
+  <RUN accession="SRR19215445" alias="M006392349_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215445</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="7">M006392349_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279482 -->
+    <EXPERIMENT_REF accession="SRX15279482">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L8</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215446 -->
+  <RUN accession="SRR19215446" alias="M006201943_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215446</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="6">M006201943_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279481 -->
+    <EXPERIMENT_REF accession="SRX15279481">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L7</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215447 -->
+  <RUN accession="SRR19215447" alias="M004612943_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215447</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="5">M004612943_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279480 -->
+    <EXPERIMENT_REF accession="SRX15279480">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L6</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215448 -->
+  <RUN accession="SRR19215448" alias="1700066BSCBP11_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215448</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="4">1700066BSCBP11_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279479 -->
+    <EXPERIMENT_REF accession="SRX15279479">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L5</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215449 -->
+  <RUN accession="SRR19215449" alias="1700020BSCBP16_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215449</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="3">1700020BSCBP16_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279478 -->
+    <EXPERIMENT_REF accession="SRX15279478">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L4</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215450 -->
+  <RUN accession="SRR19215450" alias="1700017BSCBP13_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215450</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="2">1700017BSCBP13_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279477 -->
+    <EXPERIMENT_REF accession="SRX15279477">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L3</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215451 -->
+  <RUN accession="SRR19215451" alias="1700014BSCBP22_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215451</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="1">1700014BSCBP22_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279476 -->
+    <EXPERIMENT_REF accession="SRX15279476">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L2</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <!-- 单个运行记录：描述一次具体的测序运行 -->
+    <!-- SRA运行访问号: SRR19215452 -->
+  <RUN accession="SRR19215452" alias="1700013BSCBP10_sequence.fastq.gz">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRR19215452</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045" label="0">1700013BSCBP10_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 实验引用：关联到该运行所属的实验 -->
+      <!-- SRA实验访问号: SRX15279475 -->
+    <EXPERIMENT_REF accession="SRX15279475">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 提交者标识符：数据提交者自定义的标识符 -->
+        <SUBMITTER_ID namespace="SUB11475045">L1</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+</RUN_SET>

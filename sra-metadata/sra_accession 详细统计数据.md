@@ -1,0 +1,149 @@
+# SRA_Accessions Parquet 关系统计
+
+- Generated UTC: `2026-06-03T01:59:12.661147+00:00`
+- Parquet root: `/data/shared/sra_parquet/sra_accessions_by_type`
+- DuckDB version: `1.5.3`
+- Threads: `16`
+- Elapsed seconds: `51.894`
+- TSV baseline scan seconds: `963.0`
+- Speedup vs TSV baseline: `18.56x`
+- Source audit comparison status: `pass`
+
+## Full TSV Audit Equivalent Metrics
+- `column_count`: `20`
+- `data_lines`: `148211048`
+- `prefix_counts|DRA`: `25165`
+- `prefix_counts|ERA`: `5542197`
+- `prefix_counts|OTHER`: `140313900`
+- `prefix_counts|SRA`: `2329786`
+- `prefix_type_matrix|DRA|SUBMISSION`: `25165`
+- `prefix_type_matrix|ERA|SUBMISSION`: `5542197`
+- `prefix_type_matrix|OTHER|ANALYSIS`: `344521`
+- `prefix_type_matrix|OTHER|EXPERIMENT`: `44607471`
+- `prefix_type_matrix|OTHER|RUN`: `50013612`
+- `prefix_type_matrix|OTHER|SAMPLE`: `44540766`
+- `prefix_type_matrix|OTHER|STUDY`: `807530`
+- `prefix_type_matrix|SRA|SUBMISSION`: `2329786`
+- `presence_counts|BioProject`: `82141907`
+- `presence_counts|BioSample`: `123423527`
+- `presence_counts|Experiment`: `42295745`
+- `presence_counts|Loaded`: `50358133`
+- `presence_counts|Sample`: `82027321`
+- `presence_counts|Study`: `82139095`
+- `run_numeric_quality|run_bases_missing`: `7876811`
+- `run_numeric_quality|run_bases_non_numeric`: `0`
+- `run_numeric_quality|run_bases_zero`: `0`
+- `run_numeric_quality|run_spots_missing`: `7876811`
+- `run_numeric_quality|run_spots_non_numeric`: `0`
+- `run_numeric_quality|run_spots_zero`: `2212`
+- `status_counts|live`: `131929435`
+- `status_counts|suppressed`: `5194233`
+- `status_counts|unpublished`: `11084693`
+- `status_counts|withdrawn`: `2687`
+- `total_lines_including_header`: `148211049`
+- `type_counts|ANALYSIS`: `344521`
+- `type_counts|EXPERIMENT`: `44607471`
+- `type_counts|RUN`: `50013612`
+- `type_counts|SAMPLE`: `44540766`
+- `type_counts|STUDY`: `807530`
+- `type_counts|SUBMISSION`: `7897148`
+- `type_status_counts|ANALYSIS|live`: `160459`
+- `type_status_counts|ANALYSIS|suppressed`: `180652`
+- `type_status_counts|ANALYSIS|unpublished`: `3410`
+- `type_status_counts|EXPERIMENT|live`: `39756685`
+- `type_status_counts|EXPERIMENT|suppressed`: `1118302`
+- `type_status_counts|EXPERIMENT|unpublished`: `3732452`
+- `type_status_counts|EXPERIMENT|withdrawn`: `32`
+- `type_status_counts|RUN|live`: `42295745`
+- `type_status_counts|RUN|suppressed`: `3712486`
+- `type_status_counts|RUN|unpublished`: `4002742`
+- `type_status_counts|RUN|withdrawn`: `2639`
+- `type_status_counts|SAMPLE|live`: `41406632`
+- `type_status_counts|SAMPLE|suppressed`: `99427`
+- `type_status_counts|SAMPLE|unpublished`: `3034695`
+- `type_status_counts|SAMPLE|withdrawn`: `12`
+- `type_status_counts|STUDY|live`: `719757`
+- `type_status_counts|STUDY|suppressed`: `8728`
+- `type_status_counts|STUDY|unpublished`: `79043`
+- `type_status_counts|STUDY|withdrawn`: `2`
+- `type_status_counts|SUBMISSION|live`: `7590157`
+- `type_status_counts|SUBMISSION|suppressed`: `74638`
+- `type_status_counts|SUBMISSION|unpublished`: `232351`
+- `type_status_counts|SUBMISSION|withdrawn`: `2`
+- `type_status_visibility_counts|ANALYSIS|live|public`: `160459`
+- `type_status_visibility_counts|ANALYSIS|suppressed|controlled_access`: `180144`
+- `type_status_visibility_counts|ANALYSIS|suppressed|public`: `508`
+- `type_status_visibility_counts|ANALYSIS|unpublished|controlled_access`: `93`
+- `type_status_visibility_counts|ANALYSIS|unpublished|public`: `3317`
+- `type_status_visibility_counts|EXPERIMENT|live|controlled_access`: `1662240`
+- `type_status_visibility_counts|EXPERIMENT|live|public`: `38094445`
+- `type_status_visibility_counts|EXPERIMENT|suppressed|controlled_access`: `541662`
+- `type_status_visibility_counts|EXPERIMENT|suppressed|public`: `576640`
+- `type_status_visibility_counts|EXPERIMENT|unpublished|controlled_access`: `114650`
+- `type_status_visibility_counts|EXPERIMENT|unpublished|public`: `3617802`
+- `type_status_visibility_counts|EXPERIMENT|withdrawn|public`: `32`
+- `type_status_visibility_counts|RUN|live|controlled_access`: `1706713`
+- `type_status_visibility_counts|RUN|live|public`: `40589032`
+- `type_status_visibility_counts|RUN|suppressed|controlled_access`: `3017867`
+- `type_status_visibility_counts|RUN|suppressed|public`: `694619`
+- `type_status_visibility_counts|RUN|unpublished|controlled_access`: `87574`
+- `type_status_visibility_counts|RUN|unpublished|public`: `3915168`
+- `type_status_visibility_counts|RUN|withdrawn|controlled_access`: `2525`
+- `type_status_visibility_counts|RUN|withdrawn|public`: `114`
+- `type_status_visibility_counts|SAMPLE|live|controlled_access`: `1455980`
+- `type_status_visibility_counts|SAMPLE|live|public`: `39950652`
+- `type_status_visibility_counts|SAMPLE|suppressed|controlled_access`: `45956`
+- `type_status_visibility_counts|SAMPLE|suppressed|public`: `53471`
+- `type_status_visibility_counts|SAMPLE|unpublished|controlled_access`: `110315`
+- `type_status_visibility_counts|SAMPLE|unpublished|public`: `2924380`
+- `type_status_visibility_counts|SAMPLE|withdrawn|public`: `12`
+- `type_status_visibility_counts|STUDY|live|controlled_access`: `1887`
+- `type_status_visibility_counts|STUDY|live|public`: `717870`
+- `type_status_visibility_counts|STUDY|suppressed|controlled_access`: `2`
+- `type_status_visibility_counts|STUDY|suppressed|public`: `8726`
+- `type_status_visibility_counts|STUDY|unpublished|controlled_access`: `159`
+- `type_status_visibility_counts|STUDY|unpublished|public`: `78884`
+- `type_status_visibility_counts|STUDY|withdrawn|public`: `2`
+- `type_status_visibility_counts|SUBMISSION|live|controlled_access`: `107241`
+- `type_status_visibility_counts|SUBMISSION|live|public`: `7482916`
+- `type_status_visibility_counts|SUBMISSION|suppressed|controlled_access`: `6186`
+- `type_status_visibility_counts|SUBMISSION|suppressed|public`: `68452`
+- `type_status_visibility_counts|SUBMISSION|unpublished|controlled_access`: `16098`
+- `type_status_visibility_counts|SUBMISSION|unpublished|public`: `216253`
+- `type_status_visibility_counts|SUBMISSION|withdrawn|public`: `2`
+- `type_visibility_counts|ANALYSIS|controlled_access`: `180237`
+- `type_visibility_counts|ANALYSIS|public`: `164284`
+- `type_visibility_counts|EXPERIMENT|controlled_access`: `2318552`
+- `type_visibility_counts|EXPERIMENT|public`: `42288919`
+- `type_visibility_counts|RUN|controlled_access`: `4814679`
+- `type_visibility_counts|RUN|public`: `45198933`
+- `type_visibility_counts|SAMPLE|controlled_access`: `1612251`
+- `type_visibility_counts|SAMPLE|public`: `42928515`
+- `type_visibility_counts|STUDY|controlled_access`: `2048`
+- `type_visibility_counts|STUDY|public`: `805482`
+- `type_visibility_counts|SUBMISSION|controlled_access`: `129525`
+- `type_visibility_counts|SUBMISSION|public`: `7767623`
+- `visibility_counts|controlled_access`: `9057292`
+- `visibility_counts|public`: `139153756`
+
+## Additional Live/Public Relation Metrics
+- `RUN live public total`: `40589032`
+- `RUN live public + Experiment non-missing`: `40589032`
+- `RUN live public + Sample non-missing`: `40563940`
+- `RUN live public + Study non-missing`: `40533457`
+- `RUN live public + BioSample non-missing`: `40558831`
+- `RUN live public + BioProject non-missing`: `40174329`
+- `RUN live public + Loaded non-missing`: `40589032`
+- `RUN live public + Spots missing`: `151127`
+- `RUN live public + Bases missing`: `151127`
+- `RUN live public + Spots = 0`: `0`
+- `RUN live public + Bases = 0`: `0`
+- `RUN live public + Spots > 0 + Bases > 0`: `40437905`
+- `RUN live public + ReplacedBy non-missing`: `0`
+- `RUN live public with Experiment not found in filtered EXPERIMENT`: `172622`
+- `RUN live public with Sample not found in filtered SAMPLE`: `84933`
+- `RUN live public with Study not found in filtered STUDY`: `140537`
+- `EXPERIMENT live public total`: `38094445`
+- `EXPERIMENT live public with Sample not found in filtered SAMPLE`: `26092`
+- `EXPERIMENT live public with Study not found in filtered STUDY`: `78957`
+- `SAMPLE live public with Study not found in filtered STUDY`: `0`

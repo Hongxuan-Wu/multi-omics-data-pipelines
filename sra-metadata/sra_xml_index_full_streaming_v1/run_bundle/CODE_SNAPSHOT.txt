@@ -1,0 +1,7 @@
+source_repo=/home/m252202014/SRA
+source_project=/home/m252202014/SRA/projects/sra_xml_snapshot_index
+copied_git_commit=887535af8db649dd7571a1d6c860875ae77b941f
+copied_git_commit_short=887535a
+created_at_utc=2026-06-08T12:14:50Z
+run_root=/home/m252202014/SRA/full_index_runs/20260516_full_streaming_v1
+output_root=/data3/m252202014/SRA/outputs/sra_xml_index/full_runs/20260516_full_streaming_v1

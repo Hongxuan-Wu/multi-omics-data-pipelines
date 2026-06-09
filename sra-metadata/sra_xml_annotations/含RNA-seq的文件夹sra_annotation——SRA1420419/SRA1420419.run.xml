@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RUN_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <RUN accession="SRR19215443" alias="M0068714187_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215443</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="9">M0068714187_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279484">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L10</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215444" alias="M006456249_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215444</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="8">M006456249_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279483">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L9</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215445" alias="M006392349_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215445</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="7">M006392349_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279482">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L8</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215446" alias="M006201943_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215446</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="6">M006201943_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279481">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L7</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215447" alias="M004612943_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215447</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="5">M004612943_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279480">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L6</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215448" alias="1700066BSCBP11_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215448</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="4">1700066BSCBP11_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279479">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L5</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215449" alias="1700020BSCBP16_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215449</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="3">1700020BSCBP16_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279478">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L4</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215450" alias="1700017BSCBP13_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215450</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="2">1700017BSCBP13_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279477">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L3</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215451" alias="1700014BSCBP22_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215451</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="1">1700014BSCBP22_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279476">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L2</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+  <RUN accession="SRR19215452" alias="1700013BSCBP10_sequence.fastq.gz">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRR19215452</PRIMARY_ID>
+      <SUBMITTER_ID namespace="SUB11475045" label="0">1700013BSCBP10_sequence.fastq.gz</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <EXPERIMENT_REF accession="SRX15279475">
+      <IDENTIFIERS>
+        <SUBMITTER_ID namespace="SUB11475045">L1</SUBMITTER_ID>
+      </IDENTIFIERS>
+    </EXPERIMENT_REF>
+  </RUN>
+</RUN_SET>
