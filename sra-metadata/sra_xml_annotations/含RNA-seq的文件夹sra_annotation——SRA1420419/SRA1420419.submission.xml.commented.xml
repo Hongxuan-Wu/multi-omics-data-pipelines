@@ -1,0 +1,12 @@
+<!-- ============================================================ -->
+<!-- SRA提交记录文件 (Submission Record)                          -->
+<!-- 描述数据提交的元信息，包括提交机构、实验室等                 -->
+<!-- 关键字段：                                                   -->
+<!--   - accession: SRA提交访问号 (SRA格式)                       -->
+<!--   - center_name: 提交机构名称                               -->
+<!--   - lab_name: 实验室名称                                    -->
+<!-- ============================================================ -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 提交记录：描述数据提交的元信息 -->
+  <!-- SRA提交访问号: SRA1420419 -->
+<SUBMISSION lab_name="Key Laboratory of Health Ministry for Congenital M" center_name="Shengjing Hospital" accession="SRA1420419" alias="SUB11475045"/>

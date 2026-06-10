@@ -1,4 +1,4 @@
-# SRA XML Index Parquet 使用说明
+# SRA XML Parquet 索引使用说明
 
 本目录是 `NCBI_SRA_Metadata_Full_20260516` 的 100,000 目录 stress pilot 索引结果，不是全量 7,609,455 目录结果。它用于验证结构、检索方式、字段抽取和性能。
 

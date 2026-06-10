@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SAMPLE_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SAMPLE alias="1700014BSCBP22_sequence" accession="SRS13010998">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13010998</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408314</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-24 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="1700017BSCBP13_sequence" accession="SRS13010999">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13010999</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408415</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="1700013BSCBP10_sequence" accession="SRS13011000">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011000</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408299</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-24 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="M004612943_sequence" accession="SRS13011001">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011001</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408422</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="1700066BSCBP11_sequence" accession="SRS13011002">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011002</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408421</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="M006201943_sequence" accession="SRS13011003">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011003</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408423</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="M006456249_sequence" accession="SRS13011004">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011004</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408461</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="1700020BSCBP16_sequence" accession="SRS13011005">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011005</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408420</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="M0068714187_sequence" accession="SRS13011006">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011006</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408462</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE alias="M006392349_sequence" accession="SRS13011007">
+    <IDENTIFIERS>
+      <PRIMARY_ID>SRS13011007</PRIMARY_ID>
+      <EXTERNAL_ID namespace="BioSample">SAMN28408424</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <SAMPLE_NAME>
+      <TAXON_ID>9606</TAXON_ID>
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <SAMPLE_LINKS>
+      <SAMPLE_LINK>
+        <XREF_LINK>
+          <DB>bioproject</DB>
+          <ID>838128</ID>
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <SAMPLE_ATTRIBUTES>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>isolate</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>age</TAG>
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>biomaterial_provider</TAG>
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>sex</TAG>
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>tissue</TAG>
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <SAMPLE_ATTRIBUTE>
+        <TAG>BioSampleModel</TAG>
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+</SAMPLE_SET>

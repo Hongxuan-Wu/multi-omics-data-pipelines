@@ -1,0 +1,832 @@
+<!-- ============================================================ -->
+<!-- SRA样本元数据文件 (Sample Metadata)                          -->
+<!-- 描述生物样本的详细信息，包括物种、组织、处理条件等           -->
+<!-- 关键字段：                                                   -->
+<!--   - accession: SRA样本访问号 (SRS格式)                       -->
+<!--   - TAXON_ID: NCBI分类ID (9606=人类, 10090=小鼠等)          -->
+<!--   - SAMPLE_ATTRIBUTES: 样本的详细属性 (年龄/性别/组织等)     -->
+<!-- ============================================================ -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 样本集合：包含多个生物样本记录 -->
+<SAMPLE_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13010998 -->
+  <SAMPLE alias="1700014BSCBP22_sequence" accession="SRS13010998">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13010998</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408314</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-24 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13010999 -->
+  <SAMPLE alias="1700017BSCBP13_sequence" accession="SRS13010999">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13010999</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408415</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011000 -->
+  <SAMPLE alias="1700013BSCBP10_sequence" accession="SRS13011000">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011000</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408299</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-24 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011001 -->
+  <SAMPLE alias="M004612943_sequence" accession="SRS13011001">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011001</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408422</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011002 -->
+  <SAMPLE alias="1700066BSCBP11_sequence" accession="SRS13011002">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011002</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408421</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011003 -->
+  <SAMPLE alias="M006201943_sequence" accession="SRS13011003">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011003</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408423</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011004 -->
+  <SAMPLE alias="M006456249_sequence" accession="SRS13011004">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011004</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408461</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011005 -->
+  <SAMPLE alias="1700020BSCBP16_sequence" accession="SRS13011005">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011005</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408420</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011006 -->
+  <SAMPLE alias="M0068714187_sequence" accession="SRS13011006">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011006</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408462</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <!-- 单个样本记录：描述一个生物样本的详细信息 -->
+    <!-- SRA样本访问号: SRS13011007 -->
+  <SAMPLE alias="M006392349_sequence" accession="SRS13011007">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRS13011007</PRIMARY_ID>
+      <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+        <!-- BioSample: NCBI生物样本数据库 -->
+      <EXTERNAL_ID namespace="BioSample">SAMN28408424</EXTERNAL_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>Human sample from Homo sapiens</TITLE>
+    <!-- 样本名称：样本的生物学分类信息 -->
+    <SAMPLE_NAME>
+      <!-- 分类ID：NCBI分类数据库中的物种ID（如9606代表人类） -->
+      <TAXON_ID>9606</TAXON_ID>
+      <!-- 人类 (Homo sapiens) -->
+      <!-- 学名：物种的拉丁学名 -->
+      <SCIENTIFIC_NAME>Homo sapiens</SCIENTIFIC_NAME>
+    </SAMPLE_NAME>
+    <!-- 样本链接：关联到其他数据库的链接 -->
+    <SAMPLE_LINKS>
+      <!-- 单个样本链接 -->
+      <SAMPLE_LINK>
+        <!-- 交叉引用链接：指向其他数据库的具体链接 -->
+        <XREF_LINK>
+          <!-- 数据库名称：链接目标数据库的名称 -->
+          <DB>bioproject</DB>
+          <!-- 数据库ID：在目标数据库中的标识符 -->
+          <ID>838128</ID>
+          <!-- 标签：链接的显示标签 -->
+          <LABEL>PRJNA838128</LABEL>
+        </XREF_LINK>
+      </SAMPLE_LINK>
+    </SAMPLE_LINKS>
+    <!-- 样本属性：样本的详细属性信息 -->
+    <SAMPLE_ATTRIBUTES>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>isolate</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>age</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>22-26 weeks</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>biomaterial_provider</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>yuan</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>sex</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>male</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>tissue</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>plasma</VALUE>
+      </SAMPLE_ATTRIBUTE>
+      <!-- 单个样本属性：键值对形式的属性描述 -->
+      <SAMPLE_ATTRIBUTE>
+        <!-- 属性标签：属性的名称 -->
+        <TAG>BioSampleModel</TAG>
+        <!-- 属性值：属性的具体值 -->
+        <VALUE>Human</VALUE>
+      </SAMPLE_ATTRIBUTE>
+    </SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+</SAMPLE_SET>

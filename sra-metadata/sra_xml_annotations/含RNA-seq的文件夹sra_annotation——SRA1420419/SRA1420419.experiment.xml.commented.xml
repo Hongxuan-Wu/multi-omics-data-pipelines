@@ -1,0 +1,713 @@
+<!-- ============================================================ -->
+<!-- SRA实验元数据文件 (Experiment Metadata)                      -->
+<!-- 描述测序实验的技术细节，包括文库构建、测序平台等信息          -->
+<!-- 关键字段：                                                   -->
+<!--   - accession: SRA实验访问号 (SRX格式)                       -->
+<!--   - LIBRARY_STRATEGY: 测序策略 (RNA-Seq/WGS/WES等)          -->
+<!--   - LIBRARY_SOURCE: 文库来源 (TRANSCRIPTOMIC/GENOMIC等)      -->
+<!--   - PLATFORM: 测序平台 (ILLUMINA/ION_TORRENT等)             -->
+<!-- ============================================================ -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 实验集合：包含多个SRA实验记录 -->
+<EXPERIMENT_SET xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279475 -->
+  <EXPERIMENT accession="SRX15279475" alias="L1">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279475</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L1</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>1700013BSCBP10</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-control</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011000 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011000">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011000</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408299</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L1</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279476 -->
+  <EXPERIMENT accession="SRX15279476" alias="L2">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279476</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L2</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>1700014BSCBP22</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-control</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13010998 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13010998">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13010998</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408314</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L2</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279477 -->
+  <EXPERIMENT accession="SRX15279477" alias="L3">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279477</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L3</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>1700017BSCBP13</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-control</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13010999 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13010999">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13010999</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408415</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L3</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279478 -->
+  <EXPERIMENT accession="SRX15279478" alias="L4">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279478</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L4</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>1700020BSCBP16</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-control</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011005 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011005">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011005</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408420</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L4</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279479 -->
+  <EXPERIMENT accession="SRX15279479" alias="L5">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279479</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L5</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>1700066BSCBP11</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-control</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011002 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011002">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011002</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408421</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L5</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279480 -->
+  <EXPERIMENT accession="SRX15279480" alias="L6">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279480</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L6</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>M004612943</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-cnsCLP</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011001 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011001">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011001</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408422</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L6</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279481 -->
+  <EXPERIMENT accession="SRX15279481" alias="L7">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279481</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L7</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>M006201943</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-cnsCLP</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011003 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011003">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011003</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408423</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L7</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279482 -->
+  <EXPERIMENT accession="SRX15279482" alias="L8">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279482</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L8</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>M006392349</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-cnsCLP</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011007 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011007">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011007</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408424</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L8</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279483 -->
+  <EXPERIMENT accession="SRX15279483" alias="L9">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279483</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L9</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>M006456249</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-cnsCLP</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011004 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011004">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011004</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408461</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L9</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+  <!-- 单个实验记录：描述一个测序实验的完整信息 -->
+    <!-- SRA实验访问号: SRX15279484 -->
+  <EXPERIMENT accession="SRX15279484" alias="L10">
+    <!-- 标识符块：包含各种唯一标识符 -->
+    <IDENTIFIERS>
+      <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+      <PRIMARY_ID>SRX15279484</PRIMARY_ID>
+      <!-- 提交者标识符：数据提交者自定义的标识符 -->
+      <SUBMITTER_ID namespace="SUB11475045">L10</SUBMITTER_ID>
+    </IDENTIFIERS>
+    <!-- 标题：实验或样本的简短描述 -->
+    <TITLE>M0068714187</TITLE>
+    <!-- 研究引用：关联到所属的研究项目 -->
+      <!-- SRA研究访问号: SRP375270 -->
+    <STUDY_REF accession="SRP375270">
+      <!-- 标识符块：包含各种唯一标识符 -->
+      <IDENTIFIERS>
+        <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+        <PRIMARY_ID>SRP375270</PRIMARY_ID>
+        <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+          <!-- BioProject: NCBI生物项目数据库 -->
+        <EXTERNAL_ID namespace="BioProject">PRJNA838128</EXTERNAL_ID>
+      </IDENTIFIERS>
+    </STUDY_REF>
+    <!-- 实验设计：描述实验的技术细节 -->
+    <DESIGN>
+      <!-- 实验设计描述：实验目的和方法的简要说明 -->
+      <DESIGN_DESCRIPTION>maternal plasma-cnsCLP</DESIGN_DESCRIPTION>
+      <!-- 样本描述符：关联到实验使用的样本 -->
+        <!-- SRA样本访问号: SRS13011006 -->
+      <SAMPLE_DESCRIPTOR accession="SRS13011006">
+        <!-- 标识符块：包含各种唯一标识符 -->
+        <IDENTIFIERS>
+          <!-- 主标识符：SRA分配的唯一访问号（如SRX、SRR、SRS、SRP等） -->
+          <PRIMARY_ID>SRS13011006</PRIMARY_ID>
+          <!-- 外部标识符：关联到其他数据库的标识符（如BioProject、BioSample） -->
+            <!-- BioSample: NCBI生物样本数据库 -->
+          <EXTERNAL_ID namespace="BioSample">SAMN28408462</EXTERNAL_ID>
+        </IDENTIFIERS>
+      </SAMPLE_DESCRIPTOR>
+      <!-- 文库描述：描述测序文库的构建细节 -->
+      <LIBRARY_DESCRIPTOR>
+        <!-- 文库名称：测序文库的标识名称 -->
+        <LIBRARY_NAME>L10</LIBRARY_NAME>
+        <!-- 文库策略：测序策略（如RNA-Seq、WGS、WES等） -->
+        <LIBRARY_STRATEGY>RNA-Seq</LIBRARY_STRATEGY>
+        <!-- RNA测序：用于分析转录组 -->
+        <!-- 文库来源：测序文库的来源类型（如TRANSCRIPTOMIC、GENOMIC等） -->
+        <LIBRARY_SOURCE>TRANSCRIPTOMIC</LIBRARY_SOURCE>
+        <!-- 转录组来源：来自RNA的测序数据 -->
+        <!-- 文库选择：文库构建方法（如cDNA、RANDOM、PCR等） -->
+        <LIBRARY_SELECTION>cDNA</LIBRARY_SELECTION>
+        <!-- 互补DNA：由RNA反转录得到的DNA -->
+        <!-- 文库布局：测序方式（SINGLE单端或PAIRED双端） -->
+        <LIBRARY_LAYOUT>
+          <!-- 单端测序：只从DNA片段的一端进行测序 -->
+          <SINGLE/>
+        </LIBRARY_LAYOUT>
+      </LIBRARY_DESCRIPTOR>
+    </DESIGN>
+    <!-- 测序平台：描述使用的测序技术平台 -->
+    <PLATFORM>
+      <!-- Illumina平台：当前最常用的高通量测序平台 -->
+      <ILLUMINA>
+        <!-- 仪器型号：具体使用的测序仪器型号 -->
+        <INSTRUMENT_MODEL>NextSeq 500</INSTRUMENT_MODEL>
+        <!-- Illumina NextSeq 500：中通量测序仪，适合转录组等中等规模项目 -->
+      </ILLUMINA>
+    </PLATFORM>
+  </EXPERIMENT>
+</EXPERIMENT_SET>
