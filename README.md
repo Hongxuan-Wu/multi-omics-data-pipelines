@@ -1,4 +1,4 @@
-# transcriptomics-pipelines——转录组学数据处理与校验文档
+# multi-omics-data-pipelines——转录组学数据处理与校验文档
 
 本仓库用于说明和校验转录组相关数据处理流程。仓库重点记录四件事：
 
