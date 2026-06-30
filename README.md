@@ -1,6 +1,6 @@
-# multi-omics-data-pipelines——转录组学数据处理与校验文档
+# multi-omics-data-pipelines——多组学数据处理与校验文档
 
-本仓库用于说明和校验转录组相关数据处理流程。仓库重点记录四件事：
+本仓库用于说明和校验多组学相关数据处理流程。仓库重点记录四件事：
 
 1. 数据来源：SRA、SRA XML、RefSeq 数据从哪里来，原始文件放在哪里。
 2. 索引构建：SRA_Accessions 索引和 SRA XML 全量索引如何从原始数据构建出来。
