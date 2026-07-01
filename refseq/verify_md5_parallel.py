@@ -3,10 +3,10 @@
 RefSeq 目标集 MD5 并行校验脚本。
 
 用法：
-    python3 verify_md5_parallel.py /data/refseq_release
+    python3 verify_md5_parallel.py /data3/m252701008/refseq_release
 
 前提：
-    download_refseq_truly_full.sh 已生成 /data/refseq_release/logs/target_files.tsv
+    download_refseq_truly_full.sh 已生成 /data3/m252701008/refseq_release/logs/target_files.tsv
 
 manifest 格式（支持 # 开头的注释行）：
     # release\t235
@@ -106,7 +106,7 @@ def parse_workers() -> int:
 def main() -> int:
     if len(sys.argv) < 2:
         print("用法: python3 verify_md5_parallel.py <local_root>")
-        print("示例: python3 verify_md5_parallel.py /data/refseq_release")
+        print("示例: python3 verify_md5_parallel.py /data3/m252701008/refseq_release")
         return 1
 
     local_root = sys.argv[1]

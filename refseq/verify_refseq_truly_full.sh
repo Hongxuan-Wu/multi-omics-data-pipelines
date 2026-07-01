@@ -2,7 +2,7 @@
 # =============================================================================
 # NCBI RefSeq 目标集完整性验证脚本
 #
-# 用法：bash verify_refseq_truly_full.sh /data/refseq_release
+# 用法：bash verify_refseq_truly_full.sh /data3/m252701008/refseq_release
 # 前提：先运行 download_refseq_truly_full.sh，生成 logs/target_files.tsv
 #
 # 输出报告：
@@ -15,7 +15,7 @@
 # =============================================================================
 set -euo pipefail
 
-LOCAL_ROOT="${1:-/data/refseq_release}"
+LOCAL_ROOT="${1:-/data3/m252701008/refseq_release}"
 LOG_DIR="${LOCAL_ROOT}/logs"
 VERIFY_LOG="${LOG_DIR}/verify.log"
 TARGET_MANIFEST="${LOG_DIR}/target_files.tsv"

@@ -17,7 +17,7 @@ set -euo pipefail
 # ==================== 配置区 ====================
 RELEASE="235"
 BASE_URL="https://ftp.ncbi.nlm.nih.gov/refseq/release"
-LOCAL_ROOT="/data/refseq_release"          # 改成 Ubuntu 服务器上的实际存储路径
+LOCAL_ROOT="/data3/m252701008/refseq_release"          # 改成 Ubuntu 服务器上的实际存储路径
 
 LOG_DIR="${LOCAL_ROOT}/logs"
 DL_LOG="${LOG_DIR}/download.log"
