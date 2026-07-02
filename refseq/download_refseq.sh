@@ -24,7 +24,7 @@ LOCAL_ROOT="/data3/p252701008/refseq_release"
 # DOWNLOAD_COMPLETE：是否下载 complete/ 目录。
 DOWNLOAD_COMPLETE=1
 # DOWNLOAD_TAXON_DIRS：是否下载 TAXON_DIRS 中列出的物种/分类目录。
-DOWNLOAD_TAXON_DIRS=1
+DOWNLOAD_TAXON_DIRS=0
 # DOWNLOAD_AUXILIARY：是否下载 README、release-catalog 核心文件和 release-statistics/。
 DOWNLOAD_AUXILIARY=1
 
@@ -82,7 +82,7 @@ TAXON_DIRS=(
 #   - release-catalog/RefSeq-release${RELEASE}.catalog.gz：accession catalog，aria2 下载。
 #   - release-catalog/release${RELEASE}.files.installed：官方 MD5 清单，始终需要。
 #   - release-catalog/README：catalog 字段说明。
-#   - release-statistics/：完整递归下载，用于 release 统计核对。
+#   - release-statistics/：只下载顶层统计文件，跳过 archive/ 历史归档。
 #   - README 与 RELEASE_NUMBER：release 根目录说明文件。
 # AUX_ROOT_FILES：release 根目录下要下载的辅助文件名。
 AUX_ROOT_FILES=(
@@ -128,8 +128,8 @@ TARGET_MANIFEST="${MANIFEST_DIR}/target_files_${RUN_ID}.tsv"
 UNVERIFIED_MANIFEST="${MANIFEST_DIR}/unverified_files_${RUN_ID}.tsv"
 # MD5_CHECK_FILE：供 md5sum --check 使用的校验文件。
 MD5_CHECK_FILE="${MANIFEST_DIR}/md5_check_${RUN_ID}.txt"
-# MD5_FILE：本地保存的 NCBI 官方 release${RELEASE}.files.installed 文件。
-MD5_FILE="${LOCAL_ROOT}/release-catalog/release${RELEASE}.files.installed"
+# MD5_FILE：运行目录内保存的 NCBI 官方 release${RELEASE}.files.installed 校验工作副本。
+MD5_FILE="${RUN_ROOT}/release-catalog/release${RELEASE}.files.installed"
 
 # MD5_MAP：官方 MD5 映射表，key 通常是文件名，也兼容相对路径查询。
 declare -A MD5_MAP
@@ -179,10 +179,7 @@ validate_size_value() {
   local name="$1"
   # value：变量当前值，例如 64M 或 128M。
   local value="$2"
-  case "${value}" in
-    *K|*M|*G|*T|*k|*m|*g|*t) ;;
-    *) die "${name} 必须带单位，例如 64M 或 128M，当前值为：${value}" ;;
-  esac
+  [[ "${value}" =~ ^[1-9][0-9]*[KkMmGgTt]$ ]] || die "${name} 必须是正整数加单位，例如 64M 或 128M，当前值为：${value}"
 }
 
 # 将相对路径转换为安全文件名片段，用于临时文件命名。
@@ -203,8 +200,18 @@ fetch_to_file() {
   local url="$1"
   # out：本地输出文件路径。
   local out="$2"
+  # tmp_out：同目录临时文件；下载成功后再覆盖 out，避免失败下载截断已有文件。
+  local tmp_out="${out}.partial.${RUN_ID}"
   mkdir -p "$(dirname "${out}")"
-  curl -fsSL --retry 5 --retry-delay 10 --retry-connrefused --retry-all-errors -o "${out}" "${url}"
+  if ! curl -fsSL --retry 5 --retry-delay 10 --retry-connrefused --retry-all-errors -o "${tmp_out}" "${url}"; then
+    move_to_trash "${tmp_out}" "failed_fetch"
+    return 1
+  fi
+  if [[ ! -s "${tmp_out}" ]]; then
+    move_to_trash "${tmp_out}" "empty_fetch"
+    return 1
+  fi
+  mv -- "${tmp_out}" "${out}"
 }
 
 # 只探测远端文件是否可访问，不保存内容。
@@ -260,11 +267,17 @@ move_to_trash() {
   local rel_label
   # dest：垃圾箱中的最终目标路径。
   local dest
+  # suffix：当垃圾箱目标名已存在时追加的递增后缀。
+  local suffix=1
 
   [[ -e "${path}" ]] || return 0
   rel_label="$(printf '%s' "${path#${LOCAL_ROOT}/}" | tr '/: ' '___')"
   dest="${TRASH_DIR}/${reason}.${RUN_ID}.${rel_label}"
   mkdir -p "${TRASH_DIR}"
+  while [[ -e "${dest}" ]]; do
+    dest="${TRASH_DIR}/${reason}.${RUN_ID}.${rel_label}.${suffix}"
+    suffix=$((suffix + 1))
+  done
   mv -- "${path}" "${dest}"
   log "已将异常本地文件移入垃圾箱：${path} -> ${dest}"
 }
@@ -281,17 +294,48 @@ remote_content_length() {
 # 从 NCBI HTML 目录 listing 中提取 href 值。
 extract_hrefs() {
   awk '
+    BEGIN {
+      IGNORECASE = 1
+    }
     {
       # line：当前 HTML 行的剩余待解析片段。
       line = $0
-      while (match(line, /href="[^"]+"/)) {
+      while (match(line, /href[[:space:]]*=[[:space:]]*("[^"]+"|'\''[^'\'']+'\'')/)) {
         # href：当前匹配到的链接目标。
-        href = substr(line, RSTART + 6, RLENGTH - 7)
+        href = substr(line, RSTART, RLENGTH)
+        sub(/^[^=]*=[[:space:]]*/, "", href)
+        href = substr(href, 2, length(href) - 2)
         print href
         line = substr(line, RSTART + RLENGTH)
       }
     }
   '
+}
+
+# 将绝对 URL 或根路径 URL 转成相对当前目录的 href，兼容不同目录 listing 格式。
+normalize_listing_href() {
+  # rel_dir：当前 listing 所在目录，相对 BASE_URL。
+  local rel_dir="$1"
+  # href：extract_hrefs 解析出的原始链接。
+  local href="$2"
+  # base_path：BASE_URL 的路径部分，例如 /refseq/release。
+  local base_path="${BASE_URL#*://}"
+
+  href="${href%%#*}"
+  href="${href%%\?*}"
+  base_path="/${base_path#*/}"
+  if [[ "${href}" == "${BASE_URL}/"* ]]; then
+    href="${href#"${BASE_URL}/"}"
+  elif [[ "${href}" == "${base_path}/"* ]]; then
+    href="${href#"${base_path}/"}"
+  fi
+
+  href="${href#./}"
+  if [[ -n "${rel_dir}" && "${href}" == "${rel_dir}/"* ]]; then
+    href="${href#"${rel_dir}/"}"
+  fi
+
+  printf '%s' "${href}"
 }
 
 # 判断 href 是否应忽略，例如父目录、绝对 URL、锚点或查询链接。
@@ -336,6 +380,7 @@ list_remote_dir() {
 
   : > "${out_file}"
   while IFS= read -r href; do
+    href="$(normalize_listing_href "${rel_dir}" "${href}")"
     if is_skipped_href "${href}"; then
       continue
     fi
@@ -373,16 +418,21 @@ append_plan_record() {
   local relpath="$2"
   # url：目标文件完整下载 URL。
   local url="$3"
+  # parent_dir：目标文件相对 LOCAL_ROOT 的父目录。
+  local parent_dir
   # local_dir：目标文件应写入的本地目录。
   local local_dir
   # out_name：目标文件本地文件名。
   local out_name
 
-  local_dir="${LOCAL_ROOT}/$(dirname "${relpath}")"
-  if [[ "$(dirname "${relpath}")" == "." ]]; then
+  if [[ "${relpath}" == */* ]]; then
+    parent_dir="${relpath%/*}"
+    local_dir="${LOCAL_ROOT}/${parent_dir}"
+    out_name="${relpath##*/}"
+  else
     local_dir="${LOCAL_ROOT}"
+    out_name="${relpath}"
   fi
-  out_name="$(basename "${relpath}")"
 
   printf '%s\t%s\t%s\t%s\t%s\n' "${group}" "${relpath}" "${url}" "${local_dir}" "${out_name}" >> "${PLAN_FILE}"
 }
@@ -497,7 +547,7 @@ build_download_plan() {
     for catalog_file in "${AUX_RELEASE_CATALOG_FILES[@]}"; do
       append_existing_remote_file "auxiliary" "release-catalog/${catalog_file}"
     done
-    collect_remote_tree "auxiliary" "release-statistics" "1"
+    collect_remote_tree "auxiliary" "release-statistics" "0"
   else
     log "跳过辅助信息：DOWNLOAD_AUXILIARY=0"
   fi
@@ -514,12 +564,12 @@ build_download_plan() {
 download_md5_file() {
   # md5_url：官方 MD5 清单的远端 URL。
   local md5_url="${BASE_URL}/release-catalog/release${RELEASE}.files.installed"
-  log "下载官方 MD5 清单：${md5_url}"
+  log "下载官方 MD5 清单工作副本：${md5_url}"
   if ! fetch_to_file "${md5_url}" "${MD5_FILE}"; then
     die "官方 MD5 清单下载失败：${md5_url} -> ${MD5_FILE}。没有该文件无法建立可靠校验清单。"
   fi
   [[ -s "${MD5_FILE}" ]] || die "官方 MD5 清单为空：${MD5_FILE}"
-  log "官方 MD5 清单已保存：${MD5_FILE}（$(wc -l < "${MD5_FILE}") 行）"
+  log "官方 MD5 清单工作副本已保存：${MD5_FILE}（$(wc -l < "${MD5_FILE}") 行）"
 }
 
 # 将官方 MD5 清单读入 MD5_MAP，供跳过、aria2 checksum 和下载后校验使用。
@@ -722,6 +772,10 @@ verify_unverified_if_enabled() {
   local local_file
   # md5：lookup_md5 返回的官方 MD5；非空则跳过弱校验。
   local md5
+  # local_size：本地文件字节数。
+  local local_size
+  # remote_size：远端 Content-Length 字节数。
+  local remote_size
   # failed：弱校验失败标记，1 表示至少一个文件失败。
   local failed=0
   # checked：执行弱校验的文件数量。
@@ -742,6 +796,19 @@ verify_unverified_if_enabled() {
     checked=$((checked + 1))
     if [[ ! -f "${local_file}" ]]; then
       errlog "无官方 MD5 文件缺失：${relpath}，路径：${local_file}"
+      failed=1
+      continue
+    fi
+
+    local_size="$(stat -c '%s' "${local_file}")"
+    remote_size="$(remote_content_length "${url}" || true)"
+    if [[ -z "${remote_size}" || ! "${remote_size}" =~ ^[0-9]+$ ]]; then
+      errlog "无官方 MD5 文件无法获取远端 Content-Length：${relpath}"
+      failed=1
+      continue
+    fi
+    if [[ "${local_size}" -ne "${remote_size}" ]]; then
+      errlog "无官方 MD5 文件大小不匹配：${relpath}，remote=${remote_size}，local=${local_size}"
       failed=1
       continue
     fi
