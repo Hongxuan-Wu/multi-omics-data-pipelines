@@ -2,7 +2,7 @@
 # =============================================================================
 # NCBI RefSeq 目标集完整性验证脚本
 #
-# 用法：bash verify_refseq_truly_full.sh /data3/m252701008/refseq_release
+# 用法：bash verify_refseq_truly_full.sh /data3/p252701008/refseq_release
 # 前提：先运行 download_refseq_truly_full.sh，生成 logs/target_files.tsv
 #
 # 输出报告：
@@ -15,7 +15,9 @@
 # =============================================================================
 set -euo pipefail
 
-LOCAL_ROOT="${1:-/data3/m252701008/refseq_release}"
+# LOCAL_ROOT 从第一个命令行参数读取；不传参数时使用当前服务器默认下载目录。
+LOCAL_ROOT="${1:-/data3/p252701008/refseq_release}"
+# 以下文件都由下载脚本生成或由本验证脚本写入。
 LOG_DIR="${LOCAL_ROOT}/logs"
 VERIFY_LOG="${LOG_DIR}/verify.log"
 TARGET_MANIFEST="${LOG_DIR}/target_files.tsv"
@@ -23,12 +25,15 @@ UNVERIFIED_MANIFEST="${LOG_DIR}/unverified_files.tsv"
 REPORT_FILE="${LOG_DIR}/verify_report.txt"
 mkdir -p "${LOG_DIR}"
 
+# 验证日志同时打印到屏幕和 verify.log，方便长时间任务实时观察。
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "${VERIFY_LOG}"; }
 
+# 统计 target_files.tsv 的数据行数；注释行以 # 开头，不算目标文件。
 manifest_data_count() {
   grep -vc '^#' "${TARGET_MANIFEST}" 2>/dev/null || true
 }
 
+# 统计没有官方 MD5 的文件数；空行和注释行都排除。
 unverified_data_count() {
   if [[ ! -s "${UNVERIFIED_MANIFEST}" ]]; then
     echo 0
@@ -37,6 +42,7 @@ unverified_data_count() {
   grep -Evc '^(#|[[:space:]]*$)' "${UNVERIFIED_MANIFEST}" 2>/dev/null || true
 }
 
+# 验证下载脚本是否至少生成了可用 manifest。
 ensure_manifests() {
   # 至少需要 target_files.tsv 存在（证明下载脚本运行过）
   if [[ ! -f "${TARGET_MANIFEST}" ]]; then
@@ -63,6 +69,7 @@ ensure_manifests() {
   fi
 }
 
+# 打印 manifest 头部元信息：release 版本、开始/结束时间、base_url。
 show_manifest_info() {
   log "===== Manifest 信息 ====="
   local release_line started_line finished_line url_line
@@ -80,6 +87,7 @@ show_manifest_info() {
   log "  未 MD5 校验文件数：$(unverified_data_count)"
 }
 
+# 对有官方 MD5 的目标文件做逐文件精确校验。
 verify_md5() {
   log "===== Step 1: MD5 校验（仅校验本次目标集）====="
 
@@ -94,6 +102,7 @@ verify_md5() {
   local failed_list="${LOG_DIR}/md5_failed.txt"
   local missing_list="${LOG_DIR}/md5_missing.txt"
   local md5_report="${LOG_DIR}/md5_detail_report.txt"
+  # 每次验证都重写这 3 个报告，避免和上一次结果混在一起。
   : > "${failed_list}"
   : > "${missing_list}"
   : > "${md5_report}"
@@ -103,6 +112,7 @@ verify_md5() {
   echo "" >> "${md5_report}"
 
   while IFS=$'\t' read -r md5 filepath; do
+    # target_files.tsv 格式是 md5<TAB>relative_path；跳过头部注释和空行。
     [[ -z "${md5:-}" ]] && continue
     [[ "${md5}" == \#* ]] && continue
     [[ -z "${filepath:-}" ]] && continue
@@ -110,6 +120,7 @@ verify_md5() {
     local local_path="${LOCAL_ROOT}/${filepath}"
 
     if [[ ! -f "${local_path}" ]]; then
+      # manifest 中有记录但本地没有文件，说明下载中断或目标目录不一致。
       echo "${filepath}" >> "${missing_list}"
       echo "[MISSING] ${filepath}" >> "${md5_report}"
       echo "  期望 MD5：${md5}" >> "${md5_report}"
@@ -121,6 +132,7 @@ verify_md5() {
     fi
 
     local actual_md5
+    # md5sum 输出格式是 "<md5>  <filename>"，这里只取第一列。
     actual_md5=$(md5sum "${local_path}" | awk '{print $1}')
     if [[ "${actual_md5}" == "${md5}" ]]; then
       ok=$((ok + 1))
@@ -136,6 +148,7 @@ verify_md5() {
       failed=$((failed + 1))
     fi
 
+    # 每 200 个文件打一条进度，避免日志过密。
     if [[ $((total % 200)) -eq 0 ]]; then
       log "  已校验 ${total} 文件（OK=${ok}, 失败=${failed}, 缺失=${missing}）"
     fi
@@ -143,9 +156,11 @@ verify_md5() {
 
   local pass_rate="0.0"
   if [[ ${total} -gt 0 ]]; then
+    # 用 awk 计算百分比，避免 Bash 整数除法丢失小数。
     pass_rate=$(awk -v ok="${ok}" -v total="${total}" 'BEGIN{printf "%.1f", ok*100/total}')
   fi
 
+  # 把摘要追加到 md5_detail_report.txt 尾部，方便只看一个文件就能判断结果。
   {
     echo "========== MD5 校验摘要 =========="
     echo "目标总计：${total}"
@@ -178,12 +193,14 @@ verify_md5() {
   log "  缺失：${missing}（详见 ${md5_report}）"
   log "  通过率：${pass_rate}%"
 
+  # 只要有失败/缺失，返回非 0；主流程会继续做其他检查并在最终报告中汇总。
   if [[ ${total} -eq 0 || ${failed} -gt 0 || ${missing} -gt 0 ]]; then
     return 1
   fi
   return 0
 }
 
+# 对没有官方 MD5 的文件做 gzip CRC 校验；这不是强校验，但能发现截断/损坏 gzip。
 verify_unverified_files() {
   log "===== Step 1b: 无 MD5 文件 gzip CRC 校验 ====="
 
@@ -194,6 +211,7 @@ verify_unverified_files() {
 
   local total=0 ok=0 failed=0 missing=0 unsafe=0
   local report="${LOG_DIR}/unverified_detail_report.txt"
+  # 重写 gzip CRC 报告，避免历史结果干扰本轮判断。
   : > "${report}"
 
   echo "========== 无 MD5 文件 gzip CRC 校验报告 ==========" > "${report}"
@@ -201,11 +219,13 @@ verify_unverified_files() {
   echo "" >> "${report}"
 
   while IFS=$'\t' read -r filepath reason; do
+    # unverified_files.tsv 格式是 relative_path<TAB>reason。
     [[ -z "${filepath:-}" ]] && continue
     [[ "${filepath}" == \#* ]] && continue
     [[ -z "${reason:-}" ]] && reason="NO_MD5_IN_CATALOG"
 
     total=$((total + 1))
+    # 防止 manifest 中出现绝对路径或 ../，避免验证脚本读到 LOCAL_ROOT 外部文件。
     if [[ "${filepath}" == /* || "${filepath}" == "../"* || "${filepath}" == *"/../"* || "${filepath}" == *"/.." ]]; then
       unsafe=$((unsafe + 1))
       echo "[UNSAFE] ${filepath}" >> "${report}"
@@ -216,6 +236,7 @@ verify_unverified_files() {
 
     local local_path="${LOCAL_ROOT}/${filepath}"
     if [[ ! -f "${local_path}" ]]; then
+      # 没有 MD5 的文件也必须存在；不存在就说明下载不完整。
       missing=$((missing + 1))
       echo "[MISSING] ${filepath}" >> "${report}"
       echo "  原因：${reason}" >> "${report}"
@@ -224,6 +245,7 @@ verify_unverified_files() {
       continue
     fi
 
+    # gzip -t 只检查压缩流完整性和 CRC，不解压落盘。
     if gzip -t "${local_path}" 2>> "${report}"; then
       ok=$((ok + 1))
       echo "[OK] ${filepath}" >> "${report}"
@@ -240,21 +262,25 @@ verify_unverified_files() {
   log "  缺失：${missing}（详见 ${report}）"
   log "  不安全路径：${unsafe}（详见 ${report}）"
 
+  # 无 MD5 文件中只要有损坏、缺失或不安全路径，就让该步骤失败。
   if [[ ${failed} -gt 0 || ${missing} -gt 0 || ${unsafe} -gt 0 ]]; then
     return 1
   fi
   return 0
 }
 
+# 输出各目录、各文件类型的数量矩阵，用于快速发现某类文件是否明显缺失。
 verify_file_count() {
   log "===== Step 2: 文件数量统计（按目录 × 类型）====="
 
+  # 和下载脚本的目标目录保持一致；complete 单独附加。
   local dirs=(
     bacteria archaea fungi plant invertebrate protozoa
     vertebrate_mammalian vertebrate_other viral
     mitochondrion plasmid plastid other complete
   )
 
+  # 统计这些后缀的文件数；bna.gz 主要用于 complete 目录。
   local types=(
     "genomic.fna.gz"
     "genomic.gbff.gz"
@@ -277,12 +303,14 @@ verify_file_count() {
 
     for d in "${dirs[@]}"; do
       local dir_path="${LOCAL_ROOT}/${d}"
+      # 如果某目录不存在，说明下载脚本没有创建或没有跑到该阶段，统计时跳过。
       [[ ! -d "${dir_path}" ]] && continue
 
       local row_total=0
       printf "%-25s" "${d}"
       for t in "${types[@]}"; do
         local count
+        # find 只在当前目录内按文件名后缀计数，不解析文件内容。
         count=$(find "${dir_path}" -name "*.${t}" 2>/dev/null | wc -l)
         printf "%14s" "${count}"
         row_total=$((row_total + count))
@@ -292,9 +320,11 @@ verify_file_count() {
   } | tee -a "${VERIFY_LOG}"
 }
 
+# 每个目录抽样前 3 个 genomic.fna.gz，粗略检查 FASTA 是否可读、序列数是否正常。
 count_sequences_sample() {
   log "===== Step 3: 序列数采样（每目录前 3 个 genomic.fna.gz）====="
 
+  # complete 不参与 genomic.fna.gz 采样，因为这里只想看分类目录的基因组 FASTA。
   local dirs=(
     bacteria archaea fungi plant invertebrate protozoa
     vertebrate_mammalian vertebrate_other viral
@@ -306,6 +336,7 @@ count_sequences_sample() {
     [[ ! -d "${dir_path}" ]] && continue
 
     local files
+    # sort -V 按版本号自然排序，head -3 只取少量样本，避免全量 zcat 太慢。
     files=$(find "${dir_path}" -name "*.genomic.fna.gz" | sort -V | head -3)
     [[ -z "${files}" ]] && continue
 
@@ -318,6 +349,7 @@ count_sequences_sample() {
         log "    $(basename "${f}"): [WARN] gzip 损坏（CRC 校验失败），${fsize}"
         continue
       fi
+      # FASTA 中每条序列头以 > 开头，因此 grep -c "^>" 可估算序列条数。
       seq_count=$(zcat "${f}" 2>/dev/null | grep -c "^>" || true)
       fsize=$(du -h "${f}" | awk '{print $1}')
       log "    $(basename "${f}"): ${seq_count} 序列, ${fsize}"
@@ -325,6 +357,7 @@ count_sequences_sample() {
   done
 }
 
+# 汇总 LOCAL_ROOT 总占用和每个分类目录占用，用于判断下载规模。
 disk_usage_summary() {
   log "===== Step 4: 磁盘使用汇总 ====="
   local total_size
@@ -342,6 +375,7 @@ disk_usage_summary() {
   done
 }
 
+# 生成最终报告文件，把前面各步骤结果合并成一个可读摘要。
 generate_final_report() {
   local md5_result="$1"
   local unverified_result="${2:-PASS}"
@@ -391,6 +425,7 @@ generate_final_report() {
     echo "=============================================="
   } > "${REPORT_FILE}"
 
+  # 最终报告既保存到文件，也追加到 verify.log。
   log ""
   log "========== 验证总结 =========="
   cat "${REPORT_FILE}" | tee -a "${VERIFY_LOG}"
@@ -398,6 +433,7 @@ generate_final_report() {
   log "完整报告已保存：${REPORT_FILE}"
 }
 
+# 主流程入口：manifest 检查 -> MD5/gzip 校验 -> 数量/采样/空间统计 -> 最终报告。
 main() {
   log "========== RefSeq 目标集完整性验证 =========="
   log "根目录：${LOCAL_ROOT}"
@@ -411,13 +447,16 @@ main() {
   local target_data_count
   target_data_count=$(manifest_data_count)
   if [[ "${target_data_count}" -eq 0 ]]; then
+    # 没有 MD5 目标行时不算失败，因为可能所有目标都落入 unverified 清单。
     md5_status="SKIP"
     log "  跳过 MD5 校验（target_files.tsv 无数据行）"
   else
+    # verify_md5 失败后不立刻退出；继续跑后续检查，最后统一给报告。
     verify_md5 || md5_status="FAIL"
   fi
 
   local unverified_status="PASS"
+  # 无 MD5 文件也不在这里中断，先记录状态，最终统一 exit。
   verify_unverified_files || unverified_status="FAIL"
 
   verify_file_count

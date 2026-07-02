@@ -143,7 +143,7 @@ df -h /data
 编辑 `download_refseq_truly_full.sh`：
 
 ```bash
-LOCAL_ROOT="/data3/m252701008/refseq_release"   # 改成服务器上的实际存储路径
+LOCAL_ROOT="/data3/p252701008/refseq_release"   # 改成服务器上的实际存储路径
 ```
 
 ### 4.3 启动下载
@@ -187,7 +187,7 @@ echo $! > download_resume.pid
 ### 5.1 Shell 串行验证（完整）
 
 ```bash
-bash ./verify_refseq_truly_full.sh /data3/m252701008/refseq_release
+bash ./verify_refseq_truly_full.sh /data3/p252701008/refseq_release
 ```
 
 验证流程：
@@ -216,7 +216,7 @@ bash ./verify_refseq_truly_full.sh /data3/m252701008/refseq_release
 ### 5.2 Python 并行 MD5 验证（仅 target_files.tsv）
 
 ```bash
-python3 ./verify_md5_parallel.py /data3/m252701008/refseq_release
+python3 ./verify_md5_parallel.py /data3/p252701008/refseq_release
 ```
 
 注意：Python 并行脚本**只校验 target_files.tsv**（有 MD5 的文件），不覆盖 unverified_files.tsv。对 unverified 文件的 gzip CRC 校验需使用 Shell 串行验证脚本。
@@ -224,7 +224,7 @@ python3 ./verify_md5_parallel.py /data3/m252701008/refseq_release
 调整并行进程数：
 
 ```bash
-MD5_WORKERS=16 python3 ./verify_md5_parallel.py /data3/m252701008/refseq_release
+MD5_WORKERS=16 python3 ./verify_md5_parallel.py /data3/p252701008/refseq_release
 ```
 
 ---
