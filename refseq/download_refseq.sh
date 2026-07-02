@@ -32,11 +32,11 @@ DOWNLOAD_AUXILIARY=1
 # ARIA2_CONNECTIONS：单个服务器最大连接数，对应 aria2c --max-connection-per-server。
 ARIA2_CONNECTIONS=4
 # ARIA2_MAX_CONCURRENT：同时下载的文件数，对应 aria2c --max-concurrent-downloads。
-ARIA2_MAX_CONCURRENT=6
+ARIA2_MAX_CONCURRENT=10
 # ARIA2_SPLIT：单个文件最多切片数，对应 aria2c --split。
 ARIA2_SPLIT=4
 # ARIA2_MIN_SPLIT_SIZE：启用切片的最小文件大小，对应 aria2c --min-split-size。
-ARIA2_MIN_SPLIT_SIZE="128M"
+ARIA2_MIN_SPLIT_SIZE="64M"
 # ARIA2_SUMMARY_INTERVAL：aria2c 控制台进度汇总间隔，单位秒。
 ARIA2_SUMMARY_INTERVAL=120
 
