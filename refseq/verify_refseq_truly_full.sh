@@ -59,7 +59,16 @@ die() {
 # 判断 manifest 中的相对路径是否安全，避免访问 LOCAL_ROOT 外的文件。
 is_safe_relpath() {
   local relpath="$1"
-  [[ "${relpath}" != /* && "${relpath}" != "../"* && "${relpath}" != *"/../"* && "${relpath}" != *"/.." ]]
+  [[ -n "${relpath}" && "${relpath}" != "." && "${relpath}" != ".." && "${relpath}" != /* && "${relpath}" != "../"* && "${relpath}" != *"/../"* && "${relpath}" != *"/.." ]]
+}
+
+# 判断已存在的本地文件解析符号链接后是否仍位于 LOCAL_ROOT 内。
+is_within_local_root() {
+  local local_path="$1"
+  local root_real path_real
+  root_real=$(readlink -f -- "${LOCAL_ROOT}" 2>/dev/null) || return 1
+  path_real=$(readlink -f -- "${local_path}" 2>/dev/null) || return 1
+  [[ "${path_real}" == "${root_real}"/* ]]
 }
 
 # 从 target_files_<RUN_ID>.tsv 文件名解析 RUN_ID。
@@ -203,7 +212,6 @@ verify_md5() {
     # target_files_<RUN_ID>.tsv 格式是 md5<TAB>relative_path；跳过头部注释和空行。
     [[ -z "${md5:-}" ]] && continue
     [[ "${md5}" == \#* ]] && continue
-    [[ -z "${filepath:-}" ]] && continue
     total=$((total + 1))
 
     if ! is_safe_relpath "${filepath}"; then
@@ -225,6 +233,18 @@ verify_md5() {
       echo "  原因：文件不存在（可能未下载或下载中断）" >> "${md5_report}"
       echo "" >> "${md5_report}"
       missing=$((missing + 1))
+      continue
+    fi
+
+    if ! is_within_local_root "${local_path}"; then
+      local actual_path
+      actual_path=$(readlink -f -- "${local_path}" 2>/dev/null || printf '<无法解析>')
+      unsafe=$((unsafe + 1))
+      echo "[UNSAFE] ${filepath}" >> "${md5_report}"
+      echo "  原因：本地文件解析符号链接后位于 LOCAL_ROOT 之外" >> "${md5_report}"
+      echo "  本地路径：${local_path}" >> "${md5_report}"
+      echo "  实际路径：${actual_path}" >> "${md5_report}"
+      echo "" >> "${md5_report}"
       continue
     fi
 
@@ -345,6 +365,18 @@ verify_unverified_files() {
       echo "[MISSING] ${filepath}" >> "${report}"
       echo "  原因：${reason}" >> "${report}"
       echo "  本地路径：${local_path}" >> "${report}"
+      echo "" >> "${report}"
+      continue
+    fi
+
+    if ! is_within_local_root "${local_path}"; then
+      local actual_path
+      actual_path=$(readlink -f -- "${local_path}" 2>/dev/null || printf '<无法解析>')
+      unsafe=$((unsafe + 1))
+      echo "[UNSAFE] ${filepath}" >> "${report}"
+      echo "  原因：本地文件解析符号链接后位于 LOCAL_ROOT 之外" >> "${report}"
+      echo "  本地路径：${local_path}" >> "${report}"
+      echo "  实际路径：${actual_path}" >> "${report}"
       echo "" >> "${report}"
       continue
     fi
@@ -473,8 +505,13 @@ count_sequences_sample() {
 # 汇总 LOCAL_ROOT 总占用和每个分类目录占用，用于判断下载规模。
 disk_usage_summary() {
   log "===== Step 4: 磁盘使用汇总 ====="
+  if [[ ! -d "${LOCAL_ROOT}" ]]; then
+    log "  [WARN] LOCAL_ROOT 不存在，跳过磁盘使用统计：${LOCAL_ROOT}"
+    return 0
+  fi
   local total_size
-  total_size=$(du -sh "${LOCAL_ROOT}" 2>/dev/null | awk '{print $1}')
+  total_size=$(du -sh "${LOCAL_ROOT}" 2>/dev/null | awk '{print $1}' || true)
+  [[ -n "${total_size}" ]] || total_size="<无法统计>"
   log "  总占用：${total_size}"
 
   for d in bacteria archaea fungi plant invertebrate protozoa \
@@ -484,7 +521,8 @@ disk_usage_summary() {
     local dir_path="${LOCAL_ROOT}/${d}"
     [[ ! -d "${dir_path}" ]] && continue
     local size
-    size=$(du -sh "${dir_path}" 2>/dev/null | awk '{print $1}')
+    size=$(du -sh "${dir_path}" 2>/dev/null | awk '{print $1}' || true)
+    [[ -n "${size}" ]] || size="<无法统计>"
     log "    ${d}: ${size}"
   done
 }
@@ -527,16 +565,27 @@ generate_final_report() {
     echo ""
     echo "日志文件："
     echo "  验证日志：      ${VERIFY_LOG}"
-    echo "  MD5 详情：      ${LOG_DIR}/md5_detail_report_${RUN_ID}.txt"
-    echo "  MD5 失败：      ${LOG_DIR}/md5_failed_${RUN_ID}.txt"
-    echo "  MD5 缺失：      ${LOG_DIR}/md5_missing_${RUN_ID}.txt"
+    if [[ "${md5_result}" == "SKIP" ]]; then
+      echo "  MD5 详情：      未生成（MD5 校验跳过）"
+      echo "  MD5 失败：      未生成（MD5 校验跳过）"
+      echo "  MD5 缺失：      未生成（MD5 校验跳过）"
+    else
+      echo "  MD5 详情：      ${LOG_DIR}/md5_detail_report_${RUN_ID}.txt"
+      echo "  MD5 失败：      ${LOG_DIR}/md5_failed_${RUN_ID}.txt"
+      echo "  MD5 缺失：      ${LOG_DIR}/md5_missing_${RUN_ID}.txt"
+    fi
     echo "  无官方 MD5 详情：${LOG_DIR}/unverified_detail_report_${RUN_ID}.txt"
     echo ""
     if [[ "${md5_result}" == "FAIL" || "${unverified_result}" != "PASS" ]]; then
       echo "处理建议："
-      echo "  1. 检查 ${LOG_DIR}/md5_detail_report_${RUN_ID}.txt 和 ${LOG_DIR}/unverified_detail_report_${RUN_ID}.txt"
-      echo "  2. MD5 不匹配或缺失的文件：重跑 download_refseq.sh，依赖 aria2 续传和脚本内完整性跳过"
-      echo "  3. 无官方 MD5 文件弱校验失败时，优先重跑 download_refseq.sh 补齐"
+      if [[ "${md5_result}" == "FAIL" ]]; then
+        echo "  - 检查 ${LOG_DIR}/md5_detail_report_${RUN_ID}.txt"
+        echo "  - MD5 不匹配或缺失的文件：重跑 download_refseq.sh，依赖 aria2 续传和脚本内完整性跳过"
+      fi
+      if [[ "${unverified_result}" != "PASS" ]]; then
+        echo "  - 检查 ${LOG_DIR}/unverified_detail_report_${RUN_ID}.txt"
+        echo "  - 无官方 MD5 文件弱校验失败时，优先重跑 download_refseq.sh 补齐"
+      fi
     fi
     echo ""
     echo "=============================================="

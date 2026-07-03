@@ -132,7 +132,7 @@ release-catalog/release235.files.installed
 | 官方 MD5 manifest | `manifests/target_files_<RUN_ID>.tsv` | `md5<TAB>relative_path` |
 | 无官方 MD5 manifest | `manifests/unverified_files_<RUN_ID>.tsv` | `relative_path<TAB>reason` |
 | md5sum 校验文件 | `manifests/md5_check_<RUN_ID>.txt` | 供 `md5sum --check` 使用 |
-| 状态文件 | `state_<RUN_ID>.tsv` | complete/taxon/auxiliary 三组最终状态 |
+| 状态文件 | `state_<RUN_ID>.tsv` | 已启用 aria2 下载分组的下载状态；早期失败时可能为空，不代表最终 MD5/弱校验状态 |
 | 下载日志 | `logs/download_<RUN_ID>.log` | 主流程日志 |
 | aria2 日志 | `logs/aria2_<group>_<RUN_ID>.log` | aria2 详细日志 |
 
@@ -178,7 +178,9 @@ sudo apt-get update
 sudo apt-get install -y aria2 curl gawk grep coreutils gzip tmux
 ```
 
-磁盘空间：压缩文件建议预留 1.5 TB；含解压和中间处理建议预留 6 TB。
+`ShellCheck` 只用于可选静态检查；未安装不影响下载脚本执行。下载脚本强制依赖的是 `curl`、`aria2c`、`awk`、`sort`、`md5sum`。
+
+磁盘空间：脚本默认 `MIN_DISK_GB=2000`，因此压缩文件下载目录至少需要预留 2000 GB；含解压和中间处理建议预留 6 TB。若确实要低于 2000 GB 运行，需要编辑 `download_refseq.sh` 顶部的 `MIN_DISK_GB`。
 
 ```bash
 df -h /data
@@ -207,7 +209,7 @@ echo $! > download.pid
 tail -f nohup_download.log
 ```
 
-推荐 aria2 初始参数：
+推荐 aria2 初始参数。当前脚本顶部是直接赋值，调整参数需要编辑 `download_refseq.sh` 顶部配置；运行前在 shell 里临时设置同名环境变量不会覆盖这些值。
 
 ```bash
 ARIA2_CONNECTIONS=4
@@ -377,7 +379,7 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 
 - 脚本**不使用 `rm`、`rm -rf`** 等删除命令
 - 下载前识别出的异常本地旧文件不删除，只移入 `${RUN_ROOT}/垃圾箱/`
-- 下载后校验和复核脚本发现的问题只写报告并返回非零退出码，不自动移动文件
+- 主下载脚本的下载后校验发现问题时写入错误日志并返回非零退出码；复核脚本会生成详细报告。两者都不在下载后自动移动文件
 - 垃圾箱内文件名带异常原因、`RUN_ID` 和原相对路径，不会覆盖
 - `LOCAL_ROOT` 只保存 RefSeq release 镜像内容，不写运行日志和 manifest
 - 需手动清理垃圾箱时，由用户确认后操作

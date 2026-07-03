@@ -43,8 +43,21 @@ def compute_md5(filepath: Path, chunk_size: int = CHUNK_SIZE) -> str:
 
 def is_safe_relative_path(rel_path: str) -> bool:
     """确认 manifest 中的路径不能是绝对路径，也不能包含 ..。"""
+    if not rel_path or rel_path == ".":
+        return False
     rel = Path(rel_path)
     return not rel.is_absolute() and ".." not in rel.parts
+
+
+def is_within_local_root(local_root: Path, local_path: Path) -> bool:
+    """确认文件解析符号链接后仍位于 LOCAL_ROOT 内。"""
+    try:
+        root_real = local_root.resolve(strict=True)
+        path_real = local_path.resolve(strict=True)
+        path_real.relative_to(root_real)
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 def check_one(args: tuple[str, str, str]) -> tuple[str, str, str, str]:
@@ -53,9 +66,12 @@ def check_one(args: tuple[str, str, str]) -> tuple[str, str, str, str]:
     if not is_safe_relative_path(rel_path):
         return (rel_path, "ERROR", expected_md5, "unsafe relative path")
 
-    local_path = Path(local_root) / rel_path
+    local_root_path = Path(local_root)
+    local_path = local_root_path / rel_path
     if not local_path.exists():
         return (rel_path, "MISSING", expected_md5, "")
+    if not is_within_local_root(local_root_path, local_path):
+        return (rel_path, "ERROR", expected_md5, "path resolves outside local_root")
 
     try:
         actual = compute_md5(local_path)
@@ -112,6 +128,8 @@ def load_manifest(target_manifest: Path, local_root: Path) -> list[tuple[str, st
             expected_md5, rel_path = parts
             if not MD5_RE.match(expected_md5):
                 raise ValueError(f"manifest 第 {line_no} 行 MD5 格式错误: {expected_md5!r}")
+            if not rel_path:
+                raise ValueError(f"manifest 第 {line_no} 行 relative_path 为空")
             if not is_safe_relative_path(rel_path):
                 raise ValueError(f"manifest 第 {line_no} 行包含不安全相对路径: {rel_path!r}")
 
@@ -155,9 +173,20 @@ def validate_target_manifest_metadata(path: Path, header: dict[str, str]) -> Non
     if not (path.name.startswith("target_files_") and path.name.endswith(".tsv")):
         raise ValueError(f"manifest 文件名必须匹配 target_files_<RUN_ID>.tsv：{path}")
 
+    required_keys = ("release", "base_url", "local_root", "run_id", "columns")
+    missing = [key for key in required_keys if not header.get(key)]
+    if missing:
+        missing_text = ", ".join(f"# {key}" for key in missing)
+        raise ValueError(f"manifest 缺少 download_refseq.sh 生成的头信息：{missing_text}")
+
+    file_run_id = path.name[len("target_files_") : -len(".tsv")]
+    if header["run_id"] != file_run_id:
+        raise ValueError(
+            "manifest run_id 与文件名不一致："
+            f"header run_id={header['run_id']!r}, 文件名 run_id={file_run_id!r}"
+        )
+
     columns = header.get("columns")
-    if columns is None:
-        raise ValueError(f"manifest 缺少 '# columns\\tmd5\\trelative_path' 头信息：{path}")
     if columns.split() != ["md5", "relative_path"]:
         raise ValueError(
             "manifest columns 必须是 'md5<TAB>relative_path'，"
