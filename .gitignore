@@ -3,5 +3,7 @@
 .codex/
 .workbuddy/
 .agents/
+__pycache__/
+trash/
 *.tsv
 ncbi_sra_reports/

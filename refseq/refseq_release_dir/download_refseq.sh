@@ -58,7 +58,7 @@ MIN_DISK_GB=2000
 # RUN_ROOT：运行日志、下载计划、manifest、临时文件的根目录。
 RUN_ROOT="/data3/p252701008/refseq_release_runlogs"
 # TRASH_DIR：异常本地文件的隔离目录；脚本不删除文件，只移动到这里。
-TRASH_DIR="${RUN_ROOT}/垃圾箱"
+TRASH_DIR="${RUN_ROOT}/trash"
 
 # RefSeq release 物种/分类目录。complete 与辅助目录不在这里。
 # TAXON_DIRS：需要递归镜像的 RefSeq 物种/分类目录列表。
@@ -257,17 +257,17 @@ validate_config() {
   fi
 }
 
-# 将校验失败或无法确认完整性的本地文件移入垃圾箱，避免覆盖前丢失原文件。
+# 将校验失败或无法确认完整性的本地文件移入 trash，避免覆盖前丢失原文件。
 move_to_trash() {
   # path：需要隔离的本地文件路径。
   local path="$1"
-  # reason：隔离原因，会作为垃圾箱文件名前缀。
+  # reason：隔离原因，会作为 trash 文件名前缀。
   local reason="$2"
   # rel_label：由本地相对路径转换出的安全文件名片段。
   local rel_label
-  # dest：垃圾箱中的最终目标路径。
+  # dest：trash 中的最终目标路径。
   local dest
-  # suffix：当垃圾箱目标名已存在时追加的递增后缀。
+  # suffix：当 trash 目标名已存在时追加的递增后缀。
   local suffix=1
 
   [[ -e "${path}" ]] || return 0
@@ -279,7 +279,7 @@ move_to_trash() {
     suffix=$((suffix + 1))
   done
   mv -- "${path}" "${dest}"
-  log "已将异常本地文件移入垃圾箱：${path} -> ${dest}"
+  log "已将异常本地文件移入 trash：${path} -> ${dest}"
 }
 
 # 读取远端文件的 Content-Length，用于无官方 MD5 文件的大小校验。
@@ -685,7 +685,7 @@ verify_md5_if_enabled() {
   fi
 }
 
-# 判断本地已有文件是否完整；完整则跳过，异常则移入垃圾箱并允许重下。
+# 判断本地已有文件是否完整；完整则跳过，异常则移入 trash 并允许重下。
 existing_file_is_complete() {
   # relpath：目标文件相对 BASE_URL 的路径。
   local relpath="$1"

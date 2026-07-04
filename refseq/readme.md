@@ -2,6 +2,10 @@
 
 RefSeq 侧的目标是提供基因组、物种、菌株层面的标准参照信息，并通过 BioSample、BioProject、TaxID 等字段与 SRA 关联。
 
+Release 目录全量下载与校验流程见：
+
+- `refseq_release_dir/refseq_release_download.md`
+
 ## 1. 数据来源
 
 当前已经固定下载的 RefSeq assembly summary：

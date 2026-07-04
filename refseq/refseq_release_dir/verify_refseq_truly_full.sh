@@ -12,7 +12,7 @@
 # 输出报告：
 #   1. manifest 信息（release、base_url、local_root、run_id）
 #   2. MD5 逐文件校验（不中止，全部跑完）
-#   3. 无官方 MD5 文件 gzip/非空弱校验
+#   3. 无官方 MD5 文件 Content-Length + gzip/非空弱校验
 #   4. 文件数量统计矩阵（按目录 × 类型）
 #   5. 序列数采样
 #   6. 磁盘使用汇总
@@ -29,12 +29,16 @@ RUN_ID="${3:-${RUN_ID:-}}"
 
 # MANIFEST_DIR：download_refseq.sh 输出 target/unverified manifest 的目录。
 MANIFEST_DIR="${RUN_ROOT}/manifests"
+# PLAN_DIR：download_refseq.sh 输出下载计划的位置；无官方 MD5 弱校验需要用计划中的 URL 查远端大小。
+PLAN_DIR="${RUN_ROOT}/plans"
 # LOG_DIR：验证报告输出目录，与下载脚本日志目录保持一致，不污染 LOCAL_ROOT。
 LOG_DIR="${RUN_ROOT}/logs"
 # TARGET_MANIFEST：可用环境变量覆盖；默认由 RUN_ID 或最新文件自动解析。
 TARGET_MANIFEST="${TARGET_MANIFEST:-}"
 # UNVERIFIED_MANIFEST：可用环境变量覆盖；默认与 TARGET_MANIFEST 使用同一 RUN_ID。
 UNVERIFIED_MANIFEST="${UNVERIFIED_MANIFEST:-}"
+# PLAN_FILE：可用环境变量覆盖；默认与 TARGET_MANIFEST 使用同一 RUN_ID。
+PLAN_FILE="${PLAN_FILE:-}"
 # VERIFY_LOG：解析 RUN_ID 后设置为 verify_<RUN_ID>.log。
 VERIFY_LOG=""
 # REPORT_FILE：解析 RUN_ID 后设置为 verify_report_<RUN_ID>.txt。
@@ -54,6 +58,12 @@ log() {
 die() {
   log "[ERROR] $*"
   exit 1
+}
+
+# 检查必需命令是否存在，提前给出清晰错误。
+require_command() {
+  local cmd="$1"
+  command -v "${cmd}" >/dev/null 2>&1 || die "缺少命令：${cmd}。请先安装后重跑脚本。"
 }
 
 # 判断 manifest 中的相对路径是否安全，避免访问 LOCAL_ROOT 外的文件。
@@ -110,9 +120,58 @@ resolve_manifest_paths() {
   fi
   [[ -f "${UNVERIFIED_MANIFEST}" ]] || die "unverified manifest 不存在：${UNVERIFIED_MANIFEST}"
 
+  if [[ -z "${PLAN_FILE}" ]]; then
+    PLAN_FILE="${PLAN_DIR}/download_plan_${RUN_ID}.tsv"
+  fi
+
   VERIFY_LOG="${LOG_DIR}/verify_${RUN_ID}.log"
   REPORT_FILE="${LOG_DIR}/verify_report_${RUN_ID}.txt"
   : > "${VERIFY_LOG}"
+}
+
+# 从 manifest 注释头读取字段值，例如 base_url、local_root、run_id。
+manifest_header_value() {
+  local manifest="$1"
+  local key="$2"
+  awk -v key="${key}" '
+    BEGIN { FS = "\t" }
+    $1 == "# " key { print $2; exit }
+    $0 ~ "^# " key "[[:space:]]+" {
+      sub("^# " key "[[:space:]]+", "", $0)
+      print
+      exit
+    }
+    !/^#/ { exit }
+  ' "${manifest}"
+}
+
+# 从下载计划中查找相对路径对应的 URL；查不到时回退到 manifest base_url 拼接。
+url_for_relpath() {
+  local relpath="$1"
+  local url=""
+  local base_url=""
+
+  if [[ -f "${PLAN_FILE}" ]]; then
+    url=$(awk -F '\t' -v relpath="${relpath}" '
+      $1 !~ /^#/ && $2 == relpath { print $3; exit }
+    ' "${PLAN_FILE}")
+  fi
+
+  if [[ -z "${url}" ]]; then
+    base_url=$(manifest_header_value "${TARGET_MANIFEST}" "base_url" || true)
+    if [[ -n "${base_url}" ]]; then
+      url="${base_url%/}/${relpath}"
+    fi
+  fi
+
+  printf '%s\n' "${url}"
+}
+
+# 读取远端文件的 Content-Length，用于无官方 MD5 文件的大小校验。
+remote_content_length() {
+  local url="$1"
+  curl -fsSI --retry 5 --retry-delay 10 --retry-connrefused --retry-all-errors "${url}" \
+    | awk 'BEGIN{IGNORECASE=1} /^content-length:/ {gsub("\r","",$2); len=$2} END{print len}'
 }
 
 # 统计 target manifest 的数据行数；注释行和空行不算目标文件。
@@ -173,6 +232,7 @@ show_manifest_info() {
 
   log "  target_manifest：${TARGET_MANIFEST}"
   log "  unverified_manifest：${UNVERIFIED_MANIFEST}"
+  log "  download_plan：${PLAN_FILE}"
   log "  run_root：${RUN_ROOT}"
   [[ -n "${release_line}" ]] && log "  ${release_line#\# }"
   [[ -n "${url_line}" ]] && log "  ${url_line#\# }"
@@ -324,7 +384,8 @@ verify_md5() {
   return 0
 }
 
-# 对没有官方 MD5 的文件做弱校验；gzip 文件查 CRC，非 gzip 文件查非空。
+# 对没有官方 MD5 的文件做弱校验；流程与 download_refseq.sh 保持一致：
+# 先核对远端 Content-Length，再对 gzip 文件查 CRC，非 gzip 文件查非空。
 verify_unverified_files() {
   log "===== Step 1b: 无官方 MD5 文件弱校验 ====="
 
@@ -335,6 +396,7 @@ verify_unverified_files() {
 
   local total=0 ok=0 failed=0 missing=0 unsafe=0
   local report="${LOG_DIR}/unverified_detail_report_${RUN_ID}.txt"
+  local warn_no_plan=0
   # 重写 gzip CRC 报告，避免历史结果干扰本轮判断。
   : > "${report}"
 
@@ -359,6 +421,9 @@ verify_unverified_files() {
     fi
 
     local local_path="${LOCAL_ROOT}/${filepath}"
+    local url
+    local local_size
+    local remote_size
     if [[ ! -f "${local_path}" ]]; then
       # 没有 MD5 的文件也必须存在；不存在就说明下载不完整。
       missing=$((missing + 1))
@@ -381,18 +446,56 @@ verify_unverified_files() {
       continue
     fi
 
+    url="$(url_for_relpath "${filepath}")"
+    if [[ -z "${url}" ]]; then
+      failed=$((failed + 1))
+      echo "[FAILED] ${filepath}" >> "${report}"
+      echo "  原因：无法从下载计划或 manifest base_url 解析远端 URL" >> "${report}"
+      echo "" >> "${report}"
+      continue
+    fi
+
+    if [[ ! -f "${PLAN_FILE}" && "${warn_no_plan}" -eq 0 ]]; then
+      log "  [WARN] 下载计划不存在，弱校验将使用 manifest base_url 拼接远端 URL：${PLAN_FILE}"
+      warn_no_plan=1
+    fi
+
+    local_size="$(stat -c '%s' "${local_path}")"
+    remote_size="$(remote_content_length "${url}" || true)"
+    if [[ -z "${remote_size}" || ! "${remote_size}" =~ ^[0-9]+$ ]]; then
+      failed=$((failed + 1))
+      echo "[FAILED] ${filepath}" >> "${report}"
+      echo "  原因：无法获取远端 Content-Length" >> "${report}"
+      echo "  URL：${url}" >> "${report}"
+      echo "" >> "${report}"
+      continue
+    fi
+    if [[ "${local_size}" -ne "${remote_size}" ]]; then
+      failed=$((failed + 1))
+      echo "[FAILED] ${filepath}" >> "${report}"
+      echo "  原因：本地大小与远端 Content-Length 不一致" >> "${report}"
+      echo "  URL：${url}" >> "${report}"
+      echo "  远端大小：${remote_size}" >> "${report}"
+      echo "  本地大小：${local_size}" >> "${report}"
+      echo "" >> "${report}"
+      continue
+    fi
+
     if [[ "${filepath}" == *.gz ]]; then
       # gzip -t 只检查压缩流完整性和 CRC，不解压落盘。
       if gzip -t "${local_path}" 2>> "${report}"; then
         ok=$((ok + 1))
         echo "[OK] ${filepath}" >> "${report}"
+        echo "  大小校验：local=${local_size}, remote=${remote_size}" >> "${report}"
       else
         failed=$((failed + 1))
         echo "[FAILED] ${filepath}" >> "${report}"
+        echo "  原因：gzip CRC 校验失败" >> "${report}"
       fi
     elif [[ -s "${local_path}" ]]; then
       ok=$((ok + 1))
       echo "[OK] ${filepath}" >> "${report}"
+      echo "  大小校验：local=${local_size}, remote=${remote_size}" >> "${report}"
     else
       failed=$((failed + 1))
       echo "[FAILED] ${filepath}" >> "${report}"
@@ -554,7 +657,7 @@ generate_final_report() {
       echo "  [MD5 校验]         存在问题（见 ${LOG_DIR}/md5_detail_report_${RUN_ID}.txt）"
     fi
     if [[ "${unverified_result}" == "PASS" ]]; then
-      echo "  [无官方 MD5 文件]  gzip CRC/非空弱校验通过或无此类文件"
+      echo "  [无官方 MD5 文件]  Content-Length + gzip CRC/非空弱校验通过或无此类文件"
     else
       echo "  [无官方 MD5 文件]  弱校验存在问题（见 ${LOG_DIR}/unverified_detail_report_${RUN_ID}.txt）"
     fi
@@ -601,6 +704,15 @@ generate_final_report() {
 
 # 主流程入口：manifest 检查 -> MD5/gzip 校验 -> 数量/采样/空间统计 -> 最终报告。
 main() {
+  require_command awk
+  require_command curl
+  require_command du
+  require_command gzip
+  require_command md5sum
+  require_command readlink
+  require_command sort
+  require_command zcat
+
   resolve_manifest_paths
 
   log "========== RefSeq 目标集完整性验证 =========="

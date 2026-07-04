@@ -1,6 +1,6 @@
 # RefSeq release 全量下载与校验
 
-> 修订日期：2026-07-02
+> 修订日期：2026-07-04
 > 运行目标：Ubuntu/Linux 服务器
 > 核心设计：远端目录镜像 + aria2 断点续传 + 官方 MD5/弱校验双轨完整性检查
 
@@ -11,8 +11,8 @@
 | 文件 | 用途 |
 |---|---|
 | `download_refseq.sh` | RefSeq release 下载主脚本；严格镜像远端目录结构，负责下载、续传、跳过已完整文件和下载后校验 |
-| `verify_refseq_truly_full.sh` | 综合复核脚本；读取 `RUN_ROOT/manifests` 中的 manifest，执行 MD5、gzip/非空弱校验、文件统计和采样 |
-| `verify_md5_parallel.py` | 并行 MD5 复核脚本；只校验有官方 MD5 的 `target_files_<RUN_ID>.tsv` |
+| `verify_refseq_truly_full.sh` | 可选综合复核脚本；读取 `RUN_ROOT/manifests` 和 `RUN_ROOT/plans`，执行 MD5、Content-Length + gzip/非空弱校验、文件统计和采样 |
+| `verify_md5_parallel.py` | 可选并行 MD5 复核脚本；只校验有官方 MD5 的 `target_files_<RUN_ID>.tsv`，不覆盖无官方 MD5 文件 |
 
 ---
 
@@ -154,10 +154,10 @@ manifest 注释头包含：
 |---|---|
 | 存在 `.aria2` 续传状态 | 不跳过，交给 aria2 继续续传 |
 | 有官方 MD5 且本地 MD5 匹配 | 跳过 |
-| 有官方 MD5 但本地 MD5 不匹配 | 移入 `RUN_ROOT/垃圾箱`，重新下载 |
+| 有官方 MD5 但本地 MD5 不匹配 | 移入 `RUN_ROOT/trash`，重新下载 |
 | 无官方 MD5 且远端大小匹配，gzip 文件 `gzip -t` 通过 | 跳过 |
 | 无官方 MD5 且远端大小匹配，非 gzip 文件非空 | 跳过 |
-| 大小不匹配、gzip CRC 失败、空文件 | 移入 `RUN_ROOT/垃圾箱`，重新下载 |
+| 大小不匹配、gzip CRC 失败、空文件 | 移入 `RUN_ROOT/trash`，重新下载 |
 
 ### 3.4 下载后校验
 
@@ -257,6 +257,18 @@ echo $! > download_resume.pid
 
 因此正常跑完且退出码为 0 时，本轮目标集已经完成一次自动校验。下面两个脚本用于后续复核、补查或并行加速。
 
+实践结论：如果 `download_refseq.sh` 已正常结束，并且日志中同时出现以下两行，就不需要常规再跑两个复核脚本：
+
+```text
+MD5 校验通过...
+无官方 MD5 文件弱校验通过：21 个文件。
+```
+
+| 脚本 | 常规下载后是否必跑 | 适用场景 |
+|---|---|---|
+| `verify_refseq_truly_full.sh` | 否 | 迁移、换盘、怀疑文件被改动、需要独立复核全部目标集 |
+| `verify_md5_parallel.py` | 否 | 只想快速并行复核官方 MD5 文件；不覆盖无官方 MD5 文件 |
+
 ### 5.2 Shell 综合验证
 
 默认自动选择最新 `target_files_<RUN_ID>.tsv`：
@@ -279,7 +291,7 @@ bash ./verify_refseq_truly_full.sh \
 | 步骤 | 内容 |
 |---|---|
 | Step 1 | MD5 逐文件校验 `target_files_<RUN_ID>.tsv`，不中止，全部跑完 |
-| Step 1b | 无官方 MD5 文件弱校验：gzip 文件跑 `gzip -t`，非 gzip 文件检查非空 |
+| Step 1b | 无官方 MD5 文件弱校验：先比对远端 `Content-Length`，再对 gzip 文件跑 `gzip -t`，非 gzip 文件检查非空 |
 | Step 2 | 文件数量统计矩阵（按目录 × 类型） |
 | Step 3 | 序列数采样（每目录前 3 个 `genomic.fna.gz`），含 gzip 损坏检测 |
 | Step 4 | 磁盘使用汇总 |
@@ -316,7 +328,7 @@ python3 ./verify_md5_parallel.py \
   --manifest /data3/p252701008/refseq_release_runlogs/manifests/target_files_20260702T132418Z.1820503.tsv
 ```
 
-注意：Python 并行脚本只校验有官方 MD5 的文件，不覆盖 `unverified_files_<RUN_ID>.tsv`。无官方 MD5 文件仍用 Shell 综合验证脚本复核。
+注意：Python 并行脚本只是官方 MD5 的可选重复复核。`download_refseq.sh` 正常结束时已经做过官方 MD5 总校验；该脚本不覆盖 `unverified_files_<RUN_ID>.tsv`。无官方 MD5 文件需要独立复核时，用 Shell 综合验证脚本执行 `Content-Length + gzip/非空弱校验`。
 
 调整并行进程数：
 
@@ -338,8 +350,8 @@ MD5_WORKERS=16 python3 ./verify_md5_parallel.py
 | manifest 生成失败 | exit 1 | 具体 manifest 路径和错误描述 |
 | aria2c 下载失败 | 当前分组记 `FAILED`，主流程最终 exit 1 | 退出码 + 含义、aria2 日志路径、异常摘录 |
 | 文件无官方 MD5 条目 | 写入 `unverified_files_<RUN_ID>.tsv`，继续下载 | 文件路径、原因 |
-| 本地已有文件 MD5 不匹配 | 移入 `RUN_ROOT/垃圾箱` 后重新下载 | expected/actual MD5 |
-| 本地已有文件大小或 gzip CRC 异常 | 移入 `RUN_ROOT/垃圾箱` 后重新下载 | 远端大小、本地大小或 gzip 错误 |
+| 本地已有文件 MD5 不匹配 | 移入 `RUN_ROOT/trash` 后重新下载 | expected/actual MD5 |
+| 本地已有文件大小或 gzip CRC 异常 | 移入 `RUN_ROOT/trash` 后重新下载 | 远端大小、本地大小或 gzip 错误 |
 
 aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` 为准，错误日志会额外摘录 `error/failed/exception/abort/timeout/403/404/503` 等关键行。
 
@@ -359,6 +371,7 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 | `unverified_files_<RUN_ID>.tsv` 不存在 | exit 1，提示检查 `RUN_ROOT/RUN_ID` |
 | MD5 不匹配 | 记录到 `md5_failed_<RUN_ID>.txt` + `md5_detail_report_<RUN_ID>.txt`，继续校验 |
 | 目标文件缺失 | 记录到 `md5_missing_<RUN_ID>.txt`，继续校验 |
+| 无官方 MD5 文件远端大小不一致 | 记录到 `unverified_detail_report_<RUN_ID>.txt`，继续校验 |
 | gzip CRC 失败（无官方 MD5） | 记录到 `unverified_detail_report_<RUN_ID>.txt`，继续校验 |
 | 非 gzip 无官方 MD5 文件为空 | 记录到 `unverified_detail_report_<RUN_ID>.txt`，继续校验 |
 | 序列采样遇到 gzip 损坏 | 显示 `[WARN] gzip 损坏`，跳过序列计数 |
@@ -368,7 +381,7 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 
 | 异常类型 | 修复方法 |
 |---|---|
-| MD5 不匹配 | 重跑 `download_refseq.sh`；脚本会识别异常文件并移入 `RUN_ROOT/垃圾箱` |
+| MD5 不匹配 | 重跑 `download_refseq.sh`；脚本会识别异常文件并移入 `RUN_ROOT/trash` |
 | 目标文件缺失 | 直接重跑下载脚本补齐 |
 | gzip CRC 失败 | 重跑 `download_refseq.sh`；脚本会重新下载无法确认完整性的文件 |
 | 分组 `FAILED` | 降低并发或等待远端恢复后重跑下载脚本 |
@@ -378,11 +391,11 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 ## 7. 文件安全策略
 
 - 脚本**不使用 `rm`、`rm -rf`** 等删除命令
-- 下载前识别出的异常本地旧文件不删除，只移入 `${RUN_ROOT}/垃圾箱/`
+- 下载前识别出的异常本地旧文件不删除，只移入 `${RUN_ROOT}/trash/`
 - 主下载脚本的下载后校验发现问题时写入错误日志并返回非零退出码；复核脚本会生成详细报告。两者都不在下载后自动移动文件
-- 垃圾箱内文件名带异常原因、`RUN_ID` 和原相对路径，不会覆盖
+- `trash` 内文件名带异常原因、`RUN_ID` 和原相对路径，不会覆盖
 - `LOCAL_ROOT` 只保存 RefSeq release 镜像内容，不写运行日志和 manifest
-- 需手动清理垃圾箱时，由用户确认后操作
+- 需手动清理 `trash` 时，由用户确认后操作
 
 ---
 
@@ -397,7 +410,7 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 | 辅助信息 | 下载核心 release catalog、官方 MD5 清单和 `release-statistics/` 顶层文件；跳过 `archive/` |
 | 大 catalog 下载 | `RefSeq-release235.catalog.gz` 走 aria2 |
 | 官方 MD5 | 用于跳过、aria2 checksum、下载后强校验 |
-| 无官方 MD5 文件 | 正常下载，写入 `unverified_files_<RUN_ID>.tsv`，用大小 + gzip/非空弱校验 |
+| 无官方 MD5 文件 | 正常下载，写入 `unverified_files_<RUN_ID>.tsv`，用 Content-Length + gzip/非空弱校验 |
 | 断点续传 | `.aria2` 存在时不跳过，继续交给 aria2 |
-| 异常文件 | 下载前完整性检查发现的异常旧文件不删除，移动到 `RUN_ROOT/垃圾箱`；下载后校验/复核阶段只报告问题 |
-| 复核脚本 | `verify_refseq_truly_full.sh` 自动发现最新 manifest；`verify_md5_parallel.py` 并行复核官方 MD5 |
+| 异常文件 | 下载前完整性检查发现的异常旧文件不删除，移动到 `RUN_ROOT/trash`；下载后校验/复核阶段只报告问题 |
+| 复核脚本 | 均为可选；`verify_refseq_truly_full.sh` 自动发现最新 manifest，执行 MD5 + Content-Length/gzip/非空综合复核；`verify_md5_parallel.py` 只并行复核官方 MD5 |

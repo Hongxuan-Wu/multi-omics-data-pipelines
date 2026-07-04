@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-RefSeq 官方 MD5 并行校验脚本。
+RefSeq 官方 MD5 并行复核脚本。
 
 默认读取 download_refseq.sh 在 RUN_ROOT/manifests 下生成的最新
 target_files_<RUN_ID>.tsv，只校验有官方 MD5 的文件。没有官方 MD5 的文件
-仍需要用 verify_refseq_truly_full.sh 做 gzip/非空弱校验。
+不在本脚本覆盖范围内，仍需要用 verify_refseq_truly_full.sh 做
+Content-Length + gzip/非空弱校验。
+
+download_refseq.sh 正常结束时已经执行官方 MD5 总校验。本脚本主要用于
+迁移、审计或需要重复并行复核官方 MD5 的场景，不是日常下载完成后的必跑步骤。
 
 常用用法：
     python3 verify_md5_parallel.py
@@ -266,7 +270,7 @@ def main() -> int:
 
     if not tasks:
         print(f"[ERROR] 目标 manifest 没有 MD5 数据行：{target_manifest}")
-        print("        若本轮只下载无官方 MD5 文件，请使用 verify_refseq_truly_full.sh 做弱校验。")
+        print("        若本轮只下载无官方 MD5 文件，请使用 verify_refseq_truly_full.sh 做 Content-Length + gzip/非空弱校验。")
         return 1
 
     print("Manifest 信息：")
@@ -279,6 +283,7 @@ def main() -> int:
             print(f"  {key}: {header[key]}")
     print()
 
+    print("说明：这是可选复核；download_refseq.sh 正常结束时已执行过官方 MD5 总校验。")
     print(f"共 {len(tasks)} 个官方 MD5 文件待校验，启动 {workers} 个进程...")
     stats = {"OK": 0, "FAILED": 0, "MISSING": 0, "ERROR": 0}
     failed_lines: list[str] = []
@@ -307,7 +312,7 @@ def main() -> int:
         failed_file.parent.mkdir(parents=True, exist_ok=True)
         failed_file.write_text("\n".join(failed_lines) + "\n", encoding="utf-8")
         print(f"失败/缺失列表：{failed_file}")
-        print("处理建议：确认没有 .aria2 续传文件后，重跑 download_refseq.sh；异常旧文件会由下载脚本移入垃圾箱。")
+        print("处理建议：确认没有 .aria2 续传文件后，重跑 download_refseq.sh；异常旧文件会由下载脚本移入 trash。")
         return 1
 
     return 0
