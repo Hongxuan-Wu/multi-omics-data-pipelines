@@ -44,6 +44,7 @@ ERR_LOG="${LOG_DIR}/error_${RUN_ID}.log"
 PLAN_FILE="${PLAN_DIR}/download_plan_${RUN_ID}.tsv"
 ARIA_INPUT="${PLAN_DIR}/aria_${DB_NAME}_${RUN_ID}.txt"
 DIFF_REPORT="${MANIFEST_DIR}/diff_report_${RUN_ID}.tsv"
+REMOTE_LISTING_MANIFEST="${MANIFEST_DIR}/remote_listing_${RUN_ID}.tsv"
 
 common_init_dirs
 
@@ -96,13 +97,18 @@ collect_root() {
         [[ -n "${child_url}" ]] || continue
         if [[ "${href}" == */ ]]; then
           if [[ "${depth}" -lt "${max_depth}" ]]; then
+            printf '%s\t%s\t%s\tno\tdirectory_queued\n' "${current%/}/" "${href}" "${child_url%/}/" >> "${REMOTE_LISTING_MANIFEST}"
             printf '%s\t%s\n' "${child_url%/}" "$((depth + 1))" >> "${next_queue}"
+          else
+            printf '%s\t%s\t%s\tno\tdirectory_depth_limit\n' "${current%/}/" "${href}" "${child_url%/}/" >> "${REMOTE_LISTING_MANIFEST}"
           fi
         else
           relpath="${group}/${child_url#${root_url%/}/}"
           if [[ "${relpath}" =~ ${include_regex} ]]; then
+            printf '%s\t%s\t%s\tyes\tincluded_by_include_regex\n' "${current%/}/" "${href}" "${child_url}" >> "${REMOTE_LISTING_MANIFEST}"
             append_plan_record "${group}" "${relpath}" "${child_url}"
           else
+            printf '%s\t%s\t%s\tno\texcluded_by_include_regex\n' "${current%/}/" "${href}" "${child_url}" >> "${REMOTE_LISTING_MANIFEST}"
             printf 'listing_vs_plan\tREMOTE_NOT_SELECTED\t%s\n' "${child_url}" >> "${DIFF_REPORT}"
           fi
         fi
@@ -115,8 +121,10 @@ collect_root() {
 build_download_plan() {
   : > "${PLAN_FILE}"
   : > "${DIFF_REPORT}"
+  : > "${REMOTE_LISTING_MANIFEST}"
   printf '# group\trelative_path\turl\tlocal_dir\tout_name\n' >> "${PLAN_FILE}"
   printf '# check\tstatus\tdetail\n' >> "${DIFF_REPORT}"
+  printf '# listing_url\thref\tchild_url\tselected_for_plan\tnote\n' >> "${REMOTE_LISTING_MANIFEST}"
   local rec group root_url max_depth include_regex
   for rec in "${ROOT_RECORDS[@]}"; do
     IFS='|' read -r group root_url max_depth include_regex <<< "${rec}"
@@ -173,6 +181,7 @@ main() {
   log "========== ${DB_NAME} ${RELEASE} 下载流程结束 =========="
   log "下载计划：${PLAN_FILE}"
   log "差异报告：${DIFF_REPORT}"
+  log "远端 listing manifest：${REMOTE_LISTING_MANIFEST}"
 }
 
 main "$@"

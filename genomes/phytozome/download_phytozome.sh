@@ -11,7 +11,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../common/common.sh"
+COMMON_SH="${SCRIPT_DIR}/../common/common.sh"
+source "${COMMON_SH}"
 common_require_version "1.0"
 
 ENV_FILE="${SCRIPT_DIR}/../.env"
@@ -49,6 +50,7 @@ ERR_LOG="${LOG_DIR}/error_${RUN_ID}.log"
 PLAN_FILE="${PLAN_DIR}/download_plan_${RUN_ID}.tsv"
 DIFF_REPORT="${MANIFEST_DIR}/diff_report_${RUN_ID}.tsv"
 CANDIDATE_FROZEN_MANIFEST="${MANIFEST_DIR}/candidate_frozen_file_manifest_${RUN_ID}.tsv"
+CANDIDATE_ONLY=0
 
 common_init_dirs
 
@@ -83,12 +85,37 @@ append_jgi_plan_record() {
     "${organism}" "${relpath}" "${file_id}" "${download_url}" "${LOCAL_ROOT}/${organism}" "${out_name}" "${md5}" "${file_size}" "${role}" >> "${PLAN_FILE}"
 }
 
+validate_jgi_manifest_record() {
+  local source_label="$1"
+  local organism="$2"
+  local file_id="$3"
+  local file_name="$4"
+  local file_size="$5"
+  local md5="$6"
+  local download_url="$7"
+
+  [[ -n "${organism}" ]] || die "${source_label} 行字段错误：organism 为空。"
+  [[ -n "${file_id}" ]] || die "${source_label} 行字段错误：file_id 为空，organism=${organism}。"
+  [[ -n "${file_name}" ]] || die "${source_label} 行字段错误：file_name 为空，organism=${organism} file_id=${file_id}。"
+  [[ -z "${file_size}" || "${file_size}" =~ ^[0-9]+$ ]] || die "${source_label} 行字段错误：file_size 必须为空或数字，organism=${organism} file_id=${file_id} value=${file_size}。"
+  [[ -z "${md5}" || "${md5}" =~ ^[0-9A-Fa-f]{32}$ ]] || die "${source_label} 行字段错误：md5 必须为空或 32 位 hex，organism=${organism} file_id=${file_id}。"
+  case "${download_url}" in
+    http://*|https://*) ;;
+    *) die "${source_label} 行字段错误：download_url 必须是 http(s) URL，organism=${organism} file_id=${file_id}。" ;;
+  esac
+}
+
 load_frozen_manifest_if_present() {
   [[ -s "${FROZEN_MANIFEST}" ]] || return 1
   log "使用冻结 JGI manifest：${FROZEN_MANIFEST}"
-  local organism file_id file_name file_size md5 download_url
-  while IFS=$'\t' read -r organism file_id file_name file_size md5 download_url; do
-    [[ -n "${organism}" && "${organism}" != \#* ]] || continue
+  local line parsed organism file_id file_name file_size md5 download_url extra
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    [[ -n "${line}" && "${line}" != \#* ]] || continue
+    parsed="${line//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r organism file_id file_name file_size md5 download_url extra <<< "${parsed}"
+    [[ -z "${extra:-}" ]] || die "冻结 manifest 行字段错误：列数超过 6，organism=${organism:-unknown}。"
+    validate_jgi_manifest_record "冻结 manifest" "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
     append_jgi_plan_record "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
   done < "${FROZEN_MANIFEST}"
   return 0
@@ -111,9 +138,10 @@ build_download_plan() {
   fi
 
   [[ "${ALLOW_LIVE_MANIFEST}" == "1" ]] || die "缺少冻结 manifest：${FROZEN_MANIFEST}。如需用 JGI live API 生成候选清单，请临时设置 ALLOW_LIVE_MANIFEST=1。"
+  CANDIDATE_ONLY=1
   log "未找到冻结 manifest，将从 JGI live API 生成候选清单：${CANDIDATE_FROZEN_MANIFEST}"
 
-  local organism query_url json file_id file_name file_status md5 file_size download_json download_url encoded_organism
+  local organism query_url json file_id file_name file_status md5 file_size download_json download_url encoded_organism file_line parsed extra
   while IFS= read -r organism; do
     [[ -n "${organism}" && "${organism}" != \#* ]] || continue
     encoded_organism="$(urlencode "${organism}")"
@@ -129,7 +157,14 @@ build_download_plan() {
       .. | objects
       | select((.file_id? != null) and ((.file_name? // .filename? // "") != ""))
       | [.file_id, (.file_name // .filename), (.file_status // "unknown"), (.md5sum // .md5 // ""), (.file_size // .size // "")] | @tsv
-    ' "${json}" | while IFS=$'\t' read -r file_id file_name file_status md5 file_size; do
+    ' "${json}" | while IFS= read -r file_line; do
+        file_line="${file_line%$'\r'}"
+        parsed="${file_line//$'\t'/$'\x1f'}"
+        IFS=$'\x1f' read -r file_id file_name file_status md5 file_size extra <<< "${parsed}"
+        [[ -z "${extra:-}" ]] || {
+          printf 'api_file_list\tSKIPPED_BAD_FIELD_COUNT\t%s\n' "${file_line}" >> "${DIFF_REPORT}"
+          continue
+        }
         case "${file_name}" in
           *gff3.gz|*gff.gz|*protein*.fa.gz|*proteins*.fa.gz|*cds*.fa.gz|*CDS*.fa.gz|*cazy*|*CAZy*|*smurf*|*SMURF*|*annotation*|*Annotation*)
             [[ "${file_status}" == "available" || "${file_status}" == "published" || "${file_status}" == "active" || "${file_status}" == "unknown" ]] || {
@@ -149,17 +184,25 @@ build_download_plan() {
               printf 'download_api\tNO_DOWNLOAD_URL\t%s\t%s\n' "${file_id}" "${file_name}" >> "${DIFF_REPORT}"
               continue
             fi
+            if [[ -n "${file_size}" && ! "${file_size}" =~ ^[0-9]+$ ]]; then
+              printf 'api_file_size\tINVALID_AS_EMPTY\t%s\t%s\t%s\n' "${organism}" "${file_id}" "${file_size}" >> "${DIFF_REPORT}"
+              file_size=""
+            fi
+            if [[ -n "${md5}" && ! "${md5}" =~ ^[0-9A-Fa-f]{32}$ ]]; then
+              printf 'api_md5\tINVALID_AS_EMPTY\t%s\t%s\t%s\n' "${organism}" "${file_id}" "${md5}" >> "${DIFF_REPORT}"
+              md5=""
+            fi
+            validate_jgi_manifest_record "JGI live candidate" "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
             printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}" >> "${CANDIDATE_FROZEN_MANIFEST}"
-            append_jgi_plan_record "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
             ;;
         esac
       done
   done < "${SPECIES_LIST}"
 
   local count
-  count=$(grep -Evc '^(#|[[:space:]]*$)' "${PLAN_FILE}" || true)
-  [[ "${count}" -gt 0 ]] || die "JGI 下载计划为空。请检查 species_ids.txt 或 JGI API 返回格式。"
-  log "下载计划生成完成：${PLAN_FILE}，文件数 ${count}"
+  count=$(grep -Evc '^(#|[[:space:]]*$)' "${CANDIDATE_FROZEN_MANIFEST}" || true)
+  [[ "${count}" -gt 0 ]] || die "JGI live API 未生成候选 frozen manifest 记录。请检查 species_ids.txt 或 JGI API 返回格式。"
+  log "候选 frozen manifest 生成完成：${CANDIDATE_FROZEN_MANIFEST}，文件数 ${count}。请人工审核后复制为 ${FROZEN_MANIFEST} 再执行正式下载。"
 }
 
 download_one() {
@@ -173,18 +216,22 @@ download_one() {
   fi
 }
 export -f download_one
-export JGI_USER JGI_PASS TRASH_DIR RUN_ID LOCAL_ROOT DL_LOG ERR_LOG
+export JGI_USER JGI_PASS TRASH_DIR RUN_ID LOCAL_ROOT DL_LOG ERR_LOG COMMON_SH
 
 run_parallel_downloads() {
   local queue_file="${TMP_DIR}/download_queue_${RUN_ID}.nul"
-  local organism relpath file_id url local_dir out_name md5 file_size role local_file count=0 skipped=0
+  local line parsed extra organism relpath file_id url local_dir out_name md5 file_size role local_file count=0 skipped=0
   check_disk_space
   : > "${queue_file}"
-  while IFS=$'\t' read -r organism relpath file_id url local_dir out_name md5 file_size role; do
-    [[ "${organism}" == "# organism" ]] && continue
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    [[ -n "${line}" && "${line}" != \#* ]] || continue
+    parsed="${line//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r organism relpath file_id url local_dir out_name md5 file_size role extra <<< "${parsed}"
+    [[ -z "${extra:-}" ]] || die "下载计划行字段错误：列数超过 9，relpath=${relpath:-unknown}。"
     mkdir -p "${local_dir}"
     local_file="${local_dir}/${out_name}"
-    if existing_file_is_complete "${relpath}" "${url}" "${local_file}" "${md5}"; then
+    if existing_file_is_complete "${relpath}" "${url}" "${local_file}" "${md5}" "${file_size}"; then
       skipped=$((skipped + 1))
       continue
     fi
@@ -192,14 +239,18 @@ run_parallel_downloads() {
     count=$((count + 1))
   done < "${PLAN_FILE}"
   log "JGI 下载队列：需下载 ${count} 个，已跳过 ${skipped} 个。"
-  xargs -0 -r -n 3 -P "${PARALLEL_DOWNLOADS}" bash -c 'download_one "$0" "$1" "$2"' < "${queue_file}"
+  xargs -0 -r -n 3 -P "${PARALLEL_DOWNLOADS}" bash -c 'source "${COMMON_SH}"; download_one "$0" "$1" "$2"' < "${queue_file}"
 }
 
 verify_after_download() {
   [[ "${VERIFY_AFTER_DOWNLOAD}" == "1" ]] || return 0
-  local organism relpath file_id url local_dir out_name md5 file_size role local_file local_size failed=0
-  while IFS=$'\t' read -r organism relpath file_id url local_dir out_name md5 file_size role; do
-    [[ "${organism}" == "# organism" ]] && continue
+  local line parsed extra organism relpath file_id url local_dir out_name md5 file_size role local_file local_size failed=0
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    [[ -n "${line}" && "${line}" != \#* ]] || continue
+    parsed="${line//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r organism relpath file_id url local_dir out_name md5 file_size role extra <<< "${parsed}"
+    [[ -z "${extra:-}" ]] || die "下载计划行字段错误：列数超过 9，relpath=${relpath:-unknown}。"
     local_file="${local_dir}/${out_name}"
     if [[ -n "${md5}" ]]; then
       if ! (cd "${LOCAL_ROOT}" && printf '%s  %s\n' "${md5}" "${relpath}" | md5sum --check --quiet); then
@@ -235,6 +286,10 @@ main() {
   validate_config
   log "========== ${DB_NAME} ${RELEASE} 下载开始 =========="
   build_download_plan
+  if [[ "${CANDIDATE_ONLY}" == "1" ]]; then
+    log "live candidate 模式只生成候选 manifest，不执行下载；正式下载必须提供 ${FROZEN_MANIFEST}。"
+    return 0
+  fi
   run_parallel_downloads
   verify_after_download
   log "========== ${DB_NAME} ${RELEASE} 下载流程结束 =========="

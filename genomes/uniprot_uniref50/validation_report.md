@@ -18,3 +18,9 @@
 | 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
 | 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
 | 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+
+## 3. Group A 复修记录（2026-07-07）
+
+- 已修复：移除 `download_uniprot_uniref50.sh` 中 `RELEASE.metalink` 解析的 gawk-only `match(..., array)`，改为 POSIX awk 的 `sub`/`length`/正则判断。
+- 静态复查：未发现残留 `match($0, ..., array)`、`, a)`、`, h)` 或 `--ignore-missing`。
+- 待验证：本机 `bash.exe`/WSL 无法启动脚本语法检查，仍需在目标 Linux 服务器执行 `bash -n genomes/uniprot_uniref50/download_uniprot_uniref50.sh`；本轮未运行真实下载。

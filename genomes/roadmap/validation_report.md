@@ -2,19 +2,25 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本报告为 Group D 修复后的库内校验记录。Roadmap 已明确收窄为 `metadata + ChromHMM coreMarks final` 子集，不再声称完整覆盖 Roadmap byFileType。脚本补充对应 remote listing URL，并清理非 Roadmap checksum 泛化残留逻辑。未运行真实下载。
 
-## 2. 流程验收
+## 2. 修复项
 
-| 序号 | 步骤 | 状态 | 验收标准 | 结论 |
-|---:|---|---|---|---|
-| 1 | 下载方案撰写 | 已完成 | 写明 API/FTP 判断、固定版本、manifest、metadata、校验策略 | 阻断项已修复；未执行真实下载 |
-| 2 | 方案完整性校验 | 已整合子智能体反馈 | 覆盖入口、版本、metadata、差异报告与复跑策略 | 阻断项已修复；未执行真实下载 |
-| 3 | 方案合理性校验 | 已整合子智能体反馈 | 优先 API；无合适 API 时使用固定 FTP/HTTPS/release 目录 | 阻断项已修复；未执行真实下载 |
-| 4 | 下载脚本撰写 | 已完成 | 独立脚本、source common.sh、Linux 命令、USE_PROXY=0 | 阻断项已修复；未执行真实下载 |
-| 5 | 脚本流程性校验 | 已完成静态校验 | plan/report 在 download 前生成，download 后 verify | 阻断项已修复；未执行真实下载 |
-| 6 | 脚本文本错误校验 | 已完成静态校验 | 修复已发现的路径、版本、manifest 与注释不一致问题 | 阻断项已修复；未执行真实下载 |
-| 7 | 脚本鲁棒性校验 | 已完成静态校验 | 断点续传、并行控制、失败报错、异常文件移入 trash | 阻断项已修复；未执行真实下载 |
-| 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
-| 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
-| 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+| finding | 状态 | 证据 |
+|---|---|---|
+| Important-3：静态 byFileType 覆盖和差异报告能力偏弱 | 已修复 | `download_roadmap.sh` 标题、`RELEASE` 和方案均收窄为 subset；`REMOTE_LISTING_URLS` 指向 metadata 与 coreMarks final。 |
+| Minor-2：非 Roadmap checksum 泛化残留注释/死逻辑 | 已修复 | 已移除外部 release XML 版本断言、XML hash 解析和对应 diff 分支。 |
+
+## 3. 流程验收
+
+| 校验项 | 状态 | 结论 |
+|---|---|---|
+| 脚本流程性 | 通过 | checksum/listing、plan、manifest/diff、aria2、校验顺序完整。 |
+| 脚本文本 | 通过 | 文档和脚本标题均限定为 ChromHMM coreMarks + metadata subset。 |
+| 鲁棒性 | 通过 | 无官方 MD5 时记录 `PLANNED_WITHOUT_MD5` 并执行弱校验；失败进入 `move_to_trash`。 |
+| 方案一致性 | 通过 | `download_scheme.md` 已同步 subset 范围与 remote listing URL。 |
+| 完整性 | 通过 | `download_scheme.md`、`download_roadmap.sh`、`validation_report.md` 齐全。 |
+
+## 4. 未执行项
+
+未运行真实下载；`bash -n` 结果见本轮总修复报告。

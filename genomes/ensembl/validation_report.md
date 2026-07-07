@@ -2,19 +2,16 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本轮追加修复 Ensembl CHECKSUMS 策略：当前 release 的 `CHECKSUMS` 不等同于 MD5 manifest；GTF 仅在解析到真实 32 hex MD5 时使用官方 MD5 强校验，无官方 MD5 时不阻断计划生成，下载后走 `gzip -t` 或非空弱校验，并写入审计 manifest。未运行真实下载。
 
 ## 2. 流程验收
 
-| 序号 | 步骤 | 状态 | 验收标准 | 结论 |
-|---:|---|---|---|---|
-| 1 | 下载方案撰写 | 已完成 | 写明 API/FTP 判断、固定版本、manifest、metadata、校验策略 | 阻断项已修复；未执行真实下载 |
-| 2 | 方案完整性校验 | 已整合子智能体反馈 | 覆盖入口、版本、metadata、差异报告与复跑策略 | 阻断项已修复；未执行真实下载 |
-| 3 | 方案合理性校验 | 已整合子智能体反馈 | 优先 API；无合适 API 时使用固定 FTP/HTTPS/release 目录 | 阻断项已修复；未执行真实下载 |
-| 4 | 下载脚本撰写 | 已完成 | 独立脚本、source common.sh、Linux 命令、USE_PROXY=0 | 阻断项已修复；未执行真实下载 |
-| 5 | 脚本流程性校验 | 已完成静态校验 | plan/report 在 download 前生成，download 后 verify | 阻断项已修复；未执行真实下载 |
-| 6 | 脚本文本错误校验 | 已完成静态校验 | 修复已发现的路径、版本、manifest 与注释不一致问题 | 阻断项已修复；未执行真实下载 |
-| 7 | 脚本鲁棒性校验 | 已完成静态校验 | 断点续传、并行控制、失败报错、异常文件移入 trash | 阻断项已修复；未执行真实下载 |
-| 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
-| 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
-| 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+| 序号 | 步骤 | 状态 | 结论 |
+|---:|---|---|---|
+| 1 | 固定版本与入口 | 已完成 | Ensembl 116 / Ensembl Genomes 63 固定入口不变 |
+| 2 | manifest/listing | 已修复 | FTP listing、species metadata 与每个 species 目录 CHECKSUMS 纳入计划/manifest |
+| 3 | 空计划保护 | 已修复 | 总计划为 0 或 GTF payload 为 0 时 `die` |
+| 4 | 差异报告 | 已修复 | division 根 listing、species listing、CHECKSUMS 缺失/不可读、GTF 无官方 MD5 均写入 `DIFF_REPORT` |
+| 5 | aria2 checksum | 已修复 | 只有解析到真实 32 hex MD5 的目标写入 `checksum=md5=...`；无官方 MD5 的 GTF 继续写入下载计划但不写 checksum 行 |
+| 6 | 下载后校验 | 已修复 | GTF 有官方 MD5 时执行 `md5sum --check`；无官方 MD5 时执行 `weak_verify_file`，即 gzip 文件 `gzip -t`、非 gzip 文件非空校验；metadata/CHECKSUMS 同样走 weak policy |
+| 7 | 静态语法检查 | 待目标环境确认 | 本机未完成 Bash 语法解析；需在 Linux 服务器执行 `bash -n genomes/ensembl/download_ensembl.sh` |

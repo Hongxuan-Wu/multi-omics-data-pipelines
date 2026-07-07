@@ -76,9 +76,21 @@ build_download_plan() {
   printf '# accession\trelative_path\turl\tlocal_dir\tout_name\tmd5\n' >> "${PLAN_FILE}"
   printf '# check\tstatus\tdetail\n' >> "${DIFF_REPORT}"
   build_api_manifest
-  jq -r --arg host "${ENCODE_HOST}" '
-    [.accession, (.href // ""), (.md5sum // ""), (.assembly[0] // .assembly // "unknown"), (.file_format // "unknown")] | @tsv
-  ' "${API_JSON}" | sort -u | while IFS=$'\t' read -r accession href md5 assembly fmt; do
+  local api_tsv="${TMP_DIR}/encode_api_records_${RUN_ID}.tsv"
+  local missing_md5=0
+  jq -r '
+    def normalized_assembly:
+      (.assembly // null) as $assembly
+      | if ($assembly | type) == "array" then
+          (($assembly[0] // "unknown") | if . == "" then "unknown" else . end)
+        elif ($assembly | type) == "string" then
+          (if $assembly == "" then "unknown" else $assembly end)
+        else
+          "unknown"
+        end;
+    [.accession, (.href // ""), (.md5sum // ""), normalized_assembly, (.file_format // "unknown")] | @tsv
+  ' "${API_JSON}" | sort -u > "${api_tsv}"
+  while IFS=$'\t' read -r accession href md5 assembly fmt; do
     [[ -n "${accession}" && -n "${href}" ]] || continue
     out_name="${accession}.${fmt}"
     case "${href}" in
@@ -87,13 +99,15 @@ build_download_plan() {
       *.bigBed) out_name="${accession}.bigBed" ;;
     esac
     relpath="${assembly}/${fmt}/${out_name}"
-    printf '%s\t%s\t%s%s\t%s/%s/%s\t%s\t%s\n' "${accession}" "${relpath}" "${host}" "${href}" "${LOCAL_ROOT}" "${assembly}" "${fmt}" "${out_name}" "${md5}" >> "${PLAN_FILE}"
-    if [[ -n "${md5}" ]]; then
-      MD5_MAP["${relpath}"]="${md5}"
-    else
-      printf 'api_manifest\tNO_MD5\t%s\n' "${accession}" >> "${DIFF_REPORT}"
+    if [[ -z "${md5}" ]]; then
+      printf 'api_manifest\tNO_MD5_EXCLUDED\t%s\t%s\n' "${accession}" "${href}" >> "${DIFF_REPORT}"
+      missing_md5=1
+      continue
     fi
-  done
+    printf '%s\t%s\t%s%s\t%s/%s/%s\t%s\t%s\n' "${accession}" "${relpath}" "${ENCODE_HOST}" "${href}" "${LOCAL_ROOT}" "${assembly}" "${fmt}" "${out_name}" "${md5}" >> "${PLAN_FILE}"
+    MD5_MAP["${relpath}"]="${md5}"
+  done < "${api_tsv}"
+  [[ "${missing_md5}" -eq 0 ]] || die "ENCODE API manifest 存在缺失 md5sum 的记录；已写入差异报告并排除下载计划：${DIFF_REPORT}"
   local planned_count
   planned_count=$(grep -Evc '^(#|[[:space:]]*$)' "${PLAN_FILE}" || true)
   [[ "${planned_count}" -gt 0 ]] || die "ENCODE 下载计划为空。请检查 API 查询条件或 FREEZE_DATE。"
@@ -105,6 +119,10 @@ write_aria_input() {
   local accession relpath url local_dir out_name md5 local_file count=0 skipped=0
   while IFS=$'\t' read -r accession relpath url local_dir out_name md5; do
     [[ "${accession}" == "# accession" ]] && continue
+    if [[ -z "${md5}" ]]; then
+      printf 'aria_input\tMISSING_MD5_BLOCKED\t%s\n' "${accession}" >> "${DIFF_REPORT}"
+      die "ENCODE 下载计划包含缺失 md5sum 的记录：${accession}。差异报告：${DIFF_REPORT}"
+    fi
     mkdir -p "${local_dir}"
     local_file="${local_dir}/${out_name}"
     if existing_file_is_complete "${relpath}" "${url}" "${local_file}" "${md5}"; then
@@ -123,14 +141,15 @@ verify_after_download() {
   local accession relpath url local_dir out_name md5 failed=0
   while IFS=$'\t' read -r accession relpath url local_dir out_name md5; do
     [[ "${accession}" == "# accession" ]] && continue
-    if [[ -n "${md5}" ]]; then
-      if ! (cd "${LOCAL_ROOT}" && printf '%s  %s\n' "${md5}" "${relpath}" | md5sum --check --quiet); then
-        errlog "ENCODE MD5 校验失败：${relpath}"
-        move_to_trash "${local_dir}/${out_name}" "encode_md5_failed"
-        failed=1
-      fi
-    else
-      weak_verify_file "${local_dir}/${out_name}" "${relpath}" || failed=1
+    if [[ -z "${md5}" ]]; then
+      printf 'verify\tMISSING_MD5_BLOCKED\t%s\n' "${relpath}" >> "${DIFF_REPORT}"
+      failed=1
+      continue
+    fi
+    if ! (cd "${LOCAL_ROOT}" && printf '%s  %s\n' "${md5}" "${relpath}" | md5sum --check --quiet); then
+      errlog "ENCODE MD5 校验失败：${relpath}"
+      move_to_trash "${local_dir}/${out_name}" "encode_md5_failed"
+      failed=1
     fi
   done < "${PLAN_FILE}"
   [[ "${failed}" -eq 0 ]] || die "ENCODE 至少一个文件 MD5 校验失败。"

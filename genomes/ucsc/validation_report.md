@@ -2,19 +2,16 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本轮已修复 Group B 指出的 UCSC Critical/Important 项：去除 GNU awk 三参数 `match(..., array)` 依赖；`CHECKSUM_REQUIRED=1` 时未声明 weak policy 的计划目标缺 MD5 会失败；phastCons bigWig 明确为无官方 MD5 的弱校验目标；freeze 表述改为 static target freeze with live official md5 audit。未运行真实下载。
 
 ## 2. 流程验收
 
-| 序号 | 步骤 | 状态 | 验收标准 | 结论 |
-|---:|---|---|---|---|
-| 1 | 下载方案撰写 | 已完成 | 写明 API/FTP 判断、固定版本、manifest、metadata、校验策略 | 阻断项已修复；未执行真实下载 |
-| 2 | 方案完整性校验 | 已整合子智能体反馈 | 覆盖入口、版本、metadata、差异报告与复跑策略 | 阻断项已修复；未执行真实下载 |
-| 3 | 方案合理性校验 | 已整合子智能体反馈 | 优先 API；无合适 API 时使用固定 FTP/HTTPS/release 目录 | 阻断项已修复；未执行真实下载 |
-| 4 | 下载脚本撰写 | 已完成 | 独立脚本、source common.sh、Linux 命令、USE_PROXY=0 | 阻断项已修复；未执行真实下载 |
-| 5 | 脚本流程性校验 | 已完成静态校验 | plan/report 在 download 前生成，download 后 verify | 阻断项已修复；未执行真实下载 |
-| 6 | 脚本文本错误校验 | 已完成静态校验 | 修复已发现的路径、版本、manifest 与注释不一致问题 | 阻断项已修复；未执行真实下载 |
-| 7 | 脚本鲁棒性校验 | 已完成静态校验 | 断点续传、并行控制、失败报错、异常文件移入 trash | 阻断项已修复；未执行真实下载 |
-| 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
-| 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
-| 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+| 序号 | 步骤 | 状态 | 结论 |
+|---:|---|---|---|
+| 1 | 固定版本与入口 | 已修复 | `RELEASE` 改为 `hg38_mm39_static_targets_2026-07-07_live_md5_audit` |
+| 2 | freeze 语义 | 已修复 | 脚本固定 TARGET_RECORDS，运行时拉取 live official md5sum 审计，不再暗示远端内容完整冻结 |
+| 3 | awk 兼容性 | 已修复 | metalink 解析改为 POSIX awk/sed 风格，不要求 gawk |
+| 4 | bigZips 强校验 | 已完成 | bigZips 目标必须匹配官方 MD5 并写入 aria2 checksum |
+| 5 | phastCons policy | 已修复 | hg38 phastCons100way 与 mm39 phastCons60way 显式记录 `EXPLICIT_WEAK_POLICY` 并执行非空弱校验 |
+| 6 | 缺 MD5 处理 | 已修复 | 未声明 weak policy 的计划目标缺 MD5 时失败 |
+| 7 | 静态语法检查 | 待目标环境确认 | 本机未完成 Bash 语法解析；需在 Linux 服务器执行 `bash -n genomes/ucsc/download_ucsc.sh` |

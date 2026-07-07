@@ -5,6 +5,8 @@
 .agents/
 __pycache__/
 trash/
-*.tsv
 ncbi_sra_reports/
 .env
+gcf_inventory.tsv
+assembly_summary_refseq.txt
+assembly_summary_genbank.txt

@@ -198,9 +198,19 @@ load_md5_map() {
     MD5_MAP["${path##*/}"]="${md5}"
     count=$((count + 1))
   done < <(awk '
-    match($0, /<file name="([^"]+)"/, a) {name=a[1]}
-    match($0, /<hash type="md5">([0-9a-fA-F]{32})<\/hash>/, h) && name != "" {
-      print h[1] "\t" name
+    /<file name="/ {
+      line=$0
+      sub(/^.*<file name="/, "", line)
+      sub(/".*$/, "", line)
+      name=line
+    }
+    /<hash type="md5">/ && name != "" {
+      line=$0
+      sub(/^.*<hash type="md5">/, "", line)
+      sub(/<\/hash>.*$/, "", line)
+      if (length(line) == 32 && line ~ /^[0-9a-fA-F]+$/) {
+        print line "\t" name
+      }
     }
   ' "${CHECKSUM_FILE}")
   log "MD5 映射加载完成：${count} 条。"
@@ -255,7 +265,14 @@ write_manifests_and_diff() {
       if ! awk -F'\t' -v p="${path}" -v b="${path##*/}" '($2==p || $5==b){found=1} END{exit found?0:1}' "${PLAN_FILE}"; then
         printf 'metalink_vs_plan\tCHECKSUM_NOT_PLANNED\t%s\n' "${path}" >> "${DIFF_REPORT}"
       fi
-    done < <(awk 'match($0, /<file name="([^"]+)"/, a) {print a[1]}' "${CHECKSUM_FILE}")
+    done < <(awk '
+      /<file name="/ {
+        line=$0
+        sub(/^.*<file name="/, "", line)
+        sub(/".*$/, "", line)
+        if (line != "") print line
+      }
+    ' "${CHECKSUM_FILE}")
   fi
 
   if [[ -s "${REMOTE_LISTING_MANIFEST}" ]]; then

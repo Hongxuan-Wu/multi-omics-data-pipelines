@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Roadmap Epigenomics track downloader
+# Roadmap Epigenomics ChromHMM coreMarks + metadata subset downloader
 #
 # 目标：
-#   1. 锁定固定版本，不使用 latest/current 作为数据版本。
-#   2. 先生成下载计划和差异报告，再执行下载。
-#   3. metadata 与序列/注释文件同等优先级。
+#   1. 锁定 Roadmap 2015 static tracks 中的 metadata + ChromHMM coreMarks final 子集。
+#   2. 先生成 subset 下载计划、remote listing manifest 和差异报告，再执行下载。
+#   3. metadata 与 ChromHMM coreMarks 文件同等优先级。
 #   4. 有官方 MD5 时强校验；没有官方 MD5 时执行 gzip -t 或非空弱校验。
 # =============================================================================
 set -euo pipefail
@@ -17,7 +17,7 @@ common_require_version "1.0"
 
 # ==================== 用户配置 ====================
 DB_NAME="roadmap"
-RELEASE="Roadmap_Epigenomics_freeze_2015_static_tracks"
+RELEASE="Roadmap_Epigenomics_2015_metadata_chromhmm_coreMarks_subset"
 LOCAL_ROOT="/data3/p252701008/genomes/roadmap"
 RUN_ROOT="/data3/p252701008/genomes/roadmap_runlogs"
 USE_PROXY=0
@@ -36,9 +36,9 @@ CHECKSUM_URLS=(
 
 )
 CHECKSUM_REQUIRED=0
-EXPECTED_METALINK_VERSION=""
 REMOTE_LISTING_URLS=(
-
+  "https://egg2.wustl.edu/roadmap/data/metadata"
+  "https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final"
 )
 
 # group | relative_path | url | role
@@ -169,12 +169,6 @@ download_official_checksums() {
     fi
   done
 
-  if [[ -n "${EXPECTED_METALINK_VERSION}" ]]; then
-    if ! grep -q "<version>${EXPECTED_METALINK_VERSION}</version>" "${CHECKSUM_FILE}"; then
-      die "RELEASE.metalink 版本不匹配：expected=${EXPECTED_METALINK_VERSION}。远端入口可能已经漂移，请改用归档 URL 或更新 RELEASE。"
-    fi
-    log "RELEASE.metalink 版本断言通过：${EXPECTED_METALINK_VERSION}"
-  fi
 }
 
 load_md5_map() {
@@ -189,19 +183,6 @@ load_md5_map() {
     MD5_MAP["${clean_path##*/}"]="${md5}"
     count=$((count + 1))
   done < "${CHECKSUM_FILE}"
-
-  # 兼容 UniProt RELEASE.metalink：同一 <file name="..."> 块内包含 <hash type="md5">。
-  while IFS=$'\t' read -r md5 path; do
-    [[ -n "${md5:-}" && -n "${path:-}" ]] || continue
-    MD5_MAP["${path}"]="${md5}"
-    MD5_MAP["${path##*/}"]="${md5}"
-    count=$((count + 1))
-  done < <(awk '
-    match($0, /<file name="([^"]+)"/, a) {name=a[1]}
-    match($0, /<hash type="md5">([0-9a-fA-F]{32})<\/hash>/, h) && name != "" {
-      print h[1] "\t" name
-    }
-  ' "${CHECKSUM_FILE}")
   log "MD5 映射加载完成：${count} 条。"
 }
 
@@ -247,14 +228,6 @@ write_manifests_and_diff() {
         printf 'checksum_vs_plan\tCHECKSUM_NOT_PLANNED\t%s\n' "${path}" >> "${DIFF_REPORT}"
       fi
     done < "${CHECKSUM_FILE}"
-
-    # 兼容 UniProt RELEASE.metalink：报告 metalink 中有 checksum 但脚本未纳入计划的文件。
-    while IFS= read -r path; do
-      [[ -n "${path:-}" ]] || continue
-      if ! awk -F'\t' -v p="${path}" -v b="${path##*/}" '($2==p || $5==b){found=1} END{exit found?0:1}' "${PLAN_FILE}"; then
-        printf 'metalink_vs_plan\tCHECKSUM_NOT_PLANNED\t%s\n' "${path}" >> "${DIFF_REPORT}"
-      fi
-    done < <(awk 'match($0, /<file name="([^"]+)"/, a) {print a[1]}' "${CHECKSUM_FILE}")
   fi
 
   if [[ -s "${REMOTE_LISTING_MANIFEST}" ]]; then

@@ -195,16 +195,25 @@ load_md5_map() {
     count=$((count + 1))
   done < "${CHECKSUM_FILE}"
 
-  # 兼容 UniProt RELEASE.metalink：同一 <file name="..."> 块内包含 <hash type="md5">。
+  # 兼容 metalink checksum 格式：同一 <file name="..."> 块内包含 <hash type="md5">。
   while IFS=$'\t' read -r md5 path; do
     [[ -n "${md5:-}" && -n "${path:-}" ]] || continue
     MD5_MAP["${path}"]="${md5}"
     MD5_MAP["${path##*/}"]="${md5}"
     count=$((count + 1))
   done < <(awk '
-    match($0, /<file name="([^"]+)"/, a) {name=a[1]}
-    match($0, /<hash type="md5">([0-9a-fA-F]{32})<\/hash>/, h) && name != "" {
-      print h[1] "\t" name
+    /<file name="/ {
+      name=$0
+      sub(/^.*<file name="/, "", name)
+      sub(/".*$/, "", name)
+    }
+    /<hash type="md5">/ && name != "" {
+      md5=$0
+      sub(/^.*<hash type="md5">/, "", md5)
+      sub(/<\/hash>.*/, "", md5)
+      if (length(md5) == 32 && md5 !~ /[^0-9a-fA-F]/) {
+        print md5 "\t" name
+      }
     }
   ' "${CHECKSUM_FILE}")
   log "MD5 映射加载完成：${count} 条。"
@@ -230,7 +239,7 @@ write_manifests_and_diff() {
   printf '# check\tstatus\tdetail\n' >> "${DIFF_REPORT}"
   [[ -s "${REMOTE_LISTING_ISSUES}" ]] && cat "${REMOTE_LISTING_ISSUES}" >> "${DIFF_REPORT}"
 
-  local group relpath url local_dir out_name role md5
+  local group relpath url local_dir out_name role md5 missing_required=0
   while IFS=$'\t' read -r group relpath url local_dir out_name role; do
     [[ "${group}" == "# group" ]] && continue
     md5="$(lookup_md5 "${relpath}")"
@@ -240,6 +249,7 @@ write_manifests_and_diff() {
     else
       printf '%s\tNO_OFFICIAL_MD5_MATCHED\n' "${relpath}" >> "${UNVERIFIED_MANIFEST}"
       printf 'plan_vs_checksum\tPLANNED_WITHOUT_MD5\t%s\n' "${relpath}" >> "${DIFF_REPORT}"
+      [[ "${CHECKSUM_REQUIRED}" == "1" ]] && missing_required=1
     fi
   done < "${PLAN_FILE}"
 
@@ -253,13 +263,20 @@ write_manifests_and_diff() {
       fi
     done < "${CHECKSUM_FILE}"
 
-    # 兼容 UniProt RELEASE.metalink：报告 metalink 中有 checksum 但脚本未纳入计划的文件。
+    # 兼容 metalink checksum 格式：报告 metalink 中有 checksum 但脚本未纳入计划的文件。
     while IFS= read -r path; do
       [[ -n "${path:-}" ]] || continue
       if ! awk -F'\t' -v p="${path}" -v b="${path##*/}" '($2==p || $5==b){found=1} END{exit found?0:1}' "${PLAN_FILE}"; then
         printf 'metalink_vs_plan\tCHECKSUM_NOT_PLANNED\t%s\n' "${path}" >> "${DIFF_REPORT}"
       fi
-    done < <(awk 'match($0, /<file name="([^"]+)"/, a) {print a[1]}' "${CHECKSUM_FILE}")
+    done < <(awk '
+      /<file name="/ {
+        name=$0
+        sub(/^.*<file name="/, "", name)
+        sub(/".*$/, "", name)
+        print name
+      }
+    ' "${CHECKSUM_FILE}")
   fi
 
   if [[ -s "${REMOTE_LISTING_MANIFEST}" ]]; then
@@ -277,6 +294,9 @@ write_manifests_and_diff() {
       fi
     done < "${PLAN_FILE}"
   fi
+  if [[ "${CHECKSUM_REQUIRED}" == "1" && "${missing_required}" -ne 0 ]]; then
+    die "CHECKSUM_REQUIRED=1，但计划目标缺少官方 MD5，已写入差异报告：${DIFF_REPORT}"
+  fi
   log "manifest 与差异报告已生成：${TARGET_MANIFEST} / ${UNVERIFIED_MANIFEST} / ${DIFF_REPORT}"
 }
 
@@ -288,6 +308,9 @@ write_aria_input() {
     mkdir -p "${local_dir}"
     local_file="${local_dir}/${out_name}"
     md5="$(lookup_md5 "${relpath}")"
+    if [[ -z "${md5}" && "${CHECKSUM_REQUIRED}" == "1" ]]; then
+      die "CHECKSUM_REQUIRED=1，但计划目标缺少官方 MD5，拒绝写入 aria2 计划：${relpath}"
+    fi
     if existing_file_is_complete "${relpath}" "${url}" "${local_file}" "${md5}"; then
       skipped=$((skipped + 1))
       continue
@@ -314,6 +337,9 @@ verify_after_download() {
         move_to_trash "${local_file}" "md5_verify_failed"
         failed=1
       fi
+    elif [[ "${CHECKSUM_REQUIRED}" == "1" ]]; then
+      errlog "CHECKSUM_REQUIRED=1，但下载后缺少官方 MD5，拒绝弱校验：${relpath}"
+      failed=1
     else
       weak_verify_file "${local_file}" "${relpath}" || failed=1
     fi

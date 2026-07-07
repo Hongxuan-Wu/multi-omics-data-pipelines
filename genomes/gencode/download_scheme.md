@@ -9,8 +9,8 @@
 | 固定入口 | https://ftp.ebi.ac.uk/pub/databases/gencode/ |
 | manifest 中心 | MD5SUMS / README |
 | metadata 同步 | 人鼠 GTF、transcripts、translation 同步下载 |
-| 校验策略 | 有 MD5SUMS 则强校验，否则 gzip 弱校验 |
-| 差异报告 | 报告计划与 checksum 差异 |
+| 校验策略 | `CHECKSUM_REQUIRED=1`；所有计划目标必须匹配官方 MD5SUMS，aria2 写入 `checksum=md5=...`，下载后执行 `md5sum --check`；缺 MD5 不降级为弱校验 |
+| 差异报告 | 报告计划与 checksum 差异；任一计划目标缺 MD5 时失败 |
 
 ## 2. 脚本说明
 

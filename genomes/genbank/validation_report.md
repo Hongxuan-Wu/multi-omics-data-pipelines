@@ -18,3 +18,10 @@
 | 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
 | 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
 | 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+
+## 3. Group A 复修记录（2026-07-07）
+
+- 已修复 C1：`select_assemblies` 现在统计非注释 selected assembly；数量为 0 时立即失败。`build_download_plan` 现在统计总计划数和非 metadata genome payload 数；payload 为 0 时立即失败。
+- 已修复 C2：移除 `md5sum --check --ignore-missing`，改为按下载计划中的 genome payload 逐项读取同目录 `md5checksums.txt` 并执行强 MD5 校验；缺失、空文件、checksum 条目缺失或 MD5 失败时调用 `move_to_trash` 隔离 payload/`.aria2`/异常 checksum 文件。
+- 静态复查：未发现残留 `--ignore-missing`；未发现 `rm`、`rm -f`、`rm -rf`、`del`、`Remove-Item`；未运行真实下载。
+- 待验证：本机 `bash.exe`/WSL 无法启动脚本语法检查，仍需在目标 Linux 服务器执行 `bash -n genomes/genbank/download_genbank.sh`。

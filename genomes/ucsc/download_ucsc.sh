@@ -17,7 +17,8 @@ common_require_version "1.0"
 
 # ==================== 用户配置 ====================
 DB_NAME="ucsc"
-RELEASE="hg38_mm39_freeze_2026-07-07"
+RELEASE="hg38_mm39_static_targets_2026-07-07_live_md5_audit"
+FREEZE_POLICY="static_target_urls_frozen_2026-07-07_with_live_official_md5_audit"
 LOCAL_ROOT="/data3/p252701008/genomes/ucsc_hg38_mm39"
 RUN_ROOT="/data3/p252701008/genomes/ucsc_hg38_mm39_runlogs"
 USE_PROXY=0
@@ -193,16 +194,25 @@ load_md5_map() {
     count=$((count + 1))
   done < "${CHECKSUM_FILE}"
 
-  # 兼容 UniProt RELEASE.metalink：同一 <file name="..."> 块内包含 <hash type="md5">。
+  # 兼容 metalink checksum 格式：同一 <file name="..."> 块内包含 <hash type="md5">。
   while IFS=$'\t' read -r md5 path; do
     [[ -n "${md5:-}" && -n "${path:-}" ]] || continue
     MD5_MAP["${path}"]="${md5}"
     MD5_MAP["${path##*/}"]="${md5}"
     count=$((count + 1))
   done < <(awk '
-    match($0, /<file name="([^"]+)"/, a) {name=a[1]}
-    match($0, /<hash type="md5">([0-9a-fA-F]{32})<\/hash>/, h) && name != "" {
-      print h[1] "\t" name
+    /<file name="/ {
+      name=$0
+      sub(/^.*<file name="/, "", name)
+      sub(/".*$/, "", name)
+    }
+    /<hash type="md5">/ && name != "" {
+      md5=$0
+      sub(/^.*<hash type="md5">/, "", md5)
+      sub(/<\/hash>.*/, "", md5)
+      if (length(md5) == 32 && md5 !~ /[^0-9a-fA-F]/) {
+        print md5 "\t" name
+      }
     }
   ' "${CHECKSUM_FILE}")
   log "MD5 映射加载完成：${count} 条。"
@@ -218,6 +228,23 @@ lookup_md5() {
   fi
 }
 
+weak_checksum_reason() {
+  local relpath="$1"
+  case "${relpath}" in
+    hg38/phastCons100way/hg38.phastCons100way.bw)
+      printf '%s' "no_official_md5_for_ucsc_phastcons100way_bigwig; weak_nonempty_policy"
+      return 0
+      ;;
+    mm39/phastCons60way/mm39.phastCons60way.bw)
+      printf '%s' "no_official_md5_for_ucsc_phastcons60way_bigwig; weak_nonempty_policy"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 write_manifests_and_diff() {
   : > "${TARGET_MANIFEST}"
   : > "${UNVERIFIED_MANIFEST}"
@@ -228,7 +255,7 @@ write_manifests_and_diff() {
   printf '# check\tstatus\tdetail\n' >> "${DIFF_REPORT}"
   [[ -s "${REMOTE_LISTING_ISSUES}" ]] && cat "${REMOTE_LISTING_ISSUES}" >> "${DIFF_REPORT}"
 
-  local group relpath url local_dir out_name role md5
+  local group relpath url local_dir out_name role md5 weak_reason missing_required=0
   while IFS=$'\t' read -r group relpath url local_dir out_name role; do
     [[ "${group}" == "# group" ]] && continue
     md5="$(lookup_md5 "${relpath}")"
@@ -236,8 +263,14 @@ write_manifests_and_diff() {
       printf '%s\t%s\n' "${md5}" "${relpath}" >> "${TARGET_MANIFEST}"
       printf '%s  %s\n' "${md5}" "${relpath}" >> "${MD5_CHECK_FILE}"
     else
-      printf '%s\tNO_OFFICIAL_MD5_MATCHED\n' "${relpath}" >> "${UNVERIFIED_MANIFEST}"
-      printf 'plan_vs_checksum\tPLANNED_WITHOUT_MD5\t%s\n' "${relpath}" >> "${DIFF_REPORT}"
+      if weak_reason="$(weak_checksum_reason "${relpath}")"; then
+        printf '%s\tEXPLICIT_WEAK_POLICY\t%s\n' "${relpath}" "${weak_reason}" >> "${UNVERIFIED_MANIFEST}"
+        printf 'plan_vs_checksum\tEXPLICIT_WEAK_POLICY\t%s\t%s\n' "${relpath}" "${weak_reason}" >> "${DIFF_REPORT}"
+      else
+        printf '%s\tNO_OFFICIAL_MD5_MATCHED\n' "${relpath}" >> "${UNVERIFIED_MANIFEST}"
+        printf 'plan_vs_checksum\tPLANNED_WITHOUT_MD5\t%s\n' "${relpath}" >> "${DIFF_REPORT}"
+        [[ "${CHECKSUM_REQUIRED}" == "1" ]] && missing_required=1
+      fi
     fi
   done < "${PLAN_FILE}"
 
@@ -251,13 +284,20 @@ write_manifests_and_diff() {
       fi
     done < "${CHECKSUM_FILE}"
 
-    # 兼容 UniProt RELEASE.metalink：报告 metalink 中有 checksum 但脚本未纳入计划的文件。
+    # 兼容 metalink checksum 格式：报告 metalink 中有 checksum 但脚本未纳入计划的文件。
     while IFS= read -r path; do
       [[ -n "${path:-}" ]] || continue
       if ! awk -F'\t' -v p="${path}" -v b="${path##*/}" '($2==p || $5==b){found=1} END{exit found?0:1}' "${PLAN_FILE}"; then
         printf 'metalink_vs_plan\tCHECKSUM_NOT_PLANNED\t%s\n' "${path}" >> "${DIFF_REPORT}"
       fi
-    done < <(awk 'match($0, /<file name="([^"]+)"/, a) {print a[1]}' "${CHECKSUM_FILE}")
+    done < <(awk '
+      /<file name="/ {
+        name=$0
+        sub(/^.*<file name="/, "", name)
+        sub(/".*$/, "", name)
+        print name
+      }
+    ' "${CHECKSUM_FILE}")
   fi
 
   if [[ -s "${REMOTE_LISTING_MANIFEST}" ]]; then
@@ -275,6 +315,9 @@ write_manifests_and_diff() {
       fi
     done < "${PLAN_FILE}"
   fi
+  if [[ "${CHECKSUM_REQUIRED}" == "1" && "${missing_required}" -ne 0 ]]; then
+    die "CHECKSUM_REQUIRED=1，但计划目标缺少官方 MD5，已写入差异报告：${DIFF_REPORT}"
+  fi
   log "manifest 与差异报告已生成：${TARGET_MANIFEST} / ${UNVERIFIED_MANIFEST} / ${DIFF_REPORT}"
 }
 
@@ -286,6 +329,9 @@ write_aria_input() {
     mkdir -p "${local_dir}"
     local_file="${local_dir}/${out_name}"
     md5="$(lookup_md5 "${relpath}")"
+    if [[ -z "${md5}" && "${CHECKSUM_REQUIRED}" == "1" ]] && ! weak_checksum_reason "${relpath}" >/dev/null; then
+      die "CHECKSUM_REQUIRED=1，但计划目标缺少官方 MD5 且未声明 weak policy，拒绝写入 aria2 计划：${relpath}"
+    fi
     if existing_file_is_complete "${relpath}" "${url}" "${local_file}" "${md5}"; then
       skipped=$((skipped + 1))
       continue
@@ -301,7 +347,7 @@ write_aria_input() {
 
 verify_after_download() {
   [[ "${VERIFY_AFTER_DOWNLOAD}" == "1" ]] || return 0
-  local group relpath url local_dir out_name role local_file md5 failed=0
+  local group relpath url local_dir out_name role local_file md5 weak_reason failed=0
   while IFS=$'\t' read -r group relpath url local_dir out_name role; do
     [[ "${group}" == "# group" ]] && continue
     local_file="${local_dir}/${out_name}"
@@ -312,6 +358,12 @@ verify_after_download() {
         move_to_trash "${local_file}" "md5_verify_failed"
         failed=1
       fi
+    elif weak_reason="$(weak_checksum_reason "${relpath}")"; then
+      log "执行显式弱校验：${relpath}（${weak_reason}）"
+      weak_verify_file "${local_file}" "${relpath}" || failed=1
+    elif [[ "${CHECKSUM_REQUIRED}" == "1" ]]; then
+      errlog "CHECKSUM_REQUIRED=1，但下载后缺少官方 MD5 且未声明 weak policy：${relpath}"
+      failed=1
     else
       weak_verify_file "${local_file}" "${relpath}" || failed=1
     fi
@@ -332,6 +384,7 @@ main() {
   log "本地数据根目录：${LOCAL_ROOT}"
   log "运行日志目录：${RUN_ROOT}"
   log "版本锁定：${RELEASE}"
+  log "冻结策略：${FREEZE_POLICY}"
 
   download_official_checksums
   download_remote_listings

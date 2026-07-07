@@ -102,7 +102,7 @@ download_metadata() {
 }
 
 select_assemblies() {
-  local groups_csv limits_tsv candidates
+  local groups_csv limits_tsv candidates selected_count
   groups_csv="$(printf '%s\n' "${TARGET_GROUP_LIMITS[@]}" | awk -F'|' '{print $1}' | paste -sd, -)"
   limits_tsv="${TMP_DIR}/group_limits.tsv"
   printf '%s\n' "${TARGET_GROUP_LIMITS[@]}" | tr '|' '\t' > "${limits_tsv}"
@@ -180,7 +180,9 @@ select_assemblies() {
     }
   ' "${candidates}" >> "${SELECTED_ASSEMBLIES}"
 
-  log "GenBank assembly 筛选完成：${SELECTED_ASSEMBLIES}，数量 $(grep -Evc '^(#|[[:space:]]*$)' "${SELECTED_ASSEMBLIES}")"
+  selected_count="$(awk 'BEGIN{n=0} !/^(#|[[:space:]]*$)/{n++} END{print n}' "${SELECTED_ASSEMBLIES}")"
+  (( selected_count > 0 )) || die "GenBank selected assemblies 为 0；请检查 assembly_summary 字段、TARGET_GROUP_LIMITS 或筛选条件。"
+  log "GenBank assembly 筛选完成：${SELECTED_ASSEMBLIES}，数量 ${selected_count}"
 }
 
 append_plan_record() {
@@ -201,7 +203,7 @@ build_download_plan() {
 
   local group species acc level ftp_path base_url base_name rel_prefix suffix file_url relpath
   while IFS=$'\t' read -r group species acc level ftp_path; do
-    [[ "${group}" == "# group" ]] && continue
+    [[ -z "${group}" || "${group}" == \#* ]] && continue
     base_url="$(normalise_ncbi_url "${ftp_path}")"
     base_name="${base_url##*/}"
     rel_prefix="${group}/${acc}_${base_name}"
@@ -218,7 +220,12 @@ build_download_plan() {
     done
   done < "${SELECTED_ASSEMBLIES}"
 
-  log "下载计划生成完成：${PLAN_FILE}，文件数 $(grep -Evc '^(#|[[:space:]]*$)' "${PLAN_FILE}")"
+  local planned_count genome_payload_count
+  planned_count="$(awk 'BEGIN{n=0} !/^(#|[[:space:]]*$)/{n++} END{print n}' "${PLAN_FILE}")"
+  genome_payload_count="$(awk -F'\t' 'BEGIN{n=0} !/^(#|[[:space:]]*$)/ && $1 != "metadata" && $2 !~ /\/md5checksums\.txt$/ {n++} END{print n}' "${PLAN_FILE}")"
+  (( planned_count > 0 )) || die "GenBank 下载计划为空。"
+  (( genome_payload_count > 0 )) || die "GenBank 非 metadata genome payload 下载计划为 0；拒绝只下载 metadata/md5checksums。"
+  log "下载计划生成完成：${PLAN_FILE}，文件数 ${planned_count}，genome payload 数 ${genome_payload_count}"
 }
 
 probe_and_write_diff() {
@@ -258,16 +265,67 @@ write_aria_input() {
 
 verify_ncbi_md5checksums() {
   [[ "${VERIFY_AFTER_DOWNLOAD}" == "1" ]] || return 0
-  local dir failed=0 checked=0
-  while IFS= read -r -d '' dir; do
-    checked=$((checked + 1))
-    if ! (cd "${dir}" && md5sum --check --ignore-missing --quiet md5checksums.txt); then
-      errlog "NCBI md5checksums.txt 校验失败：${dir}"
+  local group relpath url local_dir out_name local_file checksum_file expected_md5
+  local failed=0 checked=0 checksum_files_seen=0
+  while IFS=$'\t' read -r group relpath url local_dir out_name; do
+    [[ -z "${group}" || "${group}" == \#* ]] && continue
+    [[ "${group}" == "metadata" ]] && continue
+    [[ "${relpath}" == */md5checksums.txt ]] && continue
+
+    local_file="${local_dir}/${out_name}"
+    checksum_file="${local_dir}/md5checksums.txt"
+    if [[ ! -s "${checksum_file}" ]]; then
+      errlog "缺少或为空的 GenBank md5checksums.txt：${checksum_file}，计划文件 ${relpath} 无法强校验。"
+      move_to_trash "${checksum_file}" "missing_or_empty_md5checksums"
+      move_to_trash "${local_file}" "missing_md5checksums"
+      move_to_trash "${local_file}.aria2" "missing_md5checksums"
       failed=1
+      continue
     fi
-  done < <(find "${LOCAL_ROOT}" -type f -name md5checksums.txt -printf '%h\0')
+    checksum_files_seen=1
+
+    if ! expected_md5="$(awk -v target="${out_name}" '
+      length($1) == 32 && $1 ~ /^[0-9a-fA-F]+$/ {
+        path=$2
+        sub(/^\*/, "", path)
+        sub(/^\.\//, "", path)
+        if (path == target) {
+          print $1
+          found=1
+          exit
+        }
+      }
+      END { if (!found) exit 1 }
+    ' "${checksum_file}")"; then
+      errlog "GenBank md5checksums.txt 中缺少计划文件：${relpath}"
+      move_to_trash "${local_file}" "md5_entry_missing"
+      move_to_trash "${local_file}.aria2" "md5_entry_missing"
+      failed=1
+      continue
+    fi
+
+    if [[ ! -s "${local_file}" ]]; then
+      errlog "计划文件缺失或为空，无法执行 MD5 强校验：${relpath}"
+      move_to_trash "${local_file}" "missing_payload"
+      move_to_trash "${local_file}.aria2" "missing_payload"
+      failed=1
+      continue
+    fi
+
+    if ! (cd "${local_dir}" && printf '%s  %s\n' "${expected_md5}" "${out_name}" | md5sum --check --quiet); then
+      errlog "GenBank 计划文件 MD5 校验失败：${relpath}"
+      move_to_trash "${local_file}" "md5_verify_failed"
+      move_to_trash "${local_file}.aria2" "md5_verify_failed"
+      failed=1
+      continue
+    fi
+    checked=$((checked + 1))
+  done < "${PLAN_FILE}"
+
+  (( checksum_files_seen > 0 )) || die "没有任何可用的 GenBank md5checksums.txt；拒绝跳过官方 MD5 强校验。"
+  (( checked > 0 )) || die "未校验任何 GenBank genome payload；拒绝静默成功。"
   [[ "${failed}" -eq 0 ]] || die "至少一个 GenBank assembly MD5 校验失败。"
-  log "GenBank md5checksums.txt 校验完成，目录数 ${checked}。"
+  log "GenBank 计划内 genome payload MD5 强校验完成，文件数 ${checked}。"
 }
 
 main() {

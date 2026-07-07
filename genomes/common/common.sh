@@ -175,6 +175,7 @@ existing_file_is_complete() {
   local url="$2"
   local local_file="$3"
   local expected_md5="${4:-}"
+  local expected_size="${5:-}"
   local actual_md5
   local local_size
   local remote_size
@@ -195,6 +196,19 @@ existing_file_is_complete() {
   fi
 
   local_size="$(stat -c '%s' "${local_file}")"
+  if [[ -n "${expected_size}" && "${expected_size}" =~ ^[0-9]+$ ]]; then
+    if [[ "${local_size}" -eq "${expected_size}" ]]; then
+      if weak_verify_file "${local_file}" "${relpath}"; then
+        log "跳过已完成文件（manifest 大小匹配 + 弱校验通过）：${relpath}"
+        return 0
+      fi
+      return 1
+    fi
+    errlog "本地文件大小不匹配，将重新下载：${relpath}，expected=${expected_size}，actual=${local_size}"
+    move_to_trash "${local_file}" "size_mismatch"
+    return 1
+  fi
+
   remote_size="$(remote_content_length "${url}" || true)"
   if [[ -n "${remote_size}" && "${remote_size}" =~ ^[0-9]+$ && "${local_size}" -eq "${remote_size}" ]]; then
     if [[ "${relpath}" == *.gz || "${relpath}" == *.tgz ]]; then
