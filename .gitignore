@@ -7,3 +7,4 @@ __pycache__/
 trash/
 *.tsv
 ncbi_sra_reports/
+.env
