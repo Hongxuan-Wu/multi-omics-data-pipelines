@@ -38,7 +38,7 @@ trap 'early_unhandled_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 # ASSEMBLY_SUMMARY_FILE：RefSeq assembly_summary 标准信息表。
 #   默认使用研究工作区根目录下的相对路径；在其他目录运行时请改成可读的绝对路径。
 #   脚本只从这个表读取 accession、ftp_path 和过滤字段，不再递归扫描 NCBI FTP 目录。
-ASSEMBLY_SUMMARY_FILE="projects/multi-omics-data-pipelines/refseq/resources/assembly_summary_refseq.txt"
+ASSEMBLY_SUMMARY_FILE="/data/p252701008/projects/multi-omics-data-pipelines/refseq/resources/assembly_summary_refseq.txt"
 # ASSEMBLY_SUMMARY_SOURCE_URL：该本地表的官方来源记录；脚本不自动下载，只用于可追溯性。
 ASSEMBLY_SUMMARY_SOURCE_URL="https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt"
 # RESOLVED_ASSEMBLY_SUMMARY_FILE：运行时解析后的实际路径。
