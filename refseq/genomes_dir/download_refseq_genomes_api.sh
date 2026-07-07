@@ -492,6 +492,33 @@ move_to_trash() {
   log "已将异常或旧文件移入 trash：${path} -> ${dest}"
 }
 
+# finalize_partial_file：把 partial 文件移动到最终路径，并显式记录落盘失败。
+# 参数：
+#   $1 / partial_file：待落盘的临时文件。
+#   $2 / final_file：最终文件路径。
+#   $3 / stage：失败时写入 STATE_FILE 的阶段名。
+# 返回：
+#   mv 成功返回 0；失败时写入 FAILED_FINALIZE_EXIT_* 并返回 mv 退出码。
+finalize_partial_file() {
+  # partial_file：待移动的临时文件路径。
+  local partial_file="$1"
+  # final_file：目标文件路径。
+  local final_file="$2"
+  # stage：状态表阶段名。
+  local stage="$3"
+  # exit_code：mv 失败时的退出码。
+  local exit_code
+
+  if mv -- "${partial_file}" "${final_file}"; then
+    return 0
+  else
+    exit_code=$?
+    errlog "partial 文件移动到最终路径失败：${stage}；退出码：${exit_code}；临时文件：${partial_file}；目标文件：${final_file}"
+    write_state "${stage}" "FAILED_FINALIZE_EXIT_${exit_code}" "${partial_file}->${final_file}"
+    return "${exit_code}"
+  fi
+}
+
 # tail_error_log：把外部命令日志尾部摘录到 ERR_LOG。
 # 参数：
 #   $1 / log_file：需要摘录的日志文件。
@@ -2003,9 +2030,12 @@ write_fetch_targets() {
     write_state "fetch_targets" "FAILED_EXIT_${exit_code}" "${target_log}"
     die "解析 fetch target 失败；退出码：${exit_code}；输入：${MERGED_FETCH_FILE}；日志：${target_log}。请检查 fetch 来源后重跑 merge-fetch/verify。"
   fi
-  mv -- "${FETCH_TARGETS_FILE}.partial.${RUN_ID}" "${FETCH_TARGETS_FILE}"
-  mv -- "${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}" "${INVALID_FETCH_TARGETS_FILE}"
-  mv -- "${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}" "${INVALID_FETCH_ROWS_FILE}"
+  finalize_partial_file "${FETCH_TARGETS_FILE}.partial.${RUN_ID}" "${FETCH_TARGETS_FILE}" "fetch_targets" ||
+    die "fetch target 清单落盘失败：${FETCH_TARGETS_FILE}"
+  finalize_partial_file "${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}" "${INVALID_FETCH_TARGETS_FILE}" "fetch_targets" ||
+    die "invalid fetch target 清单落盘失败：${INVALID_FETCH_TARGETS_FILE}"
+  finalize_partial_file "${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}" "${INVALID_FETCH_ROWS_FILE}" "fetch_targets" ||
+    die "invalid fetch row 清单落盘失败：${INVALID_FETCH_ROWS_FILE}"
 
   invalid_count="$(count_lines "${INVALID_FETCH_TARGETS_FILE}")"
   invalid_row_count="$(count_lines "${INVALID_FETCH_ROWS_FILE}")"
@@ -2307,13 +2337,21 @@ verify_fetch_md5() {
 # 输出：
 #   除本次 STATE_FILE 之外最新的 state_*.tsv；不存在时输出空字符串。
 find_latest_previous_state_file() {
-  local file
   local latest=""
 
-  for file in "${STATUS_DIR}"/state_*.tsv; do
-    [[ -f "${file}" && "${file}" != "${STATE_FILE}" ]] || continue
-    latest="${file}"
-  done
+  [[ -d "${STATUS_DIR}" ]] || {
+    printf '%s' "${latest}"
+    return 0
+  }
+  if latest="$(
+    find "${STATUS_DIR}" -maxdepth 1 -type f -name 'state_*.tsv' ! -path "${STATE_FILE}" -printf '%T@\t%p\n' 2>/dev/null |
+      sort -n |
+      awk -F '\t' 'NF >= 2 {path=$2} END {print path}'
+  )"; then
+    :
+  else
+    latest=""
+  fi
   printf '%s' "${latest}"
 }
 
