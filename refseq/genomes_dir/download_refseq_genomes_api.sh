@@ -36,9 +36,9 @@ trap 'early_unhandled_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
 # ==================== 用户配置 ====================
 # ASSEMBLY_SUMMARY_FILE：RefSeq assembly_summary 标准信息表。
-#   Windows/Git Bash/WSL 可直接使用下面的默认值；Linux 服务器上建议复制该文件后改成服务器路径。
+#   默认使用研究工作区根目录下的相对路径；在其他目录运行时请改成可读的绝对路径。
 #   脚本只从这个表读取 accession、ftp_path 和过滤字段，不再递归扫描 NCBI FTP 目录。
-ASSEMBLY_SUMMARY_FILE='C:\Users\10246\Downloads\assembly_summary_refseq.txt'
+ASSEMBLY_SUMMARY_FILE="projects/multi-omics-data-pipelines/refseq/resources/assembly_summary_refseq.txt"
 # ASSEMBLY_SUMMARY_SOURCE_URL：该本地表的官方来源记录；脚本不自动下载，只用于可追溯性。
 ASSEMBLY_SUMMARY_SOURCE_URL="https://ftp.ncbi.nlm.nih.gov/genomes/refseq/assembly_summary_refseq.txt"
 # RESOLVED_ASSEMBLY_SUMMARY_FILE：运行时解析后的实际路径。
@@ -51,11 +51,11 @@ REQUIRE_RESOLVED_CONTEXT_TOKEN=1
 # DATA_ROOT：最终数据包根目录。rehydrate 后的真实数据默认位于：
 #   ${MERGED_PACKAGE_DIR}/ncbi_dataset/data/
 #   建议放在大容量数据盘，不要放在代码仓库目录内。
-DATA_ROOT="/data3/p252701008/refseq_genomes_api"
+DATA_ROOT="/data3/p252701008/refseq_genomes"
 
 # RUN_ROOT：运行日志、manifest、shard、状态表目录。不要放进 DATA_ROOT 的 ncbi_dataset/data 内。
 #   这个目录保存可重复运行所需的过程文件，删除或移动后会影响断点续跑。
-RUN_ROOT="/data3/p252701008/refseq_genomes_api_runlogs"
+RUN_ROOT="/data3/p252701008/refseq_genomes_runlogs"
 
 # TRASH_DIR：异常 zip、异常解包目录、可复用旧产物的隔离目录。
 #   FORCE_*、校验跳过或重建触发覆盖时，相关旧产物会尽量移动到这里；运行状态表会按阶段重写。
