@@ -24,3 +24,12 @@
 - 已修复：移除 `download_uniprot_uniref50.sh` 中 `RELEASE.metalink` 解析的 gawk-only `match(..., array)`，改为 POSIX awk 的 `sub`/`length`/正则判断。
 - 静态复查：未发现残留 `match($0, ..., array)`、`, a)`、`, h)` 或 `--ignore-missing`。
 - 待验证：本机 `bash.exe`/WSL 无法启动脚本语法检查，仍需在目标 Linux 服务器执行 `bash -n genomes/uniprot_uniref50/download_uniprot_uniref50.sh`；本轮未运行真实下载。
+
+## 4. 固定归档入口复修记录（2026-07-07）
+
+- 已修复：将 UniProt UniRef50 从 `current_release` 入口切换到固定归档目录 `previous_releases/release-2026_01/uniref/`。
+- 版本调整：`RELEASE` 从 `2026_02` 改为已归档可复现的 `2026_01`；当前 UniProt `previous_releases` 尚未提供 `release-2026_02`。
+- 下载粒度调整：归档版本以 `uniref2026_01.tar.gz` 形式提供批量 UniRef 文件，脚本同步下载该 tarball、`uniref50.release_note` 与 `RELEASE.metalink`。
+- 已修复：新增归档包后处理，下载校验完成后提取 `uniref50.fasta.gz`、`uniref50.xml.gz`、`uniref50.release_note`、`uniref50.dtd`、`uniref.xsd`、`README` 到 `uniref50_extracted/`，避免后续流程只能看到完整 tarball。
+- 校验策略：继续解析 `RELEASE.metalink` 中真实 MD5；未匹配 MD5 的文件进入未强校验 manifest 并走弱校验。
+- 静态复查：`git diff --check -- genomes` 已通过；脚本层扫描未发现 `current_release` / `/latest/` URL、删除命令、凭证硬编码、`--ignore-missing`、gawk-only 或 `IGNORECASE` 残留。Linux 服务器 `bash -n` 仍需补做。

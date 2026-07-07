@@ -50,7 +50,7 @@ REMOTE_LISTING_MANIFEST="${MANIFEST_DIR}/remote_listing_${RUN_ID}.tsv"
 common_init_dirs
 
 extract_hrefs() {
-  awk 'BEGIN{IGNORECASE=1} {line=$0; while (match(line, /href[[:space:]]*=[[:space:]]*"[^"]+"/)) {href=substr(line,RSTART,RLENGTH); sub(/^[^"]*"/,"",href); sub(/"$/,"",href); print href; line=substr(line,RSTART+RLENGTH)}}'
+  awk '{line=$0; while (match(line, /[Hh][Rr][Ee][Ff][[:space:]]*=[[:space:]]*"[^"]+"/)) {href=substr(line,RSTART,RLENGTH); sub(/^[^"]*"/,"",href); sub(/"$/,"",href); print href; line=substr(line,RSTART+RLENGTH)}}'
 }
 
 append_plan_record() {

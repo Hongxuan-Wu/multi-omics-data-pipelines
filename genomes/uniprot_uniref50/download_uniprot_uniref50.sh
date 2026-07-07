@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# UniProt UniRef50 2026_02 downloader
+# UniProt UniRef50 2026_01 archived release downloader
 #
 # 目标：
 #   1. 锁定固定版本，不使用 latest/current 作为数据版本。
@@ -17,9 +17,10 @@ common_require_version "1.0"
 
 # ==================== 用户配置 ====================
 DB_NAME="uniprot_uniref50"
-RELEASE="2026_02"
-LOCAL_ROOT="/data3/p252701008/genomes/uniprot_uniref50_2026_02"
-RUN_ROOT="/data3/p252701008/genomes/uniprot_uniref50_2026_02_runlogs"
+RELEASE="2026_01"
+ARCHIVE_BASE_URL="https://ftp.uniprot.org/pub/databases/uniprot/previous_releases/release-2026_01/uniref"
+LOCAL_ROOT="/data3/p252701008/genomes/uniprot_uniref50_2026_01"
+RUN_ROOT="/data3/p252701008/genomes/uniprot_uniref50_2026_01_runlogs"
 USE_PROXY=0
 
 ARIA2_CONNECTIONS=4
@@ -29,25 +30,26 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=100
+MIN_DISK_GB=400
+EXTRACT_ARCHIVE_AFTER_DOWNLOAD=1
+UNIREF_ARCHIVE_NAME="uniref2026_01.tar.gz"
+EXTRACT_DIR="${LOCAL_ROOT}/uniref50_extracted"
 
 # 官方 checksum 文件。留空表示该库未找到可直接用于目标文件的官方 MD5。
 CHECKSUM_URLS=(
-  "https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/RELEASE.metalink"
+  "${ARCHIVE_BASE_URL}/RELEASE.metalink"
 )
 CHECKSUM_REQUIRED=1
-EXPECTED_METALINK_VERSION="2026_02"
+EXPECTED_METALINK_VERSION="2026_01"
 REMOTE_LISTING_URLS=(
-  "https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/"
+  "${ARCHIVE_BASE_URL}/"
 )
 
 # group | relative_path | url | role
 TARGET_RECORDS=(
-  "sequence|uniref50.fasta.gz|https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/uniref50.fasta.gz|representative_proteins"
-  "metadata|uniref50.xml.gz|https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/uniref50.xml.gz|functional_annotation_xml"
-  "metadata|uniref50.release_note|https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/uniref50.release_note|release_note"
-  "metadata|README|https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/README|readme"
-  "metadata|RELEASE.metalink|https://ftp.uniprot.org/pub/databases/uniprot/current_release/uniref/uniref50/RELEASE.metalink|fixed_release_manifest_with_md5_and_size"
+  "sequence|uniref2026_01.tar.gz|${ARCHIVE_BASE_URL}/uniref2026_01.tar.gz|archived_uniref_release_archive"
+  "metadata|uniref50.release_note|${ARCHIVE_BASE_URL}/uniref50.release_note|uniref50_release_note"
+  "metadata|metadata/RELEASE.metalink|${ARCHIVE_BASE_URL}/RELEASE.metalink|fixed_release_manifest_with_md5_and_size"
 )
 
 # ==================== 派生路径 ====================
@@ -77,6 +79,7 @@ common_init_dirs
 validate_config() {
   common_validate_download_config
   validate_flag CHECKSUM_REQUIRED "${CHECKSUM_REQUIRED}"
+  validate_flag EXTRACT_ARCHIVE_AFTER_DOWNLOAD "${EXTRACT_ARCHIVE_AFTER_DOWNLOAD}"
   [[ "${#TARGET_RECORDS[@]}" -gt 0 ]] || die "TARGET_RECORDS 为空。"
 }
 
@@ -101,7 +104,7 @@ append_plan_record() {
 }
 
 extract_hrefs() {
-  awk 'BEGIN{IGNORECASE=1} {line=$0; while (match(line, /href[[:space:]]*=[[:space:]]*"[^"]+"/)) {href=substr(line,RSTART,RLENGTH); sub(/^[^"]*"/,"",href); sub(/"$/,"",href); print href; line=substr(line,RSTART+RLENGTH)}}'
+  awk '{line=$0; while (match(line, /href[[:space:]]*=[[:space:]]*"[^"]+"/)) {href=substr(line,RSTART,RLENGTH); sub(/^[^"]*"/,"",href); sub(/"$/,"",href); print href; line=substr(line,RSTART+RLENGTH)}}'
 }
 
 normalise_listing_child_url() {
@@ -335,12 +338,65 @@ verify_after_download() {
   log "下载后校验完成。"
 }
 
+is_uniref50_archive_member() {
+  local member="$1"
+  local basename_only="${member##*/}"
+  case "${basename_only}" in
+    uniref50.fasta.gz|uniref50.xml.gz|uniref50.release_note|uniref50.dtd|uniref.xsd|README)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+extract_uniref50_archive() {
+  [[ "${EXTRACT_ARCHIVE_AFTER_DOWNLOAD}" == "1" ]] || return 0
+  local archive="${LOCAL_ROOT}/${UNIREF_ARCHIVE_NAME}"
+  local all_members="${TMP_DIR}/uniref_archive_members_${RUN_ID}.txt"
+  local selected_members="${MANIFEST_DIR}/uniref50_archive_members_${RUN_ID}.txt"
+  local member extracted_file selected_count failed=0
+
+  [[ -s "${archive}" ]] || die "UniRef 归档包缺失或为空，无法提取 UniRef50 文件：${archive}"
+  mkdir -p "${EXTRACT_DIR}"
+  : > "${selected_members}"
+
+  if ! tar -tzf "${archive}" > "${all_members}"; then
+    move_to_trash "${archive}" "tar_list_failed"
+    die "无法读取 UniRef 归档包文件列表：${archive}"
+  fi
+
+  while IFS= read -r member; do
+    if is_uniref50_archive_member "${member}"; then
+      printf '%s\n' "${member}" >> "${selected_members}"
+    fi
+  done < "${all_members}"
+
+  selected_count="$(awk 'BEGIN{n=0} NF{n++} END{print n}' "${selected_members}")"
+  (( selected_count > 0 )) || die "UniRef 归档包中未找到 UniRef50 目标文件；成员列表：${all_members}"
+
+  log "开始提取 UniRef50 文件：${selected_count} 个，输出目录 ${EXTRACT_DIR}"
+  if ! tar -xzf "${archive}" -C "${EXTRACT_DIR}" -T "${selected_members}"; then
+    die "UniRef50 文件提取失败：${archive}"
+  fi
+
+  while IFS= read -r member; do
+    extracted_file="${EXTRACT_DIR}/${member}"
+    weak_verify_file "${extracted_file}" "extracted/${member}" || failed=1
+  done < "${selected_members}"
+
+  [[ "${failed}" -eq 0 ]] || die "至少一个提取后的 UniRef50 文件弱校验失败。"
+  log "UniRef50 文件提取完成。成员清单：${selected_members}"
+}
+
 main() {
   require_command curl
   require_command aria2c
   require_command awk
   require_command md5sum
   require_command gzip
+  require_command tar
   validate_config
 
   log "========== ${DB_NAME} ${RELEASE} 下载开始 =========="
@@ -356,6 +412,7 @@ main() {
   write_aria_input
   run_aria2_input "${DB_NAME}" "${ARIA_INPUT}"
   verify_after_download
+  extract_uniref50_archive
 
   log "========== ${DB_NAME} ${RELEASE} 下载流程结束 =========="
   log "下载计划：${PLAN_FILE}"

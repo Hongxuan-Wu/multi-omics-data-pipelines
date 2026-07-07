@@ -130,7 +130,7 @@ probe_remote_file() {
 remote_content_length() {
   local url="$1"
   curl -fsSI --retry 3 --retry-delay 5 --retry-connrefused --retry-all-errors "${url}" \
-    | awk 'BEGIN{IGNORECASE=1} /^content-length:/ {gsub("\r","",$2); len=$2} END{print len}'
+    | awk 'tolower($0) ~ /^content-length:/ {gsub("\r","",$2); len=$2} END{print len}'
 }
 
 check_disk_space() {
