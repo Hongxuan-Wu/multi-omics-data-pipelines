@@ -9,8 +9,30 @@
 #   3. 默认使用 --include all，下载 genome/protein/cds/gff3/gtf/gbff/rna/seq-report。
 #   4. 每个阶段可独立重复执行，便于断点续跑、错误定位和人工检查。
 #   5. 脚本不删除下载产物；可复用旧产物会尽量移动到 TRASH_DIR，运行状态表会按阶段重写。
+#   6. datasets download / rehydrate 阶段带自动重试；校验默认执行强 MD5 完整性检查。
 # =============================================================================
 set -Eeuo pipefail
+export LC_ALL=C
+
+early_unhandled_error() {
+  local exit_code="$1"
+  local line_no="$2"
+  local command_text="$3"
+  local error_line
+  error_line="[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] 初始化阶段命令失败；退出码：${exit_code}；line=${line_no};command=${command_text}"
+  if [[ -n "${ERR_LOG:-}" ]]; then
+    mkdir -p "$(dirname "${ERR_LOG}")" 2>/dev/null || true
+    printf '%s\n' "${error_line}" >> "${ERR_LOG}" 2>/dev/null || true
+  fi
+  if [[ -n "${STATE_FILE:-}" ]]; then
+    mkdir -p "$(dirname "${STATE_FILE}")" 2>/dev/null || true
+    printf '%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "init" "FAILED_EXIT_${exit_code}" "line=${line_no};command=${command_text}" >> "${STATE_FILE}" 2>/dev/null || true
+  fi
+  printf '%s\n' "${error_line}" >&2
+  exit "${exit_code}"
+}
+
+trap 'early_unhandled_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
 # ==================== 用户配置 ====================
 # ASSEMBLY_SUMMARY_FILE：RefSeq assembly_summary 标准信息表。
@@ -83,7 +105,7 @@ SHARD_SIZE=1000
 FORCE_SINGLE_PACKAGE=0              # 1=不分片；只建议小规模试跑
 
 # 多阶段解耦开关。默认完整执行。
-# 也可用第一个命令行参数覆盖：manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / all
+# 也可用第一个命令行参数覆盖：manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / summary / all
 # RUN_BUILD_MANIFEST：1=解析 assembly_summary 并生成 accession/shard 清单。
 RUN_BUILD_MANIFEST=1
 # RUN_DOWNLOAD_LINKS：1=运行 datasets download --dehydrated，下载轻量链接包。
@@ -110,6 +132,12 @@ FORCE_MERGE_FETCH=0
 # 下载链接阶段：0=某些 shard 失败后继续其他 shard，最后汇总失败；1=遇到失败立即停止。
 # STOP_ON_LINK_DOWNLOAD_ERROR：控制 dehydrated 包下载失败时是否立刻停止。
 STOP_ON_LINK_DOWNLOAD_ERROR=0
+# DOWNLOAD_LINK_MAX_RETRIES：单个 dehydrated zip 下载失败后的自动重试次数。
+DOWNLOAD_LINK_MAX_RETRIES=3
+# REHYDRATE_MAX_RETRIES：datasets rehydrate 失败后的自动重试次数。
+REHYDRATE_MAX_RETRIES=3
+# RETRY_SLEEP_SECONDS：自动重试前等待秒数。
+RETRY_SLEEP_SECONDS=30
 
 # rehydrate 并发 worker，datasets 官方允许 1-30。
 # REHYDRATE_MAX_WORKERS：真实数据下载并发数；过高可能触发网络或 NCBI 限流。
@@ -117,11 +145,13 @@ REHYDRATE_MAX_WORKERS=20
 # REHYDRATE_LIST_BEFORE_DOWNLOAD：1=下载前先执行 datasets rehydrate --list 做预检。
 REHYDRATE_LIST_BEFORE_DOWNLOAD=1
 
-# 校验策略。VERIFY_FETCH_MD5=1 会对所有下载目标计算 md5，极慢，默认关闭。
+# 校验策略。STRICT_INTEGRITY=1 表示默认启用强 MD5 验证。
+# STRICT_INTEGRITY：1=严格完整性模式；若关闭，需要人工接受只做存在性/格式校验的风险。
+STRICT_INTEGRITY=1
 # VERIFY_FETCH_TARGETS_AFTER_REHYDRATE：1=检查 fetch.txt 中每个目标文件是否存在且非空。
 VERIFY_FETCH_TARGETS_AFTER_REHYDRATE=1
 # VERIFY_FETCH_MD5：1=使用 fetch.txt 第二列校验 MD5；全量 RefSeq 会非常耗时。
-VERIFY_FETCH_MD5=0
+VERIFY_FETCH_MD5=1
 # VERIFY_FETCH_CHECKSUM_FORMAT：1=即使不计算 MD5，也检查 fetch.txt 第二列是否为合法 MD5 字段。
 VERIFY_FETCH_CHECKSUM_FORMAT=1
 # VERIFY_FETCH_FILE_PROFILE：1=按 accession 检查 fetch.txt 是否至少包含关键文件类别。
@@ -262,6 +292,23 @@ MISSING_TARGETS_FILE="${STATUS_DIR}/missing_download_targets.tsv"
 # MD5_STATUS_FILE：可选 MD5 校验结果表。
 MD5_STATUS_FILE="${STATUS_DIR}/fetch_md5_status.tsv"
 
+REQUESTED_ACTION="${1:-all}"
+case "${REQUESTED_ACTION}" in
+  all|manifest|download-links|unpack-links|merge-fetch|rehydrate|verify|summary) ;;
+  *)
+    printf '[FATAL] 未知 action：%s。可选：all / manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / summary\n' "${REQUESTED_ACTION}" >&2
+    exit 1
+    ;;
+esac
+
+for root_var in DATA_ROOT RUN_ROOT TRASH_DIR; do
+  root_value="${!root_var}"
+  if [[ -z "${root_value}" || "${root_value}" != /* ]]; then
+    printf '[FATAL] %s 必须是非空 Linux 绝对路径，当前值为：%s\n' "${root_var}" "${root_value}" >&2
+    exit 1
+  fi
+done
+
 if ! mkdir -p \
   "${DATA_ROOT}" \
   "${RUN_ROOT}" \
@@ -288,7 +335,7 @@ fi
 # 失败行为：
 #   tee 写日志失败时会触发 set -e，使脚本停止。
 log() {
-  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${DL_LOG}" >&2
+  printf '[%s] [INFO] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${DL_LOG}" >&2
 }
 
 # errlog：写入错误日志，并同步输出到 stderr。
@@ -369,6 +416,39 @@ validate_flag() {
   esac
 }
 
+# validate_csv_enum：校验 all 或逗号分隔枚举值。
+# 参数：
+#   $1 / name：配置变量名。
+#   $2 / value：配置变量值。
+#   $3 / allowed_csv：允许值，逗号分隔；all 总是允许。
+# 返回：
+#   合法时返回 0；非法时调用 die。
+validate_csv_enum() {
+  local name="$1"
+  local value="$2"
+  local allowed_csv="$3"
+  local old_ifs="${IFS}"
+  local item
+
+  [[ "${value}" != "" ]] || die "${name} 不能为空。"
+  [[ "${value}" == "all" ]] && return 0
+  [[ "${value}" != ","* && "${value}" != *"," && "${value}" != *",,"* ]] || die "${name} 包含空枚举项：${value}"
+
+  IFS=','
+  for item in ${value}; do
+    IFS="${old_ifs}"
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    [[ -n "${item}" ]] || die "${name} 包含空白枚举项：${value}"
+    case ",${allowed_csv}," in
+      *,"${item}",*) ;;
+      *) die "${name} 包含不支持的值：${item}。允许值：all 或 ${allowed_csv}" ;;
+    esac
+    IFS=','
+  done
+  IFS="${old_ifs}"
+}
+
 # safe_name：把路径或标识符转换为可用于文件名的安全字符串。
 # 参数：
 #   $1：任意路径或字符串。
@@ -430,6 +510,58 @@ tail_error_log() {
     safe_line="$(redact_sensitive_text "${line}")"
     errlog "  ${safe_line}"
   done
+}
+
+# run_logged_command_with_retries：带日志、脱敏和自动重试地执行外部命令。
+# 参数：
+#   $1 / stage：阶段名，用于错误日志，例如 datasets_download:refseq_000001。
+#   $2 / max_retries：最大尝试次数，必须为正整数。
+#   $3 / sleep_seconds：失败后等待秒数，必须为非负整数。
+#   $4 / log_file：最终日志路径；多次尝试时同时保留 .attemptN 日志。
+#   $5...：需要执行的命令及其参数。
+# 输出：
+#   log_file 记录最后一次尝试的完整输出，attempt 日志保留每次尝试。
+# 失败行为：
+#   所有尝试失败时返回最后一次命令退出码，由调用方写阶段状态。
+run_logged_command_with_retries() {
+  local stage="$1"
+  local max_retries="$2"
+  local sleep_seconds="$3"
+  local log_file="$4"
+  shift 4
+  local attempt=1
+  local exit_code=0
+  local attempt_log
+
+  while [[ "${attempt}" -le "${max_retries}" ]]; do
+    attempt_log="${log_file}"
+    if [[ "${max_retries}" -gt 1 ]]; then
+      attempt_log="${log_file}.attempt${attempt}"
+    fi
+    log "${stage}：第 ${attempt}/${max_retries} 次尝试。日志：${attempt_log}"
+    if "$@" > "${attempt_log}" 2>&1; then
+      redact_log_file "${attempt_log}"
+      if [[ "${attempt_log}" != "${log_file}" ]]; then
+        cat "${attempt_log}" > "${log_file}"
+      fi
+      return 0
+    else
+      exit_code=$?
+    fi
+    redact_log_file "${attempt_log}"
+    errlog "${stage} 失败：第 ${attempt}/${max_retries} 次；退出码：${exit_code}；日志：${attempt_log}"
+    tail_error_log "${attempt_log}" 30
+    if [[ "${attempt}" -lt "${max_retries}" ]]; then
+      log "${stage} 将在 ${sleep_seconds} 秒后重试。"
+      sleep "${sleep_seconds}"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  if [[ "${attempt_log}" != "${log_file}" && -f "${attempt_log}" ]]; then
+    cat "${attempt_log}" > "${log_file}" || true
+  fi
+  return "${exit_code}"
 }
 
 # redact_log_file：把外部命令完整日志中的敏感字符串原地脱敏。
@@ -658,7 +790,7 @@ count_current_unpacked_fetch_files() {
 
 # configure_action：根据命令行 action 覆盖阶段开关。
 # 参数：
-#   $1 / action：all、manifest、download-links、unpack-links、merge-fetch、rehydrate、verify。
+#   $1 / action：all、manifest、download-links、unpack-links、merge-fetch、rehydrate、verify、summary。
 # 修改的全局变量：
 #   RUN_BUILD_MANIFEST、RUN_DOWNLOAD_LINKS、RUN_UNPACK_LINKS、RUN_MERGE_FETCH、RUN_REHYDRATE、RUN_VERIFY。
 # 失败行为：
@@ -731,8 +863,17 @@ configure_action() {
       RUN_REHYDRATE=0
       RUN_VERIFY=1
       ;;
+    summary)
+      # summary：不重跑任何阶段，只基于当前 context 已有状态文件重新生成汇总报告。
+      RUN_BUILD_MANIFEST=0
+      RUN_DOWNLOAD_LINKS=0
+      RUN_UNPACK_LINKS=0
+      RUN_MERGE_FETCH=0
+      RUN_REHYDRATE=0
+      RUN_VERIFY=0
+      ;;
     *)
-      die "未知 action：${action}。可选：all / manifest / download-links / unpack-links / merge-fetch / rehydrate / verify"
+      die "未知 action：${action}。可选：all / manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / summary"
       ;;
   esac
 }
@@ -767,6 +908,8 @@ normalize_force_flags() {
 #   无。
 # 行为：
 #   本地阶段不强制要求 datasets/unzip；下载或 rehydrate 阶段才检查 datasets。
+# 失败行为：
+#   缺少任一必要命令时调用 die，避免执行到长流程中段才失败。
 require_action_commands() {
   require_command awk
   require_command basename
@@ -776,6 +919,7 @@ require_action_commands() {
   require_command find
   require_command mv
   require_command sort
+  require_command sleep
   require_command tail
   require_command tee
   require_command tr
@@ -800,6 +944,9 @@ require_action_commands() {
     require_command "${DATASETS_BIN}"
     require_command df
   fi
+  if [[ "${RUN_VERIFY}" == "1" && "${VERIFY_FETCH_MD5}" == "1" ]]; then
+    require_command md5sum
+  fi
 }
 
 # validate_config：集中校验所有用户可调整参数。
@@ -809,7 +956,7 @@ require_action_commands() {
 #   1. 0/1 开关是否只使用 0 或 1。
 #   2. 数值参数是否为非负整数或正整数。
 #   3. datasets rehydrate worker 是否在官方允许的 1-30 范围内。
-#   4. 固定枚举参数是否在脚本支持范围内；逗号列表过滤项由 manifest 解析阶段按原值处理。
+#   4. 固定枚举参数和逗号列表过滤项是否在脚本支持范围内。
 # 失败行为：
 #   任一配置非法时调用 die，避免进入长时间下载后才暴露配置错误。
 validate_config() {
@@ -828,19 +975,29 @@ validate_config() {
   validate_flag STOP_ON_LINK_DOWNLOAD_ERROR "${STOP_ON_LINK_DOWNLOAD_ERROR}"
   validate_flag REHYDRATE_LIST_BEFORE_DOWNLOAD "${REHYDRATE_LIST_BEFORE_DOWNLOAD}"
   validate_flag VERIFY_FETCH_TARGETS_AFTER_REHYDRATE "${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}"
+  validate_flag STRICT_INTEGRITY "${STRICT_INTEGRITY}"
   validate_flag VERIFY_FETCH_MD5 "${VERIFY_FETCH_MD5}"
   validate_flag VERIFY_FETCH_CHECKSUM_FORMAT "${VERIFY_FETCH_CHECKSUM_FORMAT}"
   validate_flag VERIFY_FETCH_FILE_PROFILE "${VERIFY_FETCH_FILE_PROFILE}"
   validate_flag REQUIRE_RESOLVED_CONTEXT_TOKEN "${REQUIRE_RESOLVED_CONTEXT_TOKEN}"
 
   [[ "${SHARD_SIZE}" =~ ^[1-9][0-9]*$ ]] || die "SHARD_SIZE 必须是正整数，当前值为：${SHARD_SIZE}"
+  [[ "${DOWNLOAD_LINK_MAX_RETRIES}" =~ ^[1-9][0-9]*$ ]] || die "DOWNLOAD_LINK_MAX_RETRIES 必须是正整数，当前值为：${DOWNLOAD_LINK_MAX_RETRIES}"
+  [[ "${REHYDRATE_MAX_RETRIES}" =~ ^[1-9][0-9]*$ ]] || die "REHYDRATE_MAX_RETRIES 必须是正整数，当前值为：${REHYDRATE_MAX_RETRIES}"
+  [[ "${RETRY_SLEEP_SECONDS}" =~ ^[0-9]+$ ]] || die "RETRY_SLEEP_SECONDS 必须是非负整数，当前值为：${RETRY_SLEEP_SECONDS}"
   [[ "${REHYDRATE_MAX_WORKERS}" =~ ^[1-9][0-9]*$ ]] || die "REHYDRATE_MAX_WORKERS 必须是正整数，当前值为：${REHYDRATE_MAX_WORKERS}"
   [[ "${REHYDRATE_MAX_WORKERS}" -le 30 ]] || die "REHYDRATE_MAX_WORKERS 不能超过 30，当前值为：${REHYDRATE_MAX_WORKERS}"
   [[ "${MIN_DISK_GB}" =~ ^[0-9]+$ ]] || die "MIN_DISK_GB 必须是非负整数，当前值为：${MIN_DISK_GB}"
   [[ "${MIN_GENOME_SIZE}" =~ ^[0-9]+$ ]] || die "MIN_GENOME_SIZE 必须是非负整数，当前值为：${MIN_GENOME_SIZE}"
   [[ "${MAX_ACCESSIONS}" =~ ^[0-9]+$ ]] || die "MAX_ACCESSIONS 必须是非负整数，当前值为：${MAX_ACCESSIONS}"
   [[ "${MIN_FETCH_TARGETS_PER_ACCESSION}" =~ ^[0-9]+$ ]] || die "MIN_FETCH_TARGETS_PER_ACCESSION 必须是非负整数，当前值为：${MIN_FETCH_TARGETS_PER_ACCESSION}"
+  [[ "${MAX_VERIFY_MISSING_PREVIEW}" =~ ^[0-9]+$ ]] || die "MAX_VERIFY_MISSING_PREVIEW 必须是非负整数，当前值为：${MAX_VERIFY_MISSING_PREVIEW}"
   [[ "${ASSEMBLY_SOURCE}" == "RefSeq" ]] || die "ASSEMBLY_SOURCE 固定为 RefSeq，当前值为：${ASSEMBLY_SOURCE}"
+
+  [[ "${STRICT_INTEGRITY}" == "0" || "${VERIFY_FETCH_MD5}" == "1" ]] || die "STRICT_INTEGRITY=1 时必须设置 VERIFY_FETCH_MD5=1；若要跳过 MD5，请先显式设置 STRICT_INTEGRITY=0。"
+  validate_csv_enum INCLUDE_FILES "${INCLUDE_FILES}" "genome,protein,cds,gff3,gtf,gbff,rna,seq-report"
+  validate_csv_enum FILTER_ASSEMBLY_LEVELS "${FILTER_ASSEMBLY_LEVELS}" "Complete Genome,Chromosome,Scaffold,Contig"
+  validate_csv_enum FILTER_GROUPS "${FILTER_GROUPS}" "archaea,bacteria,viral,fungi,plant,protozoa,invertebrate,vertebrate_mammalian,vertebrate_other"
 
   case "${FILTER_GENOME_REP}" in
     all|Full) ;;
@@ -901,6 +1058,11 @@ MIN_GENOME_SIZE=${MIN_GENOME_SIZE}
 MAX_ACCESSIONS=${MAX_ACCESSIONS}
 SHARD_SIZE=${SHARD_SIZE}
 FORCE_SINGLE_PACKAGE=${FORCE_SINGLE_PACKAGE}
+DOWNLOAD_LINK_MAX_RETRIES=${DOWNLOAD_LINK_MAX_RETRIES}
+REHYDRATE_MAX_RETRIES=${REHYDRATE_MAX_RETRIES}
+RETRY_SLEEP_SECONDS=${RETRY_SLEEP_SECONDS}
+STRICT_INTEGRITY=${STRICT_INTEGRITY}
+VERIFY_FETCH_MD5=${VERIFY_FETCH_MD5}
 VERIFY_FETCH_CHECKSUM_FORMAT=${VERIFY_FETCH_CHECKSUM_FORMAT}
 VERIFY_FETCH_FILE_PROFILE=${VERIFY_FETCH_FILE_PROFILE}
 REQUIRED_FETCH_TARGET_CLASSES=${REQUIRED_FETCH_TARGET_CLASSES}
@@ -1235,6 +1397,14 @@ download_one_dehydrated_package() {
   local log_file
   # cmd：实际执行的 datasets download 命令数组，避免 shell 字符串拼接。
   local cmd=()
+  # attempt：当前下载尝试次数。
+  local attempt=1
+  # attempt_log：当前尝试的 datasets download 日志。
+  local attempt_log
+  # exit_code：datasets download 的原始退出码，用于状态表和错误日志。
+  local exit_code=0
+  # verify_exit_code：unzip -t 的原始退出码。
+  local verify_exit_code=0
 
   shard_id="$(basename "${shard_file}" .txt)"
   zip_file="${ZIP_DIR}/${shard_id}.zip"
@@ -1246,8 +1416,9 @@ download_one_dehydrated_package() {
       log "dehydrated zip 已存在且校验通过，跳过：${zip_file}"
       printf '%s\t%s\t%s\n' "${shard_id}" "SKIPPED_EXISTING" "${zip_file}" >> "${PACKAGE_STATUS_FILE}"
       return 0
+    else
+      verify_exit_code=$?
     fi
-    local verify_exit_code=$?
     errlog "已存在 zip 但 unzip -t 失败；退出码：${verify_exit_code}；将移入 trash 后重新下载：${zip_file}"
     tail_error_log "${log_file}.verify" 20
     move_to_trash "${zip_file}" "bad_zip"
@@ -1269,37 +1440,81 @@ download_one_dehydrated_package() {
     --filename "${tmp_zip}"
     --no-progressbar
   )
-  if "${cmd[@]}" > "${log_file}" 2>&1; then
-    redact_log_file "${log_file}"
+  while [[ "${attempt}" -le "${DOWNLOAD_LINK_MAX_RETRIES}" ]]; do
+    attempt_log="${log_file}"
+    if [[ "${DOWNLOAD_LINK_MAX_RETRIES}" -gt 1 ]]; then
+      attempt_log="${log_file}.attempt${attempt}"
+    fi
+    move_to_trash "${tmp_zip}" "retry_partial_zip"
+    log "datasets download ${shard_id}：第 ${attempt}/${DOWNLOAD_LINK_MAX_RETRIES} 次尝试。日志：${attempt_log}"
+    if "${cmd[@]}" > "${attempt_log}" 2>&1; then
+      :
+    else
+      exit_code=$?
+      redact_log_file "${attempt_log}"
+      errlog "datasets download 失败：${shard_id}；第 ${attempt}/${DOWNLOAD_LINK_MAX_RETRIES} 次；退出码：${exit_code}；日志：${attempt_log}"
+      tail_error_log "${attempt_log}" 30
+      move_to_trash "${tmp_zip}" "failed_partial_zip"
+      if [[ "${attempt}" -lt "${DOWNLOAD_LINK_MAX_RETRIES}" ]]; then
+        log "datasets download ${shard_id} 将在 ${RETRY_SLEEP_SECONDS} 秒后重试。"
+        sleep "${RETRY_SLEEP_SECONDS}"
+        attempt=$((attempt + 1))
+        continue
+      fi
+      if [[ "${attempt_log}" != "${log_file}" && -f "${attempt_log}" ]]; then
+        cat "${attempt_log}" > "${log_file}" || true
+      fi
+      printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_EXIT_${exit_code}" "${log_file}" >> "${PACKAGE_STATUS_FILE}"
+      return "${exit_code}"
+    fi
+
+    redact_log_file "${attempt_log}"
+    if [[ "${attempt_log}" != "${log_file}" ]]; then
+      cat "${attempt_log}" > "${log_file}"
+    fi
     if [[ ! -s "${tmp_zip}" ]]; then
       move_to_trash "${tmp_zip}" "empty_zip"
-      errlog "datasets download 成功退出但 zip 为空：${shard_id}"
+      errlog "datasets download 成功退出但 zip 为空：${shard_id}；第 ${attempt}/${DOWNLOAD_LINK_MAX_RETRIES} 次；日志：${attempt_log}"
       tail_error_log "${log_file}" 30
+      if [[ "${attempt}" -lt "${DOWNLOAD_LINK_MAX_RETRIES}" ]]; then
+        log "datasets download ${shard_id} 将在 ${RETRY_SLEEP_SECONDS} 秒后重试。"
+        sleep "${RETRY_SLEEP_SECONDS}"
+        attempt=$((attempt + 1))
+        continue
+      fi
       printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_EMPTY_ZIP" "${log_file}" >> "${PACKAGE_STATUS_FILE}"
       return 1
     fi
-    if ! "${UNZIP_BIN}" -t "${tmp_zip}" > "${log_file}.verify" 2>&1; then
-      local verify_exit_code=$?
-      errlog "新下载 zip 的 unzip -t 校验失败：${shard_id}；退出码：${verify_exit_code}；日志：${log_file}.verify"
+    if "${UNZIP_BIN}" -t "${tmp_zip}" > "${log_file}.verify" 2>&1; then
+      :
+    else
+      verify_exit_code=$?
+      errlog "新下载 zip 的 unzip -t 校验失败：${shard_id}；第 ${attempt}/${DOWNLOAD_LINK_MAX_RETRIES} 次；退出码：${verify_exit_code}；日志：${log_file}.verify"
       tail_error_log "${log_file}.verify" 20
       move_to_trash "${tmp_zip}" "bad_zip_after_download"
+      if [[ "${attempt}" -lt "${DOWNLOAD_LINK_MAX_RETRIES}" ]]; then
+        log "datasets download ${shard_id} 将在 ${RETRY_SLEEP_SECONDS} 秒后重试。"
+        sleep "${RETRY_SLEEP_SECONDS}"
+        attempt=$((attempt + 1))
+        continue
+      fi
       printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_ZIP_VERIFY_EXIT_${verify_exit_code}" "${log_file}.verify" >> "${PACKAGE_STATUS_FILE}"
       return 1
     fi
-    mv -- "${tmp_zip}" "${zip_file}"
-    log "dehydrated 链接包下载完成：${zip_file}"
-    printf '%s\t%s\t%s\n' "${shard_id}" "DONE" "${zip_file}" >> "${PACKAGE_STATUS_FILE}"
-    return 0
-  else
-    # exit_code：datasets download 的原始退出码，用于状态表和错误日志。
-    local exit_code=$?
-    redact_log_file "${log_file}"
-    errlog "datasets download 失败：${shard_id}；退出码：${exit_code}；日志：${log_file}"
-    tail_error_log "${log_file}" 30
-    move_to_trash "${tmp_zip}" "failed_partial_zip"
-    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_EXIT_${exit_code}" "${log_file}" >> "${PACKAGE_STATUS_FILE}"
-    return "${exit_code}"
-  fi
+    if mv -- "${tmp_zip}" "${zip_file}"; then
+      log "dehydrated 链接包下载完成：${zip_file}"
+      printf '%s\t%s\t%s\n' "${shard_id}" "DONE" "${zip_file}" >> "${PACKAGE_STATUS_FILE}"
+      return 0
+    else
+      exit_code=$?
+      errlog "dehydrated zip 移动到最终路径失败：${shard_id}；退出码：${exit_code}；临时文件：${tmp_zip}；目标文件：${zip_file}"
+      printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_FINALIZE_EXIT_${exit_code}" "${tmp_zip}->${zip_file}" >> "${PACKAGE_STATUS_FILE}"
+      return "${exit_code}"
+    fi
+  done
+
+  printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_RETRY_EXHAUSTED" "${log_file}" >> "${PACKAGE_STATUS_FILE}"
+  return 1
 }
 
 # download_dehydrated_packages：按 SHARD_LIST_FILE 批量下载所有 dehydrated zip。
@@ -1696,14 +1911,12 @@ rehydrate_merged_package() {
   if [[ "${REHYDRATE_LIST_BEFORE_DOWNLOAD}" == "1" ]]; then
     list_cmd=("${DATASETS_BIN}" rehydrate --directory "${MERGED_PACKAGE_DIR}" --list)
     log "执行 rehydrate --list 预检：${DATASETS_BIN} rehydrate --directory ${MERGED_PACKAGE_DIR} --list"
-    if "${list_cmd[@]}" > "${list_log}" 2>&1; then
-      redact_log_file "${list_log}"
+    if run_logged_command_with_retries "datasets rehydrate --list" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${list_log}" "${list_cmd[@]}"; then
       list_count="$(count_lines "${list_log}")"
       write_state "rehydrate_list" "DONE" "lines=${list_count};log=${list_log}"
       log "rehydrate --list 预检通过：${list_log}"
     else
       local exit_code=$?
-      redact_log_file "${list_log}"
       errlog "datasets rehydrate --list 失败；退出码：${exit_code}；日志：${list_log}"
       tail_error_log "${list_log}" 30
       write_state "rehydrate_list" "FAILED_EXIT_${exit_code}" "${list_log}"
@@ -1718,15 +1931,13 @@ rehydrate_merged_package() {
     --no-progressbar
   )
   log "开始统一下载真实数据：${DATASETS_BIN} rehydrate --directory ${MERGED_PACKAGE_DIR} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar"
-  if "${cmd[@]}" > "${log_file}" 2>&1; then
-    redact_log_file "${log_file}"
+  if run_logged_command_with_retries "datasets rehydrate" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${log_file}" "${cmd[@]}"; then
     write_state "rehydrate" "DONE" "${log_file}"
     log "统一 rehydrate 完成。日志：${log_file}"
     return 0
   else
     # exit_code：datasets rehydrate 的原始退出码。
     local exit_code=$?
-    redact_log_file "${log_file}"
     errlog "datasets rehydrate 失败；退出码：${exit_code}；日志：${log_file}"
     tail_error_log "${log_file}" 40
     write_state "rehydrate" "FAILED_EXIT_${exit_code}" "${log_file}"
@@ -1752,6 +1963,10 @@ write_fetch_targets() {
   local invalid_row_count
   # target_count：合法 fetch target 数量。
   local target_count
+  # target_log：fetch target 解析阶段的 stderr 日志。
+  local target_log="${LOG_DIR}/fetch_targets_${RUN_ID}.log"
+  # exit_code：awk 解析失败时的退出码。
+  local exit_code
 
   [[ -s "${MERGED_FETCH_FILE}" ]] || die "缺少汇总 fetch.txt：${MERGED_FETCH_FILE}"
   move_to_trash "${FETCH_TARGETS_FILE}" "old_fetch_targets_before_rebuild"
@@ -1759,7 +1974,7 @@ write_fetch_targets() {
   move_to_trash "${INVALID_FETCH_ROWS_FILE}" "old_invalid_fetch_rows_before_rebuild"
   : > "${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}"
   : > "${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}"
-  awk -F '\t' \
+  if awk -F '\t' \
     -v invalid_target_out="${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}" \
     -v invalid_row_out="${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}" \
     -v check_checksum="${VERIFY_FETCH_CHECKSUM_FORMAT}" '
@@ -1777,7 +1992,17 @@ write_fetch_targets() {
         print $3
       }
     }
-  ' "${MERGED_FETCH_FILE}" > "${FETCH_TARGETS_FILE}.partial.${RUN_ID}"
+  ' "${MERGED_FETCH_FILE}" > "${FETCH_TARGETS_FILE}.partial.${RUN_ID}" 2> "${target_log}"; then
+    :
+  else
+    exit_code=$?
+    tail_error_log "${target_log}" 30
+    move_to_trash "${FETCH_TARGETS_FILE}.partial.${RUN_ID}" "failed_fetch_targets"
+    move_to_trash "${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}" "failed_invalid_fetch_targets"
+    move_to_trash "${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}" "failed_invalid_fetch_rows"
+    write_state "fetch_targets" "FAILED_EXIT_${exit_code}" "${target_log}"
+    die "解析 fetch target 失败；退出码：${exit_code}；输入：${MERGED_FETCH_FILE}；日志：${target_log}。请检查 fetch 来源后重跑 merge-fetch/verify。"
+  fi
   mv -- "${FETCH_TARGETS_FILE}.partial.${RUN_ID}" "${FETCH_TARGETS_FILE}"
   mv -- "${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}" "${INVALID_FETCH_TARGETS_FILE}"
   mv -- "${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}" "${INVALID_FETCH_ROWS_FILE}"
@@ -2041,7 +2266,18 @@ verify_fetch_md5() {
       failed=$((failed + 1))
       continue
     fi
-    actual="$(md5sum "${local_file}" | awk '{print $1}')"
+    if actual="$(md5sum "${local_file}" 2>/dev/null | awk '{print $1}')"; then
+      :
+    else
+      printf '%s\t%s\t%s\t%s\n' "${target}" "FAILED_READ" "${checksum}" "md5sum_failed" >> "${MD5_STATUS_FILE}"
+      failed=$((failed + 1))
+      continue
+    fi
+    if [[ -z "${actual}" ]]; then
+      printf '%s\t%s\t%s\t%s\n' "${target}" "FAILED_READ" "${checksum}" "empty_md5sum_output" >> "${MD5_STATUS_FILE}"
+      failed=$((failed + 1))
+      continue
+    fi
     checked=$((checked + 1))
     if [[ "${actual}" == "${checksum}" ]]; then
       printf '%s\t%s\t%s\t%s\n' "${target}" "OK" "${checksum}" "${actual}" >> "${MD5_STATUS_FILE}"
@@ -2063,6 +2299,42 @@ verify_fetch_md5() {
 
   write_state "verify_md5" "DONE" "${checked}"
   log "fetch md5 校验通过：${checked} 个文件。"
+}
+
+# find_latest_previous_state_file：查找当前 context 下最近一次旧状态表。
+# 参数：
+#   无。
+# 输出：
+#   除本次 STATE_FILE 之外最新的 state_*.tsv；不存在时输出空字符串。
+find_latest_previous_state_file() {
+  local file
+  local latest=""
+
+  for file in "${STATUS_DIR}"/state_*.tsv; do
+    [[ -f "${file}" && "${file}" != "${STATE_FILE}" ]] || continue
+    latest="${file}"
+  done
+  printf '%s' "${latest}"
+}
+
+# last_state_status：读取指定阶段在状态表中最后一次记录的状态。
+# 参数：
+#   $1 / stage：阶段名。
+# 输出：
+#   最近状态；如果不存在则输出 not_run。
+last_state_status() {
+  local stage="$1"
+  local state_source="${STATE_FILE}"
+  local status
+
+  if [[ "${REQUESTED_ACTION}" == "summary" ]]; then
+    state_source="$(find_latest_previous_state_file)"
+  fi
+  status=""
+  if [[ -f "${state_source}" ]]; then
+    status="$(awk -F '\t' -v stage="${stage}" '$2 == stage {status=$3} END {print status}' "${state_source}")"
+  fi
+  [[ -n "${status}" ]] && printf '%s' "${status}" || printf 'not_run'
 }
 
 # verify_fetch_accession_coverage：校验 manifest accession 是否都进入 fetch.txt。
@@ -2116,6 +2388,12 @@ write_summary_report() {
   local missing_fetch_class_count
   # md5_status_count：MD5 状态表行数，扣除表头后表示实际记录数。
   local md5_status_count
+  # verify_targets_state：目标文件存在性校验的最后状态。
+  local verify_targets_state
+  # md5_state：MD5 校验的最后状态。
+  local md5_state
+  # summary_state_source：summary 读取校验状态时使用的状态表。
+  local summary_state_source
 
   manifest_count="$(count_lines "${ACCESSION_FILE}")"
   shard_count="$(count_lines "${SHARD_LIST_FILE}")"
@@ -2130,10 +2408,18 @@ write_summary_report() {
   invalid_fetch_row_count="$(count_lines "${INVALID_FETCH_ROWS_FILE}")"
   missing_fetch_class_count="$(count_lines "${MISSING_FETCH_CLASSES_FILE}")"
   md5_status_count="$(count_lines "${MD5_STATUS_FILE}")"
+  verify_targets_state="$(last_state_status "verify_targets")"
+  md5_state="$(last_state_status "verify_md5")"
+  if [[ "${REQUESTED_ACTION}" == "summary" ]]; then
+    summary_state_source="$(find_latest_previous_state_file)"
+    [[ -n "${summary_state_source}" ]] || summary_state_source="not_found"
+  else
+    summary_state_source="${STATE_FILE}"
+  fi
   if [[ "${md5_status_count}" -gt 0 ]]; then
     md5_status_count=$((md5_status_count - 1))
   fi
-  if [[ "${RUN_MERGE_FETCH}" == "0" && "${RUN_REHYDRATE}" == "0" && "${RUN_VERIFY}" == "0" ]]; then
+  if [[ "${REQUESTED_ACTION}" != "summary" && "${RUN_MERGE_FETCH}" == "0" && "${RUN_REHYDRATE}" == "0" && "${RUN_VERIFY}" == "0" ]]; then
     fetch_count="not_run"
     missing_fetch_accession_count="not_run"
     extra_fetch_accession_count="not_run"
@@ -2143,7 +2429,9 @@ write_summary_report() {
     missing_fetch_class_count="not_run"
     missing_target_count="not_run"
     md5_status_count="not_run"
-  elif [[ "${RUN_VERIFY}" == "0" ]]; then
+    verify_targets_state="not_run"
+    md5_state="not_run"
+  elif [[ "${REQUESTED_ACTION}" != "summary" && "${RUN_VERIFY}" == "0" ]]; then
     missing_target_count="not_run"
     md5_status_count="not_run"
   fi
@@ -2159,6 +2447,15 @@ write_summary_report() {
 - Assembly summary content token: ${ASSEMBLY_SUMMARY_CONTEXT_TOKEN}
 - Include: ${INCLUDE_FILES}
 - Assembly source: ${ASSEMBLY_SOURCE}
+- Strict integrity: ${STRICT_INTEGRITY}
+- Verify fetch targets: ${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}
+- Verify fetch MD5: ${VERIFY_FETCH_MD5}
+- Verify targets state: ${verify_targets_state}
+- Verify MD5 state: ${md5_state}
+- State source: ${summary_state_source}
+- Download link retries: ${DOWNLOAD_LINK_MAX_RETRIES}
+- Rehydrate retries: ${REHYDRATE_MAX_RETRIES}
+- Retry sleep seconds: ${RETRY_SLEEP_SECONDS}
 
 ## Counts
 
@@ -2203,9 +2500,9 @@ EOF
 }
 
 # ==================== 主流程 ====================
-# main：脚本入口，按 action 调度 manifest、download-links、unpack-links、merge-fetch、rehydrate、verify。
+# main：脚本入口，按 action 调度 manifest、download-links、unpack-links、merge-fetch、rehydrate、verify、summary。
 # 参数：
-#   $1 / action：可选；all、manifest、download-links、unpack-links、merge-fetch、rehydrate、verify。
+#   $1 / action：可选；all、manifest、download-links、unpack-links、merge-fetch、rehydrate、verify、summary。
 # 全局副作用：
 #   1. 根据 action 改写 RUN_* 阶段开关。
 #   2. 检查依赖命令。
@@ -2275,6 +2572,8 @@ main() {
   log "filters: latest_only=${FILTER_LATEST_ONLY}, genome_rep=${FILTER_GENOME_REP}, excluded=${FILTER_EXCLUDED_FROM_REFSEQ}, assembly_levels=${FILTER_ASSEMBLY_LEVELS}, groups=${FILTER_GROUPS}, min_genome_size=${MIN_GENOME_SIZE}, max_accessions=${MAX_ACCESSIONS}"
   log "shard: size=${SHARD_SIZE}, force_single_package=${FORCE_SINGLE_PACKAGE}"
   log "steps: manifest=${RUN_BUILD_MANIFEST}, download_links=${RUN_DOWNLOAD_LINKS}, unpack_links=${RUN_UNPACK_LINKS}, merge_fetch=${RUN_MERGE_FETCH}, rehydrate=${RUN_REHYDRATE}, verify=${RUN_VERIFY}"
+  log "retry: download_links=${DOWNLOAD_LINK_MAX_RETRIES}, rehydrate=${REHYDRATE_MAX_RETRIES}, sleep_seconds=${RETRY_SLEEP_SECONDS}"
+  log "integrity: strict=${STRICT_INTEGRITY}, verify_targets=${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}, verify_md5=${VERIFY_FETCH_MD5}, checksum_format=${VERIFY_FETCH_CHECKSUM_FORMAT}, file_profile=${VERIFY_FETCH_FILE_PROFILE}"
   log "rehydrate max workers=${REHYDRATE_MAX_WORKERS}"
   log "api key mode: env_exported=$([[ -n "${NCBI_API_KEY}" ]] && printf yes || printf no); argv_api_key=disabled"
 
