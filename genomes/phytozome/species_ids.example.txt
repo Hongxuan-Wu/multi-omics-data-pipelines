@@ -1,0 +1,1 @@
+# 每行一个 JGI portal organism id，例如 Alyrata_384_v2_1
