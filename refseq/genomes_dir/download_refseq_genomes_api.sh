@@ -54,7 +54,7 @@ STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
 STORAGE_OWNER_DIR="p252701008"
 # STORAGE_DATA_SUBDIR：每个候选盘下的 RefSeq genomes 数据目录名。
 STORAGE_DATA_SUBDIR="refseq_genomes"
-# STORAGE_RUNLOG_SUBDIR：固定放在 /data1/p252701008 下的运行日志目录名。
+# STORAGE_RUNLOG_SUBDIR：固定放在 RUN_BASE_ROOT 下的运行日志目录名。
 STORAGE_RUNLOG_SUBDIR="refseq_genomes_runlogs"
 # STORAGE_MIN_FREE_GB：rehydrate 运行盘最低剩余空间；低于该值时切换到下一个候选盘。
 STORAGE_MIN_FREE_GB=200
@@ -62,9 +62,13 @@ STORAGE_MIN_FREE_GB=200
 # DATA_ROOT：默认数据根目录，派生自首个候选盘 /data1。
 DATA_ROOT="${STORAGE_DISK_CANDIDATES[0]}/${STORAGE_OWNER_DIR}/${STORAGE_DATA_SUBDIR}"
 
-# RUN_ROOT：运行日志、manifest、shard、状态表目录，固定放在 /data1/p252701008 下。
+# RUN_BASE_ROOT：运行日志、manifest、shard、状态表的固定根目录。
+#   真实下载数据仍按 STORAGE_DISK_CANDIDATES 写入各候选盘；过程文件集中保存在这里。
+RUN_BASE_ROOT="/data/p252701008/datasets"
+
+# RUN_ROOT：运行日志、manifest、shard、状态表目录，固定放在 RUN_BASE_ROOT 下。
 #   这个目录保存可重复运行所需的过程文件，删除或移动后会影响断点续跑。
-RUN_ROOT="/data1/${STORAGE_OWNER_DIR}/${STORAGE_RUNLOG_SUBDIR}"
+RUN_ROOT="${RUN_BASE_ROOT}/${STORAGE_RUNLOG_SUBDIR}"
 
 # TRASH_DIR：异常 zip、异常解包目录、可复用旧产物的隔离目录。
 #   FORCE_*、校验跳过或重建触发覆盖时，相关旧产物会尽量移动到这里；运行状态表会按阶段重写。
@@ -342,7 +346,7 @@ for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
   fi
 done
 
-for root_var in DATA_ROOT RUN_ROOT TRASH_DIR; do
+for root_var in DATA_ROOT RUN_BASE_ROOT RUN_ROOT TRASH_DIR; do
   root_value="${!root_var}"
   if [[ -z "${root_value}" || "${root_value}" != /* ]]; then
     printf '[FATAL] %s 必须是非空 Linux 绝对路径，当前值为：%s\n' "${root_var}" "${root_value}" >&2
@@ -1504,6 +1508,7 @@ STORAGE_OWNER_DIR=${STORAGE_OWNER_DIR}
 STORAGE_DATA_SUBDIR=${STORAGE_DATA_SUBDIR}
 STORAGE_RUNLOG_SUBDIR=${STORAGE_RUNLOG_SUBDIR}
 STORAGE_MIN_FREE_GB=${STORAGE_MIN_FREE_GB}
+RUN_BASE_ROOT=${RUN_BASE_ROOT}
 RUN_ROOT=${RUN_ROOT}
 FILTER_LATEST_ONLY=${FILTER_LATEST_ONLY}
 FILTER_GENOME_REP=${FILTER_GENOME_REP}

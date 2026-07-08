@@ -7,12 +7,13 @@ source_script="${repo_root}/refseq/genomes_dir/download_refseq_genomes_api.sh"
 test_root="/tmp/refseq_genomes_api_rehydrate_list_test.$(date +%s%N).$$"
 work_root="${test_root}/work"
 data_root="${test_root}/data"
-run_root="${test_root}/run"
+run_base_root="${test_root}/datasets"
+run_root="${run_base_root}/refseq_genomes_runlogs"
 bin_dir="${test_root}/bin"
 script_under_test="${work_root}/download_refseq_genomes_api.sh"
 context_name="test_context"
 
-mkdir -p "${work_root}" "${data_root}" "${run_root}" "${bin_dir}"
+mkdir -p "${work_root}" "${data_root}" "${run_base_root}" "${bin_dir}"
 cp -- "${source_script}" "${script_under_test}"
 
 assembly_summary="${work_root}/assembly_summary_refseq.txt"
@@ -22,7 +23,7 @@ sed -i \
   -e "s|^ASSEMBLY_SUMMARY_FILE=.*|ASSEMBLY_SUMMARY_FILE=\"${assembly_summary}\"|" \
   -e "s|^STORAGE_DISK_CANDIDATES=.*|STORAGE_DISK_CANDIDATES=(\"${data_root}\")|" \
   -e "s|^STORAGE_OWNER_DIR=.*|STORAGE_OWNER_DIR=\"owner\"|" \
-  -e "s|^RUN_ROOT=.*|RUN_ROOT=\"${run_root}\"|" \
+  -e "s|^RUN_BASE_ROOT=.*|RUN_BASE_ROOT=\"${run_base_root}\"|" \
   -e "s|^PIPELINE_CONTEXT_OVERRIDE=.*|PIPELINE_CONTEXT_OVERRIDE=\"${context_name}\"|" \
   -e "s|^DATASETS_BIN=.*|DATASETS_BIN=\"${bin_dir}/datasets\"|" \
   -e "s|^REHYDRATE_MAX_RETRIES=.*|REHYDRATE_MAX_RETRIES=1|" \

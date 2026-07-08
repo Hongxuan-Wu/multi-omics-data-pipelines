@@ -15,9 +15,10 @@ bin_dir="${test_root}/bin"
 script_under_test="${work_root}/download_refseq_genomes_api.sh"
 context_name="test_context"
 owner_dir="p252701008"
-run_root="${fake_data1}/${owner_dir}/refseq_genomes_runlogs"
+run_base_root="${test_root}/datasets"
+run_root="${run_base_root}/refseq_genomes_runlogs"
 
-mkdir -p "${work_root}" "${bin_dir}" "${fake_data1}" "${fake_data2}" "${fake_data4}" "${fake_data5}" "${fake_data3}"
+mkdir -p "${work_root}" "${bin_dir}" "${fake_data1}" "${fake_data2}" "${fake_data4}" "${fake_data5}" "${fake_data3}" "${run_base_root}"
 cp -- "${source_script}" "${script_under_test}"
 
 assembly_summary="${work_root}/assembly_summary_refseq.txt"
@@ -27,7 +28,7 @@ sed -i \
   -e "s|^ASSEMBLY_SUMMARY_FILE=.*|ASSEMBLY_SUMMARY_FILE=\"${assembly_summary}\"|" \
   -e "s|^STORAGE_DISK_CANDIDATES=.*|STORAGE_DISK_CANDIDATES=(\"${fake_data1}\" \"${fake_data2}\" \"${fake_data4}\" \"${fake_data5}\" \"${fake_data3}\")|" \
   -e "s|^STORAGE_OWNER_DIR=.*|STORAGE_OWNER_DIR=\"${owner_dir}\"|" \
-  -e "s|^RUN_ROOT=.*|RUN_ROOT=\"${run_root}\"|" \
+  -e "s|^RUN_BASE_ROOT=.*|RUN_BASE_ROOT=\"${run_base_root}\"|" \
   -e "s|^PIPELINE_CONTEXT_OVERRIDE=.*|PIPELINE_CONTEXT_OVERRIDE=\"${context_name}\"|" \
   -e "s|^DATASETS_BIN=.*|DATASETS_BIN=\"${bin_dir}/datasets\"|" \
   -e "s|^REHYDRATE_MAX_RETRIES=.*|REHYDRATE_MAX_RETRIES=3|" \

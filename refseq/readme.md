@@ -169,8 +169,8 @@ manifest/shard -> dehydrated links -> unpack -> merge fetch.txt -> rehydrate -> 
 
 ```text
 default data root: /data1/p252701008/refseq_genomes
-run root:          /data1/p252701008/refseq_genomes_runlogs
-nohup log dir:     /data1/p252701008/refseq_genomes_runlogs/logs
+run root:          /data/p252701008/datasets/refseq_genomes_runlogs
+nohup log dir:     /data/p252701008/datasets/refseq_genomes_runlogs/logs
 ```
 
 真实数据存储盘候选顺序：
@@ -238,10 +238,10 @@ ps -ef | grep -E 'download_refseq_genomes_api.sh rehydrate|datasets rehydrate' |
 
 ```bash
 cd /data/p252701008/projects/multi-omics-data-pipelines
-mkdir -p /data1/p252701008/refseq_genomes_runlogs/logs
+mkdir -p /data/p252701008/datasets/refseq_genomes_runlogs/logs
 
 nohup bash -lc 'set -a && source .codex/.env && set +a && export PATH="/home/p252701008/.conda/envs/ncbi_datasets/bin:$PATH" && bash refseq/genomes_dir/download_refseq_genomes_api.sh rehydrate' \
-  > /data1/p252701008/refseq_genomes_runlogs/logs/nohup_refseq_genomes_rehydrate.log 2>&1 &
+  > /data/p252701008/datasets/refseq_genomes_runlogs/logs/nohup_refseq_genomes_rehydrate.log 2>&1 &
 ```
 
 当前脚本默认：
@@ -264,7 +264,7 @@ FORCE_MERGE_FETCH=0
 主日志：
 
 ```bash
-tail -f /data1/p252701008/refseq_genomes_runlogs/logs/nohup_refseq_genomes_rehydrate.log
+tail -f /data/p252701008/datasets/refseq_genomes_runlogs/logs/nohup_refseq_genomes_rehydrate.log
 ```
 
 脚本会每 60 秒写一行进度：
@@ -289,13 +289,13 @@ done
 内部 `datasets rehydrate` 日志：
 
 ```text
-/data1/p252701008/refseq_genomes_runlogs/logs/<context>/datasets_rehydrate_<RUN_ID>.log
+/data/p252701008/datasets/refseq_genomes_runlogs/logs/<context>/datasets_rehydrate_<RUN_ID>.log
 ```
 
 `rehydrate --list` 预检摘要日志：
 
 ```text
-/data1/p252701008/refseq_genomes_runlogs/logs/<context>/datasets_rehydrate_list_<RUN_ID>.log
+/data/p252701008/datasets/refseq_genomes_runlogs/logs/<context>/datasets_rehydrate_list_<RUN_ID>.log
 ```
 
 该日志只保留命令、退出状态、`stdout_lines` 和 stderr 路径；完整 `--list` 明细不会落盘。
@@ -303,8 +303,8 @@ done
 状态和 summary：
 
 ```text
-/data1/p252701008/refseq_genomes_runlogs/status/<context>/state_<RUN_ID>.tsv
-/data1/p252701008/refseq_genomes_runlogs/status/<context>/summary_<RUN_ID>.md
+/data/p252701008/datasets/refseq_genomes_runlogs/status/<context>/state_<RUN_ID>.tsv
+/data/p252701008/datasets/refseq_genomes_runlogs/status/<context>/summary_<RUN_ID>.md
 ```
 
 ### 7.4 常见注意事项
