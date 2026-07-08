@@ -266,6 +266,14 @@ du -sh /data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refse
 /data3/p252701008/refseq_genomes_runlogs/logs/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/datasets_rehydrate_<RUN_ID>.log
 ```
 
+`rehydrate --list` 预检摘要日志：
+
+```text
+/data3/p252701008/refseq_genomes_runlogs/logs/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/datasets_rehydrate_list_<RUN_ID>.log
+```
+
+该日志只保留命令、退出状态、`stdout_lines` 和 stderr 路径；完整 `--list` 明细不会落盘。
+
 状态和 summary：
 
 ```text
@@ -277,6 +285,7 @@ du -sh /data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refse
 
 - `--no-progressbar` 只关闭 `datasets` 终端进度条，不影响下载速度、并发数或下载内容。
 - 后台运行时保留 `--no-progressbar`，避免 nohup 日志被进度条控制字符污染。
+- `REHYDRATE_LIST_BEFORE_DOWNLOAD=1` 会保留下载前预检，但只记录 `--list` 行数摘要，不保存数百万行完整清单。
 - 进度看主日志里的 `rehydrate progress` 行，或手动看文件数和数据目录体积。
 - 修改 `REHYDRATE_MAX_WORKERS`、`NCBI_API_KEY` 后，已经运行中的进程不会自动继承，需要停止后重新启动。
 - 如果 `datasets rehydrate` 失败，脚本会按 `REHYDRATE_MAX_RETRIES=3` 自动重试。

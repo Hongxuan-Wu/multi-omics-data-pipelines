@@ -593,6 +593,101 @@ run_logged_command_with_retries() {
   return "${exit_code}"
 }
 
+# run_rehydrate_list_precheck_with_retries：执行 datasets rehydrate --list，但不保存完整 stdout 清单。
+# 参数：
+#   $1 / stage：阶段名。
+#   $2 / max_retries：最大尝试次数。
+#   $3 / sleep_seconds：失败后等待秒数。
+#   $4 / log_file：摘要日志路径。
+#   $5 / count_file：stdout 行数输出路径。
+#   $6...：需要执行的 rehydrate --list 命令及其参数。
+# 输出：
+#   log_file 只记录命令摘要、stdout 行数和 stderr 日志路径；stdout 明细流式计数后丢弃。
+# 说明：
+#   rehydrate --list 对全量 RefSeq 会输出数百万行目标文件清单，不能走通用完整日志脱敏流程。
+run_rehydrate_list_precheck_with_retries() {
+  local stage="$1"
+  local max_retries="$2"
+  local sleep_seconds="$3"
+  local log_file="$4"
+  local count_file="$5"
+  shift 5
+  local attempt=1
+  local exit_code=0
+  local attempt_log
+  local stderr_log
+  local line_count
+  local stderr_lines
+  local stderr_bytes
+  local command_text
+
+  command_text="$(printf '%q ' "$@")"
+  command_text="$(redact_sensitive_text "${command_text}")"
+
+  while [[ "${attempt}" -le "${max_retries}" ]]; do
+    attempt_log="${log_file}"
+    if [[ "${max_retries}" -gt 1 ]]; then
+      attempt_log="${log_file}.attempt${attempt}"
+    fi
+    stderr_log="${attempt_log}.stderr"
+    log "${stage}：第 ${attempt}/${max_retries} 次尝试。摘要日志：${attempt_log}；stderr：${stderr_log}"
+
+    line_count=""
+    if line_count="$("$@" 2> "${stderr_log}" | wc -l | awk '{print $1}')"; then
+      redact_log_file "${stderr_log}"
+      stderr_lines="$(count_lines "${stderr_log}")"
+      stderr_bytes="$(wc -c < "${stderr_log}" | awk '{print $1}')"
+      {
+        printf 'stage=%s\n' "${stage}"
+        printf 'attempt=%s/%s\n' "${attempt}" "${max_retries}"
+        printf 'command=%s\n' "${command_text}"
+        printf 'status=DONE\n'
+        printf 'exit_code=0\n'
+        printf 'stdout=discarded_after_line_count\n'
+        printf 'stdout_lines=%s\n' "${line_count}"
+        printf 'stderr_log=%s\n' "${stderr_log}"
+        printf 'stderr_lines=%s\n' "${stderr_lines}"
+        printf 'stderr_bytes=%s\n' "${stderr_bytes}"
+      } > "${attempt_log}"
+      printf '%s\n' "${line_count}" > "${count_file}"
+      if [[ "${attempt_log}" != "${log_file}" ]]; then
+        cat "${attempt_log}" > "${log_file}"
+      fi
+      return 0
+    else
+      exit_code=$?
+    fi
+
+    redact_log_file "${stderr_log}"
+    stderr_lines="$(count_lines "${stderr_log}")"
+    stderr_bytes="$(wc -c < "${stderr_log}" | awk '{print $1}')"
+    {
+      printf 'stage=%s\n' "${stage}"
+      printf 'attempt=%s/%s\n' "${attempt}" "${max_retries}"
+      printf 'command=%s\n' "${command_text}"
+      printf 'status=FAILED\n'
+      printf 'exit_code=%s\n' "${exit_code}"
+      printf 'stdout=discarded_after_line_count\n'
+      printf 'stdout_lines_partial=%s\n' "${line_count:-unknown}"
+      printf 'stderr_log=%s\n' "${stderr_log}"
+      printf 'stderr_lines=%s\n' "${stderr_lines}"
+      printf 'stderr_bytes=%s\n' "${stderr_bytes}"
+    } > "${attempt_log}"
+    errlog "${stage} 失败：第 ${attempt}/${max_retries} 次；退出码：${exit_code}；摘要日志：${attempt_log}；stderr：${stderr_log}"
+    tail_error_log "${stderr_log}" 30
+    if [[ "${attempt}" -lt "${max_retries}" ]]; then
+      log "${stage} 将在 ${sleep_seconds} 秒后重试。"
+      sleep "${sleep_seconds}"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  if [[ "${attempt_log}" != "${log_file}" && -f "${attempt_log}" ]]; then
+    cat "${attempt_log}" > "${log_file}" || true
+  fi
+  return "${exit_code}"
+}
+
 # log_rehydrate_progress_snapshot：输出一次 rehydrate 下载进度快照。
 # 参数：
 #   $1 / target_count：fetch target 总数。
@@ -2052,6 +2147,8 @@ rehydrate_merged_package() {
   local log_file="${LOG_DIR}/datasets_rehydrate_${RUN_ID}.log"
   # list_log：datasets rehydrate --list 预检日志。
   local list_log="${LOG_DIR}/datasets_rehydrate_list_${RUN_ID}.log"
+  # list_count_file：datasets rehydrate --list stdout 行数记录。
+  local list_count_file="${LOG_DIR}/datasets_rehydrate_list_${RUN_ID}.stdout_lines"
   # cmd：正式 rehydrate 命令数组。
   local cmd=()
   # list_cmd：rehydrate --list 预检命令数组。
@@ -2072,13 +2169,13 @@ rehydrate_merged_package() {
   if [[ "${REHYDRATE_LIST_BEFORE_DOWNLOAD}" == "1" ]]; then
     list_cmd=("${DATASETS_BIN}" rehydrate --directory "${MERGED_PACKAGE_DIR}" --list)
     log "执行 rehydrate --list 预检：${DATASETS_BIN} rehydrate --directory ${MERGED_PACKAGE_DIR} --list"
-    if run_logged_command_with_retries "datasets rehydrate --list" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${list_log}" "${list_cmd[@]}"; then
-      list_count="$(count_lines "${list_log}")"
+    if run_rehydrate_list_precheck_with_retries "datasets rehydrate --list" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${list_log}" "${list_count_file}" "${list_cmd[@]}"; then
+      list_count="$(awk 'NR == 1 {print $1}' "${list_count_file}")"
       write_state "rehydrate_list" "DONE" "lines=${list_count};log=${list_log}"
-      log "rehydrate --list 预检通过：${list_log}"
+      log "rehydrate --list 预检通过：stdout 行数 ${list_count}；摘要日志：${list_log}"
     else
       local exit_code=$?
-      errlog "datasets rehydrate --list 失败；退出码：${exit_code}；日志：${list_log}"
+      errlog "datasets rehydrate --list 失败；退出码：${exit_code}；摘要日志：${list_log}"
       tail_error_log "${list_log}" 30
       write_state "rehydrate_list" "FAILED_EXIT_${exit_code}" "${list_log}"
       return 1
