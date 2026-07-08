@@ -143,7 +143,7 @@ FORCE_MERGE_FETCH=0
 STOP_ON_LINK_DOWNLOAD_ERROR=0
 # DOWNLOAD_LINK_MAX_RETRIES：单个 dehydrated zip 下载失败后的自动重试次数。
 DOWNLOAD_LINK_MAX_RETRIES=3
-# REHYDRATE_MAX_RETRIES：datasets rehydrate 失败后的自动重试次数。
+# REHYDRATE_MAX_RETRIES：每个空间达标候选盘内 datasets rehydrate 失败后的自动重试次数。
 REHYDRATE_MAX_RETRIES=3
 # RETRY_SLEEP_SECONDS：自动重试前等待秒数。
 RETRY_SLEEP_SECONDS=30
@@ -949,22 +949,6 @@ expected_rehydrate_target() {
   else
     printf '%s' "${target}"
   fi
-}
-
-# select_rehydrate_data_root：按候选顺序选择剩余空间不低于 STORAGE_MIN_FREE_GB 的数据根目录。
-select_rehydrate_data_root() {
-  local data_root_candidate
-  local avail_gb
-
-  for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
-    if avail_gb="$(storage_free_gb "${data_root_candidate}")"; then
-      if [[ "${avail_gb}" -ge "${STORAGE_MIN_FREE_GB}" ]]; then
-        printf '%s' "${data_root_candidate}"
-        return 0
-      fi
-    fi
-  done
-  return 1
 }
 
 # collect_existing_rehydrate_targets：收集所有候选盘中已存在的 rehydrate 目标相对路径。
@@ -2378,8 +2362,14 @@ rehydrate_merged_package() {
   local list_count=0
   # target_count：fetch target 总数，用于 rehydrate 进度日志。
   local target_count=0
-  # attempt：rehydrate 当前尝试次数。
-  local attempt=1
+  # candidate_index：当前候选数据根目录序号。
+  local candidate_index=0
+  # retry_attempt：当前候选数据根目录内的 rehydrate 重试序号。
+  local retry_attempt=1
+  # candidate_count：候选数据根目录总数。
+  local candidate_count="${#DATA_ROOT_CANDIDATES[@]}"
+  # candidate_with_capacity：是否至少遇到过一个空间达标的候选盘。
+  local candidate_with_capacity=0
   # selected_data_root：当前尝试使用的数据根目录。
   local selected_data_root
   # selected_package_dir：当前尝试使用的 rehydrate package 目录。
@@ -2426,15 +2416,11 @@ rehydrate_merged_package() {
     log "rehydrate 进度日志已关闭；磁盘保护仍会按 ${STORAGE_MIN_FREE_GB} GB 阈值运行。"
   fi
 
-  while [[ "${attempt}" -le "${REHYDRATE_MAX_RETRIES}" ]]; do
-    if ! selected_data_root="$(select_rehydrate_data_root)"; then
-      write_state "rehydrate" "FAILED_NO_STORAGE" "min_free_gb=${STORAGE_MIN_FREE_GB};candidates=${DATA_ROOT_CANDIDATES[*]}"
-      die "所有候选数据盘剩余空间均低于 ${STORAGE_MIN_FREE_GB} GB，无法继续 rehydrate。候选：${DATA_ROOT_CANDIDATES[*]}"
-    fi
-    selected_avail_gb="$(storage_free_gb "${selected_data_root}")"
+  for selected_data_root in "${DATA_ROOT_CANDIDATES[@]}"; do
+    candidate_index=$((candidate_index + 1))
     selected_package_dir="$(rehydrate_package_dir_for_root "${selected_data_root}")"
     selected_data_dir="${selected_package_dir}/ncbi_dataset/data"
-    remaining_count_file="${STATUS_DIR}/rehydrate_remaining_${RUN_ID}.attempt${attempt}.count"
+    remaining_count_file="${STATUS_DIR}/rehydrate_remaining_${RUN_ID}.candidate${candidate_index}.count"
     build_remaining_fetch_for_root "${selected_data_root}" "${remaining_count_file}"
     remaining_count="$(awk 'NR == 1 {print $1}' "${remaining_count_file}")"
 
@@ -2444,41 +2430,69 @@ rehydrate_merged_package() {
       return 0
     fi
 
-    cmd=(
-      "${DATASETS_BIN}" rehydrate
-      --directory "${selected_package_dir}"
-      --max-workers "${REHYDRATE_MAX_WORKERS}"
-      --no-progressbar
-    )
-    if [[ "${REHYDRATE_GZIP}" == "1" ]]; then
-      cmd+=(--gzip)
+    if ! selected_avail_gb="$(storage_free_gb "${selected_data_root}")"; then
+      warnlog "无法读取候选数据盘剩余空间，跳过：candidate=${candidate_index}/${candidate_count}; data_root=${selected_data_root}"
+      continue
     fi
-    rehydrate_log="${log_file}.attempt${attempt}"
-    log "开始 rehydrate：attempt=${attempt}/${REHYDRATE_MAX_RETRIES}; data_root=${selected_data_root}; avail_gb=${selected_avail_gb}; remaining_targets=${remaining_count}; package=${selected_package_dir}"
-    log "命令：${DATASETS_BIN} rehydrate --directory ${selected_package_dir} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar$([[ "${REHYDRATE_GZIP}" == "1" ]] && printf ' --gzip' || true)"
-    if run_logged_command_with_retries_and_progress "datasets rehydrate" 1 "${RETRY_SLEEP_SECONDS}" "${rehydrate_log}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${remaining_count}" "${selected_data_dir}" "${STORAGE_MIN_FREE_GB}" "${cmd[@]}"; then
-      cat "${rehydrate_log}" > "${log_file}" || true
-      write_state "rehydrate" "DONE" "log=${log_file};data_root=${selected_data_root};gzip=${REHYDRATE_GZIP}"
-      log "统一 rehydrate 完成。日志：${log_file}；最终数据根目录之一：${selected_data_root}"
-      return 0
-    else
-      exit_code=$?
+    if [[ "${selected_avail_gb}" -lt "${STORAGE_MIN_FREE_GB}" ]]; then
+      warnlog "候选数据盘剩余空间 ${selected_avail_gb} GB < ${STORAGE_MIN_FREE_GB} GB，按顺序跳过：candidate=${candidate_index}/${candidate_count}; data_root=${selected_data_root}"
+      continue
     fi
+    candidate_with_capacity=1
 
-    tail_error_log "${rehydrate_log}" 40
-    selected_avail_gb="$(storage_free_gb "${selected_data_root}")"
-    if [[ "${attempt}" -lt "${REHYDRATE_MAX_RETRIES}" ]]; then
-      if [[ "${selected_avail_gb}" -lt "${STORAGE_MIN_FREE_GB}" ]]; then
-        warnlog "当前数据盘剩余 ${selected_avail_gb} GB < ${STORAGE_MIN_FREE_GB} GB，下次尝试将选择下一个可用候选盘。"
-      else
-        warnlog "datasets rehydrate 失败；退出码：${exit_code}；当前数据盘仍有 ${selected_avail_gb} GB，${RETRY_SLEEP_SECONDS} 秒后重试。"
+    retry_attempt=1
+    while [[ "${retry_attempt}" -le "${REHYDRATE_MAX_RETRIES}" ]]; do
+      remaining_count_file="${STATUS_DIR}/rehydrate_remaining_${RUN_ID}.candidate${candidate_index}.retry${retry_attempt}.count"
+      build_remaining_fetch_for_root "${selected_data_root}" "${remaining_count_file}"
+      remaining_count="$(awk 'NR == 1 {print $1}' "${remaining_count_file}")"
+
+      if [[ "${remaining_count}" -eq 0 ]]; then
+        write_state "rehydrate" "DONE" "all_targets_present;candidates=${DATA_ROOT_CANDIDATES[*]}"
+        log "所有 rehydrate 目标文件已在候选盘中存在，跳过 datasets rehydrate。"
+        return 0
       fi
-      sleep "${RETRY_SLEEP_SECONDS}"
-    fi
-    attempt=$((attempt + 1))
+
+      cmd=(
+        "${DATASETS_BIN}" rehydrate
+        --directory "${selected_package_dir}"
+        --max-workers "${REHYDRATE_MAX_WORKERS}"
+        --no-progressbar
+      )
+      if [[ "${REHYDRATE_GZIP}" == "1" ]]; then
+        cmd+=(--gzip)
+      fi
+      rehydrate_log="${log_file}.candidate${candidate_index}.retry${retry_attempt}"
+      log "开始 rehydrate：candidate=${candidate_index}/${candidate_count}; retry=${retry_attempt}/${REHYDRATE_MAX_RETRIES}; data_root=${selected_data_root}; avail_gb=${selected_avail_gb}; remaining_targets=${remaining_count}; package=${selected_package_dir}"
+      log "命令：${DATASETS_BIN} rehydrate --directory ${selected_package_dir} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar$([[ "${REHYDRATE_GZIP}" == "1" ]] && printf ' --gzip' || true)"
+      if run_logged_command_with_retries_and_progress "datasets rehydrate" 1 "${RETRY_SLEEP_SECONDS}" "${rehydrate_log}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${remaining_count}" "${selected_data_dir}" "${STORAGE_MIN_FREE_GB}" "${cmd[@]}"; then
+        cat "${rehydrate_log}" > "${log_file}" || true
+        write_state "rehydrate" "DONE" "log=${log_file};data_root=${selected_data_root};gzip=${REHYDRATE_GZIP}"
+        log "统一 rehydrate 完成。日志：${log_file}；最终数据根目录之一：${selected_data_root}"
+        return 0
+      else
+        exit_code=$?
+      fi
+
+      tail_error_log "${rehydrate_log}" 40
+      selected_avail_gb="$(storage_free_gb "${selected_data_root}")"
+      if [[ "${selected_avail_gb}" -lt "${STORAGE_MIN_FREE_GB}" ]]; then
+        warnlog "当前数据盘剩余 ${selected_avail_gb} GB < ${STORAGE_MIN_FREE_GB} GB，按顺序切换到下一个候选盘。"
+        break
+      fi
+      if [[ "${retry_attempt}" -lt "${REHYDRATE_MAX_RETRIES}" ]]; then
+        warnlog "datasets rehydrate 失败；退出码：${exit_code}；当前数据盘仍有 ${selected_avail_gb} GB，${RETRY_SLEEP_SECONDS} 秒后在同一候选盘重试。"
+        sleep "${RETRY_SLEEP_SECONDS}"
+      fi
+      retry_attempt=$((retry_attempt + 1))
+    done
   done
 
-  errlog "datasets rehydrate 失败；已尝试 ${REHYDRATE_MAX_RETRIES} 次；最后退出码：${exit_code}；日志：${log_file}"
+  if [[ "${candidate_with_capacity}" -eq 0 ]]; then
+    write_state "rehydrate" "FAILED_NO_STORAGE" "min_free_gb=${STORAGE_MIN_FREE_GB};candidates=${DATA_ROOT_CANDIDATES[*]}"
+    die "所有候选数据盘剩余空间均低于 ${STORAGE_MIN_FREE_GB} GB，无法继续 rehydrate。候选：${DATA_ROOT_CANDIDATES[*]}"
+  fi
+
+  errlog "datasets rehydrate 失败；已按顺序遍历 ${candidate_count} 个候选数据根目录；每个可用候选最多重试 ${REHYDRATE_MAX_RETRIES} 次；最后退出码：${exit_code}；日志：${log_file}"
   write_state "rehydrate" "FAILED_EXIT_${exit_code}" "${log_file}"
   return "${exit_code}"
 }

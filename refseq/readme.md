@@ -316,7 +316,7 @@ done
 - gzip 模式下官方 `fetch.txt` 的 MD5 通常不再直接对应压缩后的本地文件，脚本会跳过直接 MD5 计算，保留目标存在性、文件类别和 gzip 完整性校验。
 - 进度看主日志里的 `rehydrate progress` 行，或手动看文件数和数据目录体积。
 - 修改 `REHYDRATE_MAX_WORKERS`、`NCBI_API_KEY` 后，已经运行中的进程不会自动继承，需要停止后重新启动。
-- 如果 `datasets rehydrate` 失败，脚本会按 `REHYDRATE_MAX_RETRIES=3` 自动重试。
+- `rehydrate` 会按 `STORAGE_DISK_CANDIDATES` 的顺序遍历候选盘。`REHYDRATE_MAX_RETRIES=3` 表示每个空间达标候选盘内最多重试 3 次，不限制候选盘遍历数量。
 - 停止下载时，先停止 `datasets rehydrate` 子进程，再停止外层 `download_refseq_genomes_api.sh rehydrate` 进程。
 
 ## 8. 后续需要补齐
