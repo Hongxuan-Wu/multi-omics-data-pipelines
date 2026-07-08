@@ -183,7 +183,7 @@ nohup log dir:     /data1/p252701008/refseq_genomes_runlogs/logs
 | 4 | `/data5/p252701008/refseq_genomes` |
 | 5 | `/data3/p252701008/refseq_genomes` |
 
-脚本会尝试创建每个候选盘下的 `p252701008/refseq_genomes`。`rehydrate` 阶段按候选顺序选择剩余空间不低于 500 GB 的盘；运行中若当前盘低于 500 GB，会停止当前 `datasets rehydrate`，重算未完成目标后切到下一个可用候选盘继续。
+脚本会尝试创建每个候选盘下的 `p252701008/refseq_genomes`。`rehydrate` 阶段按候选顺序选择剩余空间不低于 200 GB 的盘；运行中若当前盘低于 200 GB，会停止当前 `datasets rehydrate`，重算未完成目标后切到下一个可用候选盘继续。
 
 当前统一 `fetch.txt` 路径：
 
@@ -222,7 +222,7 @@ NCBI_API_KEY=<your_ncbi_api_key>
 脚本日志中看到下面两行，表示 API key 和并发配置生效：
 
 ```text
-rehydrate max workers=30; progress_interval_seconds=60; gzip=1; storage_min_free_gb=500
+rehydrate max workers=30; progress_interval_seconds=60; gzip=1; storage_min_free_gb=200
 api key mode: env_exported=yes
 ```
 
@@ -248,7 +248,7 @@ nohup bash -lc 'set -a && source .codex/.env && set +a && export PATH="/home/p25
 
 ```text
 STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
-STORAGE_MIN_FREE_GB=500
+STORAGE_MIN_FREE_GB=200
 INCLUDE_FILES=all
 FILTER_ASSEMBLY_LEVELS=all
 REHYDRATE_MAX_WORKERS=30

@@ -57,7 +57,7 @@ STORAGE_DATA_SUBDIR="refseq_genomes"
 # STORAGE_RUNLOG_SUBDIR：固定放在 /data1/p252701008 下的运行日志目录名。
 STORAGE_RUNLOG_SUBDIR="refseq_genomes_runlogs"
 # STORAGE_MIN_FREE_GB：rehydrate 运行盘最低剩余空间；低于该值时切换到下一个候选盘。
-STORAGE_MIN_FREE_GB=500
+STORAGE_MIN_FREE_GB=200
 
 # DATA_ROOT：默认数据根目录，派生自首个候选盘 /data1。
 DATA_ROOT="${STORAGE_DISK_CANDIDATES[0]}/${STORAGE_OWNER_DIR}/${STORAGE_DATA_SUBDIR}"
@@ -179,7 +179,7 @@ MAX_VERIFY_MISSING_PREVIEW=50
 
 # 磁盘保护阈值，单位 GB。每个关键下载阶段都会检查。
 # MIN_DISK_GB：目标分区剩余空间低于该值时停止，防止写满数据盘。
-MIN_DISK_GB=500
+MIN_DISK_GB=200
 
 # ==================== 派生路径 ====================
 # RUN_ID：本次运行唯一标识，用 UTC 时间和进程号区分日志/状态文件。

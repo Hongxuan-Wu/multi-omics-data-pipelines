@@ -34,7 +34,7 @@ sed -i \
   -e "s|^RETRY_SLEEP_SECONDS=.*|RETRY_SLEEP_SECONDS=0|" \
   -e "s|^REHYDRATE_PROGRESS_INTERVAL_SECONDS=.*|REHYDRATE_PROGRESS_INTERVAL_SECONDS=0|" \
   -e "s|^REHYDRATE_GZIP=.*|REHYDRATE_GZIP=1|" \
-  -e "s|^STORAGE_MIN_FREE_GB=.*|STORAGE_MIN_FREE_GB=500|" \
+  -e "s|^STORAGE_MIN_FREE_GB=.*|STORAGE_MIN_FREE_GB=200|" \
   -e "s|^MIN_DISK_GB=.*|MIN_DISK_GB=0|" \
   -e "s|^STRICT_INTEGRITY=.*|STRICT_INTEGRITY=0|" \
   -e "s|^VERIFY_FETCH_MD5=.*|VERIFY_FETCH_MD5=0|" \
@@ -46,7 +46,7 @@ set -Eeuo pipefail
 target="\${@: -1}"
 if [[ "\${target}" == ${fake_data1}* ]]; then
   printf 'Filesystem 1G-blocks Used Available Use%% Mounted on\\n'
-  printf 'fake_data1 1000G 600G 400G 60%% ${fake_data1}\\n'
+  printf 'fake_data1 1000G 900G 100G 90%% ${fake_data1}\\n'
 else
   printf 'Filesystem 1G-blocks Used Available Use%% Mounted on\\n'
   printf 'fake_other 1000G 100G 900G 10%% /\n'
