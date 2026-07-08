@@ -20,13 +20,16 @@ printf '# assembly summary fixture\n' > "${assembly_summary}"
 
 sed -i \
   -e "s|^ASSEMBLY_SUMMARY_FILE=.*|ASSEMBLY_SUMMARY_FILE=\"${assembly_summary}\"|" \
-  -e "s|^DATA_ROOT=.*|DATA_ROOT=\"${data_root}\"|" \
+  -e "s|^STORAGE_DISK_CANDIDATES=.*|STORAGE_DISK_CANDIDATES=(\"${data_root}\")|" \
+  -e "s|^STORAGE_OWNER_DIR=.*|STORAGE_OWNER_DIR=\"owner\"|" \
   -e "s|^RUN_ROOT=.*|RUN_ROOT=\"${run_root}\"|" \
   -e "s|^PIPELINE_CONTEXT_OVERRIDE=.*|PIPELINE_CONTEXT_OVERRIDE=\"${context_name}\"|" \
   -e "s|^DATASETS_BIN=.*|DATASETS_BIN=\"${bin_dir}/datasets\"|" \
   -e "s|^REHYDRATE_MAX_RETRIES=.*|REHYDRATE_MAX_RETRIES=1|" \
   -e "s|^RETRY_SLEEP_SECONDS=.*|RETRY_SLEEP_SECONDS=0|" \
   -e "s|^REHYDRATE_PROGRESS_INTERVAL_SECONDS=.*|REHYDRATE_PROGRESS_INTERVAL_SECONDS=0|" \
+  -e "s|^REHYDRATE_GZIP=.*|REHYDRATE_GZIP=0|" \
+  -e "s|^STORAGE_MIN_FREE_GB=.*|STORAGE_MIN_FREE_GB=0|" \
   -e "s|^STRICT_INTEGRITY=.*|STRICT_INTEGRITY=0|" \
   -e "s|^VERIFY_FETCH_MD5=.*|VERIFY_FETCH_MD5=0|" \
   -e "s|^MIN_DISK_GB=.*|MIN_DISK_GB=0|" \
@@ -70,7 +73,7 @@ EOF
 chmod +x "${bin_dir}/datasets"
 
 manifest_dir="${run_root}/manifests/${context_name}"
-package_dir="${data_root}/contexts/${context_name}/merged_refseq_dataset/ncbi_dataset"
+package_dir="${data_root}/owner/refseq_genomes/contexts/${context_name}/merged_refseq_dataset/ncbi_dataset"
 mkdir -p "${manifest_dir}" "${package_dir}"
 printf 'ASSEMBLY_SUMMARY_FILE=%s\n' "${assembly_summary}" > "${manifest_dir}/manifest_config.txt"
 printf 'GCF_000001.1\n' > "${manifest_dir}/accessions.sorted.txt"

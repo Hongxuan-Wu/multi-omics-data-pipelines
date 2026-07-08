@@ -168,22 +168,36 @@ manifest/shard -> dehydrated links -> unpack -> merge fetch.txt -> rehydrate -> 
 关键运行目录：
 
 ```text
-data root: /data3/p252701008/refseq_genomes
-run root:  /data3/p252701008/refseq_genomes_runlogs
-logs:      refseq/genomes_dir/logs
+default data root: /data1/p252701008/refseq_genomes
+run root:          /data1/p252701008/refseq_genomes_runlogs
+nohup log dir:     /data1/p252701008/refseq_genomes_runlogs/logs
 ```
+
+真实数据存储盘候选顺序：
+
+| 顺序 | 数据根目录 |
+|------|------------|
+| 1 | `/data1/p252701008/refseq_genomes` |
+| 2 | `/data2/p252701008/refseq_genomes` |
+| 3 | `/data4/p252701008/refseq_genomes` |
+| 4 | `/data5/p252701008/refseq_genomes` |
+| 5 | `/data3/p252701008/refseq_genomes` |
+
+脚本会尝试创建每个候选盘下的 `p252701008/refseq_genomes`。`rehydrate` 阶段按候选顺序选择剩余空间不低于 500 GB 的盘；运行中若当前盘低于 500 GB，会停止当前 `datasets rehydrate`，重算未完成目标后切到下一个可用候选盘继续。
 
 当前统一 `fetch.txt` 路径：
 
 ```text
-/data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/merged_refseq_dataset/ncbi_dataset/fetch.txt
+/data1/p252701008/refseq_genomes/contexts/<context>/merged_refseq_dataset/ncbi_dataset/fetch.txt
 ```
 
 真实数据下载目录：
 
 ```text
-/data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/merged_refseq_dataset/ncbi_dataset/data
+/dataN/p252701008/refseq_genomes/contexts/<context>/rehydrate_refseq_dataset/ncbi_dataset/data
 ```
+
+其中 `/dataN` 是上述候选盘之一。默认 `REHYDRATE_GZIP=1`，因此真实文件通常以 `.gz` 结尾；context 名称也会带 `gzip`，避免和未压缩下载结果混写。
 
 ### 7.1 环境与 API key
 
@@ -208,7 +222,7 @@ NCBI_API_KEY=<your_ncbi_api_key>
 脚本日志中看到下面两行，表示 API key 和并发配置生效：
 
 ```text
-rehydrate max workers=30; progress_interval_seconds=60
+rehydrate max workers=30; progress_interval_seconds=60; gzip=1; storage_min_free_gb=500
 api key mode: env_exported=yes
 ```
 
@@ -224,15 +238,21 @@ ps -ef | grep -E 'download_refseq_genomes_api.sh rehydrate|datasets rehydrate' |
 
 ```bash
 cd /data/p252701008/projects/multi-omics-data-pipelines
+mkdir -p /data1/p252701008/refseq_genomes_runlogs/logs
 
 nohup bash -lc 'set -a && source .codex/.env && set +a && export PATH="/home/p252701008/.conda/envs/ncbi_datasets/bin:$PATH" && bash refseq/genomes_dir/download_refseq_genomes_api.sh rehydrate' \
-  > refseq/genomes_dir/logs/nohup_refseq_genomes_rehydrate.log 2>&1 &
+  > /data1/p252701008/refseq_genomes_runlogs/logs/nohup_refseq_genomes_rehydrate.log 2>&1 &
 ```
 
 当前脚本默认：
 
 ```text
+STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
+STORAGE_MIN_FREE_GB=500
+INCLUDE_FILES=all
+FILTER_ASSEMBLY_LEVELS=all
 REHYDRATE_MAX_WORKERS=30
+REHYDRATE_GZIP=1
 REHYDRATE_PROGRESS_INTERVAL_SECONDS=60
 REHYDRATE_MAX_RETRIES=3
 RETRY_SLEEP_SECONDS=30
@@ -244,7 +264,7 @@ FORCE_MERGE_FETCH=0
 主日志：
 
 ```bash
-tail -f refseq/genomes_dir/logs/nohup_refseq_genomes_rehydrate.log
+tail -f /data1/p252701008/refseq_genomes_runlogs/logs/nohup_refseq_genomes_rehydrate.log
 ```
 
 脚本会每 60 秒写一行进度：
@@ -256,20 +276,26 @@ rehydrate progress: files=<done>/<total> (<percent>%), accession_dirs=<n>, data_
 手动查看文件数和体积：
 
 ```bash
-find /data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/merged_refseq_dataset/ncbi_dataset/data -type f | wc -l
-du -sh /data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/merged_refseq_dataset/ncbi_dataset/data
+context="替换成实际 context 名称"
+for disk in /data1 /data2 /data4 /data5 /data3; do
+  data_dir="${disk}/p252701008/refseq_genomes/contexts/${context}/rehydrate_refseq_dataset/ncbi_dataset/data"
+  [ -d "${data_dir}" ] || continue
+  printf '%s\t' "${data_dir}"
+  find "${data_dir}" -type f | wc -l
+  du -sh "${data_dir}"
+done
 ```
 
 内部 `datasets rehydrate` 日志：
 
 ```text
-/data3/p252701008/refseq_genomes_runlogs/logs/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/datasets_rehydrate_<RUN_ID>.log
+/data1/p252701008/refseq_genomes_runlogs/logs/<context>/datasets_rehydrate_<RUN_ID>.log
 ```
 
 `rehydrate --list` 预检摘要日志：
 
 ```text
-/data3/p252701008/refseq_genomes_runlogs/logs/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/datasets_rehydrate_list_<RUN_ID>.log
+/data1/p252701008/refseq_genomes_runlogs/logs/<context>/datasets_rehydrate_list_<RUN_ID>.log
 ```
 
 该日志只保留命令、退出状态、`stdout_lines` 和 stderr 路径；完整 `--list` 明细不会落盘。
@@ -277,8 +303,8 @@ du -sh /data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refse
 状态和 summary：
 
 ```text
-/data3/p252701008/refseq_genomes_runlogs/status/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/state_<RUN_ID>.tsv
-/data3/p252701008/refseq_genomes_runlogs/status/refseq_RefSeq_include_all_refseq_shards_size_1000_268328763/summary_<RUN_ID>.md
+/data1/p252701008/refseq_genomes_runlogs/status/<context>/state_<RUN_ID>.tsv
+/data1/p252701008/refseq_genomes_runlogs/status/<context>/summary_<RUN_ID>.md
 ```
 
 ### 7.4 常见注意事项
@@ -286,6 +312,8 @@ du -sh /data3/p252701008/refseq_genomes/contexts/refseq_RefSeq_include_all_refse
 - `--no-progressbar` 只关闭 `datasets` 终端进度条，不影响下载速度、并发数或下载内容。
 - 后台运行时保留 `--no-progressbar`，避免 nohup 日志被进度条控制字符污染。
 - `REHYDRATE_LIST_BEFORE_DOWNLOAD=1` 会保留下载前预检，但只记录 `--list` 行数摘要，不保存数百万行完整清单。
+- `REHYDRATE_GZIP=1` 会把真实数据按 gzip 压缩格式落盘，目标校验会检查 `.gz` 文件存在且执行 `gzip -t`。
+- gzip 模式下官方 `fetch.txt` 的 MD5 通常不再直接对应压缩后的本地文件，脚本会跳过直接 MD5 计算，保留目标存在性、文件类别和 gzip 完整性校验。
 - 进度看主日志里的 `rehydrate progress` 行，或手动看文件数和数据目录体积。
 - 修改 `REHYDRATE_MAX_WORKERS`、`NCBI_API_KEY` 后，已经运行中的进程不会自动继承，需要停止后重新启动。
 - 如果 `datasets rehydrate` 失败，脚本会按 `REHYDRATE_MAX_RETRIES=3` 自动重试。

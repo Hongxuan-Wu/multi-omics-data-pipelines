@@ -48,14 +48,23 @@ RESOLVED_ASSEMBLY_SUMMARY_FILE=""
 #   如果必须复用旧 context 且来源表暂时不可读，请显式设置 PIPELINE_CONTEXT_OVERRIDE。
 REQUIRE_RESOLVED_CONTEXT_TOKEN=1
 
-# DATA_ROOT：最终数据包根目录。rehydrate 后的真实数据默认位于：
-#   ${MERGED_PACKAGE_DIR}/ncbi_dataset/data/
-#   建议放在大容量数据盘，不要放在代码仓库目录内。
-DATA_ROOT="/data3/p252701008/refseq_genomes"
+# STORAGE_DISK_CANDIDATES：真实数据存储盘候选列表，按顺序选择；默认首选 /data1。
+STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
+# STORAGE_OWNER_DIR：每个候选盘下的数据归属目录；不存在时脚本会尝试创建。
+STORAGE_OWNER_DIR="p252701008"
+# STORAGE_DATA_SUBDIR：每个候选盘下的 RefSeq genomes 数据目录名。
+STORAGE_DATA_SUBDIR="refseq_genomes"
+# STORAGE_RUNLOG_SUBDIR：固定放在 /data1/p252701008 下的运行日志目录名。
+STORAGE_RUNLOG_SUBDIR="refseq_genomes_runlogs"
+# STORAGE_MIN_FREE_GB：rehydrate 运行盘最低剩余空间；低于该值时切换到下一个候选盘。
+STORAGE_MIN_FREE_GB=500
 
-# RUN_ROOT：运行日志、manifest、shard、状态表目录。不要放进 DATA_ROOT 的 ncbi_dataset/data 内。
+# DATA_ROOT：默认数据根目录，派生自首个候选盘 /data1。
+DATA_ROOT="${STORAGE_DISK_CANDIDATES[0]}/${STORAGE_OWNER_DIR}/${STORAGE_DATA_SUBDIR}"
+
+# RUN_ROOT：运行日志、manifest、shard、状态表目录，固定放在 /data1/p252701008 下。
 #   这个目录保存可重复运行所需的过程文件，删除或移动后会影响断点续跑。
-RUN_ROOT="/data3/p252701008/refseq_genomes_runlogs"
+RUN_ROOT="/data1/${STORAGE_OWNER_DIR}/${STORAGE_RUNLOG_SUBDIR}"
 
 # TRASH_DIR：异常 zip、异常解包目录、可复用旧产物的隔离目录。
 #   FORCE_*、校验跳过或重建触发覆盖时，相关旧产物会尽量移动到这里；运行状态表会按阶段重写。
@@ -144,6 +153,8 @@ RETRY_SLEEP_SECONDS=30
 REHYDRATE_MAX_WORKERS=30
 # REHYDRATE_LIST_BEFORE_DOWNLOAD：1=下载前先执行 datasets rehydrate --list 做预检。
 REHYDRATE_LIST_BEFORE_DOWNLOAD=1
+# REHYDRATE_GZIP：1=执行 datasets rehydrate --gzip，下载落盘为 gzip 压缩文件。
+REHYDRATE_GZIP=1
 # REHYDRATE_PROGRESS_INTERVAL_SECONDS：rehydrate 下载中每隔多少秒向主日志输出一次文件数和目录大小；0=关闭。
 REHYDRATE_PROGRESS_INTERVAL_SECONDS=60
 
@@ -168,11 +179,22 @@ MAX_VERIFY_MISSING_PREVIEW=50
 
 # 磁盘保护阈值，单位 GB。每个关键下载阶段都会检查。
 # MIN_DISK_GB：目标分区剩余空间低于该值时停止，防止写满数据盘。
-MIN_DISK_GB=2000
+MIN_DISK_GB=500
 
 # ==================== 派生路径 ====================
 # RUN_ID：本次运行唯一标识，用 UTC 时间和进程号区分日志/状态文件。
 RUN_ID="$(date -u '+%Y%m%dT%H%M%SZ').$$"
+# DATA_ROOT_CANDIDATES：按候选盘派生出的完整数据根目录列表。
+DATA_ROOT_CANDIDATES=()
+for storage_disk in "${STORAGE_DISK_CANDIDATES[@]}"; do
+  DATA_ROOT_CANDIDATES+=("${storage_disk}/${STORAGE_OWNER_DIR}/${STORAGE_DATA_SUBDIR}")
+done
+DATA_ROOT="${DATA_ROOT_CANDIDATES[0]}"
+# REHYDRATE_FORMAT_TAG：进入 context 名称，避免 gzip 与未压缩数据混写。
+REHYDRATE_FORMAT_TAG="plain"
+if [[ "${REHYDRATE_GZIP}" == "1" ]]; then
+  REHYDRATE_FORMAT_TAG="gzip"
+fi
 # SHARD_SET_NAME：当前 shard 集合名称；由 SHARD_SIZE 或 FORCE_SINGLE_PACKAGE 决定。
 SHARD_SET_NAME="refseq_shards_size_${SHARD_SIZE}"
 if [[ "${FORCE_SINGLE_PACKAGE}" == "1" ]]; then
@@ -210,11 +232,12 @@ PIPELINE_CONTEXT_ID="$(
     "MIN_GENOME_SIZE=${MIN_GENOME_SIZE}" \
     "MAX_ACCESSIONS=${MAX_ACCESSIONS}" \
     "SHARD_SIZE=${SHARD_SIZE}" \
-    "FORCE_SINGLE_PACKAGE=${FORCE_SINGLE_PACKAGE}" |
+    "FORCE_SINGLE_PACKAGE=${FORCE_SINGLE_PACKAGE}" \
+    "REHYDRATE_GZIP=${REHYDRATE_GZIP}" |
   cksum | awk '{print $1}'
 )"
 # PIPELINE_CONTEXT_COMPUTED_NAME：由当前配置自动生成的 context 名称。
-PIPELINE_CONTEXT_COMPUTED_NAME="refseq_${ASSEMBLY_SOURCE}_include_${INCLUDE_FILES}_${SHARD_SET_NAME}_${PIPELINE_CONTEXT_ID}"
+PIPELINE_CONTEXT_COMPUTED_NAME="refseq_${ASSEMBLY_SOURCE}_include_${INCLUDE_FILES}_${REHYDRATE_FORMAT_TAG}_${SHARD_SET_NAME}_${PIPELINE_CONTEXT_ID}"
 if [[ -n "${PIPELINE_CONTEXT_OVERRIDE}" && ! "${PIPELINE_CONTEXT_OVERRIDE}" =~ ^[A-Za-z0-9_.-]+$ ]]; then
   printf '[FATAL] PIPELINE_CONTEXT_OVERRIDE 只能包含字母、数字、下划线、点号和短横线。\n' >&2
   exit 1
@@ -237,8 +260,10 @@ LINK_ROOT="${DATA_ROOT}/contexts/${PIPELINE_CONTEXT_NAME}/dehydrated_links"
 ZIP_DIR="${LINK_ROOT}/zips"
 # UNPACK_DIR：每个 dehydrated zip 解包后的独立目录。
 UNPACK_DIR="${LINK_ROOT}/unzipped"
-# MERGED_PACKAGE_DIR：汇总后的统一 dehydrated package 目录，也是 rehydrate 工作目录。
+# MERGED_PACKAGE_DIR：汇总后的统一 dehydrated package 目录，保留总 fetch.txt 并用于 rehydrate --list 预检。
 MERGED_PACKAGE_DIR="${DATA_ROOT}/contexts/${PIPELINE_CONTEXT_NAME}/merged_refseq_dataset"
+# REHYDRATE_PACKAGE_NAME：各候选盘上真正承载 rehydrate 数据的 package 目录名。
+REHYDRATE_PACKAGE_NAME="rehydrate_refseq_dataset"
 
 # DL_LOG：本次运行主日志。
 DL_LOG="${LOG_DIR}/download_${RUN_ID}.log"
@@ -291,6 +316,8 @@ FETCH_PROFILE_FILE="${STATUS_DIR}/fetch_target_profile.tsv"
 MISSING_FETCH_CLASSES_FILE="${STATUS_DIR}/missing_fetch_target_classes.tsv"
 # MISSING_TARGETS_FILE：rehydrate 后仍缺失或为空的目标文件清单。
 MISSING_TARGETS_FILE="${STATUS_DIR}/missing_download_targets.tsv"
+# GZIP_STATUS_FILE：gzip 模式下每个 rehydrate 目标文件的压缩完整性校验结果。
+GZIP_STATUS_FILE="${STATUS_DIR}/fetch_gzip_status.tsv"
 # MD5_STATUS_FILE：可选 MD5 校验结果表。
 MD5_STATUS_FILE="${STATUS_DIR}/fetch_md5_status.tsv"
 
@@ -303,6 +330,18 @@ case "${REQUESTED_ACTION}" in
     ;;
 esac
 
+if [[ "${#DATA_ROOT_CANDIDATES[@]}" -eq 0 ]]; then
+  printf '[FATAL] STORAGE_DISK_CANDIDATES 不能为空。\n' >&2
+  exit 1
+fi
+
+for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
+  if [[ -z "${data_root_candidate}" || "${data_root_candidate}" != /* ]]; then
+    printf '[FATAL] 候选 DATA_ROOT 必须是非空 Linux 绝对路径，当前值为：%s\n' "${data_root_candidate}" >&2
+    exit 1
+  fi
+done
+
 for root_var in DATA_ROOT RUN_ROOT TRASH_DIR; do
   root_value="${!root_var}"
   if [[ -z "${root_value}" || "${root_value}" != /* ]]; then
@@ -312,6 +351,7 @@ for root_var in DATA_ROOT RUN_ROOT TRASH_DIR; do
 done
 
 if ! mkdir -p \
+  "${DATA_ROOT_CANDIDATES[@]}" \
   "${DATA_ROOT}" \
   "${RUN_ROOT}" \
   "${LOG_DIR}" \
@@ -720,15 +760,30 @@ log_rehydrate_progress_snapshot() {
 #   $2 / interval_seconds：进度输出间隔；0 表示关闭。
 #   $3 / target_count：fetch target 总数。
 #   $4 / data_dir：ncbi_dataset/data 目录。
+#   $5 / min_free_gb：当前数据盘最小剩余空间；0 表示不做空间中止。
 monitor_rehydrate_progress() {
   local watched_pid="$1"
   local interval_seconds="$2"
   local target_count="$3"
   local data_dir="$4"
+  local min_free_gb="${5:-0}"
+  local avail_gb
 
-  [[ "${interval_seconds}" -gt 0 ]] || return 0
+  [[ "${interval_seconds}" -gt 0 || "${min_free_gb}" -gt 0 ]] || return 0
+  if [[ "${interval_seconds}" -le 0 ]]; then
+    interval_seconds=60
+  fi
   while kill -0 "${watched_pid}" 2>/dev/null; do
     log_rehydrate_progress_snapshot "${target_count}" "${data_dir}" || true
+    if [[ "${min_free_gb}" -gt 0 ]]; then
+      if avail_gb="$(storage_free_gb "${data_dir}")"; then
+        if [[ "${avail_gb}" -lt "${min_free_gb}" ]]; then
+          warnlog "当前 rehydrate 数据盘剩余空间 ${avail_gb} GB < ${min_free_gb} GB，停止当前 datasets rehydrate，后续尝试将切换候选盘：${data_dir}"
+          kill -TERM "${watched_pid}" 2>/dev/null || true
+          return 0
+        fi
+      fi
+    fi
     sleep "${interval_seconds}" || return 0
   done
 }
@@ -755,7 +810,8 @@ stop_progress_monitor() {
 #   $5 / progress_interval_seconds：进度输出间隔；0 表示关闭。
 #   $6 / progress_target_count：fetch target 总数。
 #   $7 / progress_data_dir：ncbi_dataset/data 目录。
-#   $8...：需要执行的命令及其参数。
+#   $8 / min_free_gb：当前数据盘最小剩余空间；0 表示不做空间中止。
+#   $9...：需要执行的命令及其参数。
 run_logged_command_with_retries_and_progress() {
   local stage="$1"
   local max_retries="$2"
@@ -764,7 +820,8 @@ run_logged_command_with_retries_and_progress() {
   local progress_interval_seconds="$5"
   local progress_target_count="$6"
   local progress_data_dir="$7"
-  shift 7
+  local min_free_gb="$8"
+  shift 8
   local attempt=1
   local exit_code=0
   local attempt_log
@@ -780,8 +837,8 @@ run_logged_command_with_retries_and_progress() {
     "$@" > "${attempt_log}" 2>&1 &
     cmd_pid=$!
     monitor_pid=""
-    if [[ "${progress_interval_seconds}" -gt 0 ]]; then
-      monitor_rehydrate_progress "${cmd_pid}" "${progress_interval_seconds}" "${progress_target_count}" "${progress_data_dir}" &
+    if [[ "${progress_interval_seconds}" -gt 0 || "${min_free_gb}" -gt 0 ]]; then
+      monitor_rehydrate_progress "${cmd_pid}" "${progress_interval_seconds}" "${progress_target_count}" "${progress_data_dir}" "${min_free_gb}" &
       monitor_pid=$!
     fi
     if wait "${cmd_pid}"; then
@@ -855,6 +912,156 @@ check_disk_space() {
   if [[ "${avail_gb}" -lt "${MIN_DISK_GB}" ]]; then
     die "磁盘空间不足：剩余 ${avail_gb} GB < 阈值 ${MIN_DISK_GB} GB。请释放空间或调低 MIN_DISK_GB 后重跑。"
   fi
+}
+
+# storage_free_gb：读取指定路径所在分区剩余空间，单位 GB。
+# 参数：
+#   $1 / target_dir：需要检查的目录；不存在时会先创建。
+# 输出：
+#   剩余空间 GB；读取失败时返回非 0。
+storage_free_gb() {
+  local target_dir="$1"
+  local avail_gb
+
+  mkdir -p "${target_dir}"
+  avail_gb="$(df -BG "${target_dir}" | awk 'NR==2 {gsub("G","",$4); print $4}')"
+  [[ -n "${avail_gb}" ]] || return 1
+  printf '%s' "${avail_gb}" 2>/dev/null || return 1
+}
+
+# rehydrate_package_dir_for_root：返回某个数据根目录下的 rehydrate package 目录。
+rehydrate_package_dir_for_root() {
+  local data_root="$1"
+  printf '%s/contexts/%s/%s' "${data_root}" "${PIPELINE_CONTEXT_NAME}" "${REHYDRATE_PACKAGE_NAME}"
+}
+
+# rehydrate_data_dir_for_root：返回某个数据根目录下的真实 rehydrate 数据目录。
+rehydrate_data_dir_for_root() {
+  local data_root="$1"
+  printf '%s/ncbi_dataset/data' "$(rehydrate_package_dir_for_root "${data_root}")"
+}
+
+# expected_rehydrate_target：把 fetch target 转换为 rehydrate 后实际落盘 target。
+expected_rehydrate_target() {
+  local target="$1"
+  if [[ "${REHYDRATE_GZIP}" == "1" && ! "${target}" =~ \.gz$ ]]; then
+    printf '%s.gz' "${target}"
+  else
+    printf '%s' "${target}"
+  fi
+}
+
+# select_rehydrate_data_root：按候选顺序选择剩余空间不低于 STORAGE_MIN_FREE_GB 的数据根目录。
+select_rehydrate_data_root() {
+  local data_root_candidate
+  local avail_gb
+
+  for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
+    if avail_gb="$(storage_free_gb "${data_root_candidate}")"; then
+      if [[ "${avail_gb}" -ge "${STORAGE_MIN_FREE_GB}" ]]; then
+        printf '%s' "${data_root_candidate}"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+# collect_existing_rehydrate_targets：收集所有候选盘中已存在的 rehydrate 目标相对路径。
+# 参数：
+#   $1 / out_file：输出路径，内容形如 data/GCF_xxx/file.fna.gz。
+collect_existing_rehydrate_targets() {
+  local out_file="$1"
+  local data_root_candidate
+  local data_dir
+  local legacy_data_dir="${MERGED_PACKAGE_DIR}/ncbi_dataset/data"
+
+  : > "${out_file}.partial.${RUN_ID}"
+  for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
+    data_dir="$(rehydrate_data_dir_for_root "${data_root_candidate}")"
+    if [[ -d "${data_dir}" ]]; then
+      find "${data_dir}" -type f -printf 'data/%P\n' >> "${out_file}.partial.${RUN_ID}"
+    fi
+  done
+  if [[ -d "${legacy_data_dir}" ]]; then
+    find "${legacy_data_dir}" -type f -printf 'data/%P\n' >> "${out_file}.partial.${RUN_ID}"
+  fi
+  sort -u "${out_file}.partial.${RUN_ID}" > "${out_file}"
+}
+
+# build_remaining_fetch_for_root：为指定候选盘生成仅包含未完成目标的 fetch.txt。
+# 参数：
+#   $1 / data_root：当前要写入的候选数据根目录。
+#   $2 / count_file：输出剩余 fetch 行数。
+build_remaining_fetch_for_root() {
+  local data_root="$1"
+  local count_file="$2"
+  local package_dir
+  local package_ncbi_dir
+  local dest_fetch
+  local existing_targets_file="${STATUS_DIR}/existing_rehydrate_targets_${RUN_ID}.tsv"
+  local remaining_count
+
+  package_dir="$(rehydrate_package_dir_for_root "${data_root}")"
+  package_ncbi_dir="${package_dir}/ncbi_dataset"
+  dest_fetch="${package_ncbi_dir}/fetch.txt"
+  mkdir -p "${package_ncbi_dir}"
+
+  collect_existing_rehydrate_targets "${existing_targets_file}"
+  awk -F '\t' -v gzip_mode="${REHYDRATE_GZIP}" -v existing_file="${existing_targets_file}" '
+    BEGIN {
+      while ((getline line < existing_file) > 0) {
+        existing[line] = 1
+      }
+      close(existing_file)
+    }
+    NF >= 3 {
+      target = $3
+      sub(/\r$/, "", target)
+      expected = target
+      if (gzip_mode == "1" && expected !~ /\.gz$/) {
+        expected = expected ".gz"
+      }
+      if (!(expected in existing)) {
+        print $0
+      }
+    }
+  ' "${MERGED_FETCH_FILE}" > "${dest_fetch}.partial.${RUN_ID}"
+
+  mv -- "${dest_fetch}.partial.${RUN_ID}" "${dest_fetch}"
+  remaining_count="$(count_lines "${dest_fetch}")"
+  printf '%s\n' "${remaining_count}" > "${count_file}"
+
+  if [[ -s "${MERGED_PACKAGE_DIR}/ncbi_dataset/assembly_data_report.jsonl" ]]; then
+    cp -- "${MERGED_PACKAGE_DIR}/ncbi_dataset/assembly_data_report.jsonl" "${package_ncbi_dir}/assembly_data_report.jsonl"
+  fi
+}
+
+# find_rehydrate_target_file：在所有候选盘里查找某个 fetch target 的实际本地文件。
+# 参数：
+#   $1 / target：fetch.txt 第三列目标路径。
+# 输出：
+#   找到时输出绝对路径；找不到时返回非 0。
+find_rehydrate_target_file() {
+  local target="$1"
+  local expected_target
+  local data_root_candidate
+  local candidate_file
+
+  expected_target="$(expected_rehydrate_target "${target}")"
+  for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
+    candidate_file="$(rehydrate_package_dir_for_root "${data_root_candidate}")/ncbi_dataset/${expected_target}"
+    if [[ -s "${candidate_file}" ]]; then
+      printf '%s' "${candidate_file}"
+      return 0
+    fi
+  done
+  candidate_file="${MERGED_PACKAGE_DIR}/ncbi_dataset/${expected_target}"
+  if [[ -s "${candidate_file}" ]]; then
+    printf '%s' "${candidate_file}"
+    return 0
+  fi
+  return 1
 }
 
 # resolve_assembly_summary_path：解析 assembly_summary 文件的真实路径。
@@ -1190,11 +1397,15 @@ require_action_commands() {
     require_command comm
   fi
   if [[ "${RUN_REHYDRATE}" == "1" ]]; then
+    require_command cp
     require_command "${DATASETS_BIN}"
     require_command df
     if [[ "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" != "0" ]]; then
       require_command du
     fi
+  fi
+  if [[ "${RUN_VERIFY}" == "1" && "${REHYDRATE_GZIP}" == "1" ]]; then
+    require_command gzip
   fi
   if [[ "${RUN_VERIFY}" == "1" && "${VERIFY_FETCH_MD5}" == "1" ]]; then
     require_command md5sum
@@ -1226,6 +1437,7 @@ validate_config() {
   validate_flag FORCE_MERGE_FETCH "${FORCE_MERGE_FETCH}"
   validate_flag STOP_ON_LINK_DOWNLOAD_ERROR "${STOP_ON_LINK_DOWNLOAD_ERROR}"
   validate_flag REHYDRATE_LIST_BEFORE_DOWNLOAD "${REHYDRATE_LIST_BEFORE_DOWNLOAD}"
+  validate_flag REHYDRATE_GZIP "${REHYDRATE_GZIP}"
   validate_flag VERIFY_FETCH_TARGETS_AFTER_REHYDRATE "${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}"
   validate_flag STRICT_INTEGRITY "${STRICT_INTEGRITY}"
   validate_flag VERIFY_FETCH_MD5 "${VERIFY_FETCH_MD5}"
@@ -1240,6 +1452,7 @@ validate_config() {
   [[ "${REHYDRATE_MAX_WORKERS}" =~ ^[1-9][0-9]*$ ]] || die "REHYDRATE_MAX_WORKERS 必须是正整数，当前值为：${REHYDRATE_MAX_WORKERS}"
   [[ "${REHYDRATE_MAX_WORKERS}" -le 30 ]] || die "REHYDRATE_MAX_WORKERS 不能超过 30，当前值为：${REHYDRATE_MAX_WORKERS}"
   [[ "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]] || die "REHYDRATE_PROGRESS_INTERVAL_SECONDS 必须是非负整数，当前值为：${REHYDRATE_PROGRESS_INTERVAL_SECONDS}"
+  [[ "${STORAGE_MIN_FREE_GB}" =~ ^[0-9]+$ ]] || die "STORAGE_MIN_FREE_GB 必须是非负整数，当前值为：${STORAGE_MIN_FREE_GB}"
   [[ "${MIN_DISK_GB}" =~ ^[0-9]+$ ]] || die "MIN_DISK_GB 必须是非负整数，当前值为：${MIN_DISK_GB}"
   [[ "${MIN_GENOME_SIZE}" =~ ^[0-9]+$ ]] || die "MIN_GENOME_SIZE 必须是非负整数，当前值为：${MIN_GENOME_SIZE}"
   [[ "${MAX_ACCESSIONS}" =~ ^[0-9]+$ ]] || die "MAX_ACCESSIONS 必须是非负整数，当前值为：${MAX_ACCESSIONS}"
@@ -1302,6 +1515,12 @@ PIPELINE_CONTEXT_ID=${PIPELINE_CONTEXT_ID}
 PIPELINE_CONTEXT_COMPUTED_NAME=${PIPELINE_CONTEXT_COMPUTED_NAME}
 PIPELINE_CONTEXT_NAME=${PIPELINE_CONTEXT_NAME}
 PIPELINE_CONTEXT_OVERRIDE=${PIPELINE_CONTEXT_OVERRIDE}
+STORAGE_DISK_CANDIDATES=${STORAGE_DISK_CANDIDATES[*]}
+STORAGE_OWNER_DIR=${STORAGE_OWNER_DIR}
+STORAGE_DATA_SUBDIR=${STORAGE_DATA_SUBDIR}
+STORAGE_RUNLOG_SUBDIR=${STORAGE_RUNLOG_SUBDIR}
+STORAGE_MIN_FREE_GB=${STORAGE_MIN_FREE_GB}
+RUN_ROOT=${RUN_ROOT}
 FILTER_LATEST_ONLY=${FILTER_LATEST_ONLY}
 FILTER_GENOME_REP=${FILTER_GENOME_REP}
 FILTER_EXCLUDED_FROM_REFSEQ=${FILTER_EXCLUDED_FROM_REFSEQ}
@@ -1314,6 +1533,7 @@ FORCE_SINGLE_PACKAGE=${FORCE_SINGLE_PACKAGE}
 DOWNLOAD_LINK_MAX_RETRIES=${DOWNLOAD_LINK_MAX_RETRIES}
 REHYDRATE_MAX_RETRIES=${REHYDRATE_MAX_RETRIES}
 RETRY_SLEEP_SECONDS=${RETRY_SLEEP_SECONDS}
+REHYDRATE_GZIP=${REHYDRATE_GZIP}
 REHYDRATE_PROGRESS_INTERVAL_SECONDS=${REHYDRATE_PROGRESS_INTERVAL_SECONDS}
 STRICT_INTEGRITY=${STRICT_INTEGRITY}
 VERIFY_FETCH_MD5=${VERIFY_FETCH_MD5}
@@ -1375,6 +1595,7 @@ build_manifest() {
     move_to_trash "${FETCH_PROFILE_FILE}" "old_fetch_profile"
     move_to_trash "${MISSING_FETCH_CLASSES_FILE}" "old_missing_fetch_classes"
     move_to_trash "${MISSING_TARGETS_FILE}" "old_missing_targets"
+    move_to_trash "${GZIP_STATUS_FILE}" "old_gzip_status"
     move_to_trash "${MD5_STATUS_FILE}" "old_md5_status"
     mkdir -p "${ZIP_DIR}" "${UNPACK_DIR}" "${MERGED_PACKAGE_DIR}/ncbi_dataset"
   fi
@@ -2157,14 +2378,29 @@ rehydrate_merged_package() {
   local list_count=0
   # target_count：fetch target 总数，用于 rehydrate 进度日志。
   local target_count=0
-  # data_dir：rehydrate 真实数据目录。
-  local data_dir="${MERGED_PACKAGE_DIR}/ncbi_dataset/data"
+  # attempt：rehydrate 当前尝试次数。
+  local attempt=1
+  # selected_data_root：当前尝试使用的数据根目录。
+  local selected_data_root
+  # selected_package_dir：当前尝试使用的 rehydrate package 目录。
+  local selected_package_dir
+  # selected_data_dir：当前尝试使用的真实数据目录。
+  local selected_data_dir
+  # remaining_count_file：当前尝试剩余 fetch 行数记录。
+  local remaining_count_file
+  # remaining_count：当前尝试仍需下载的 fetch 行数。
+  local remaining_count=0
+  # rehydrate_log：当前尝试的 datasets rehydrate 日志。
+  local rehydrate_log
+  # selected_avail_gb：当前候选盘剩余空间。
+  local selected_avail_gb
+  # exit_code：datasets rehydrate 失败退出码。
+  local exit_code
 
   [[ -s "${MERGED_FETCH_FILE}" ]] || die "缺少汇总 fetch.txt：${MERGED_FETCH_FILE}。请先运行 merge-fetch 阶段。"
   check_fetch_accession_set "rehydrate_precheck_accessions"
   write_fetch_targets
   target_count="$(count_lines "${FETCH_TARGETS_FILE}")"
-  check_disk_space "${MERGED_PACKAGE_DIR}"
 
   if [[ "${REHYDRATE_LIST_BEFORE_DOWNLOAD}" == "1" ]]; then
     list_cmd=("${DATASETS_BIN}" rehydrate --directory "${MERGED_PACKAGE_DIR}" --list)
@@ -2182,30 +2418,69 @@ rehydrate_merged_package() {
     fi
   fi
 
-  cmd=(
-    "${DATASETS_BIN}" rehydrate
-    --directory "${MERGED_PACKAGE_DIR}"
-    --max-workers "${REHYDRATE_MAX_WORKERS}"
-    --no-progressbar
-  )
-  log "开始统一下载真实数据：${DATASETS_BIN} rehydrate --directory ${MERGED_PACKAGE_DIR} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar"
+  log "rehydrate 候选数据根目录：${DATA_ROOT_CANDIDATES[*]}"
+  log "rehydrate gzip=${REHYDRATE_GZIP}; min_free_gb=${STORAGE_MIN_FREE_GB}"
   if [[ "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" -gt 0 ]]; then
     log "rehydrate 进度日志已启用：每 ${REHYDRATE_PROGRESS_INTERVAL_SECONDS} 秒输出一次；目标文件数：${target_count}"
   else
-    log "rehydrate 进度日志已关闭：REHYDRATE_PROGRESS_INTERVAL_SECONDS=0"
+    log "rehydrate 进度日志已关闭；磁盘保护仍会按 ${STORAGE_MIN_FREE_GB} GB 阈值运行。"
   fi
-  if run_logged_command_with_retries_and_progress "datasets rehydrate" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${log_file}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${target_count}" "${data_dir}" "${cmd[@]}"; then
-    write_state "rehydrate" "DONE" "${log_file}"
-    log "统一 rehydrate 完成。日志：${log_file}"
-    return 0
-  else
-    # exit_code：datasets rehydrate 的原始退出码。
-    local exit_code=$?
-    errlog "datasets rehydrate 失败；退出码：${exit_code}；日志：${log_file}"
-    tail_error_log "${log_file}" 40
-    write_state "rehydrate" "FAILED_EXIT_${exit_code}" "${log_file}"
-    return "${exit_code}"
-  fi
+
+  while [[ "${attempt}" -le "${REHYDRATE_MAX_RETRIES}" ]]; do
+    if ! selected_data_root="$(select_rehydrate_data_root)"; then
+      write_state "rehydrate" "FAILED_NO_STORAGE" "min_free_gb=${STORAGE_MIN_FREE_GB};candidates=${DATA_ROOT_CANDIDATES[*]}"
+      die "所有候选数据盘剩余空间均低于 ${STORAGE_MIN_FREE_GB} GB，无法继续 rehydrate。候选：${DATA_ROOT_CANDIDATES[*]}"
+    fi
+    selected_avail_gb="$(storage_free_gb "${selected_data_root}")"
+    selected_package_dir="$(rehydrate_package_dir_for_root "${selected_data_root}")"
+    selected_data_dir="${selected_package_dir}/ncbi_dataset/data"
+    remaining_count_file="${STATUS_DIR}/rehydrate_remaining_${RUN_ID}.attempt${attempt}.count"
+    build_remaining_fetch_for_root "${selected_data_root}" "${remaining_count_file}"
+    remaining_count="$(awk 'NR == 1 {print $1}' "${remaining_count_file}")"
+
+    if [[ "${remaining_count}" -eq 0 ]]; then
+      write_state "rehydrate" "DONE" "all_targets_present;candidates=${DATA_ROOT_CANDIDATES[*]}"
+      log "所有 rehydrate 目标文件已在候选盘中存在，跳过 datasets rehydrate。"
+      return 0
+    fi
+
+    cmd=(
+      "${DATASETS_BIN}" rehydrate
+      --directory "${selected_package_dir}"
+      --max-workers "${REHYDRATE_MAX_WORKERS}"
+      --no-progressbar
+    )
+    if [[ "${REHYDRATE_GZIP}" == "1" ]]; then
+      cmd+=(--gzip)
+    fi
+    rehydrate_log="${log_file}.attempt${attempt}"
+    log "开始 rehydrate：attempt=${attempt}/${REHYDRATE_MAX_RETRIES}; data_root=${selected_data_root}; avail_gb=${selected_avail_gb}; remaining_targets=${remaining_count}; package=${selected_package_dir}"
+    log "命令：${DATASETS_BIN} rehydrate --directory ${selected_package_dir} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar$([[ "${REHYDRATE_GZIP}" == "1" ]] && printf ' --gzip' || true)"
+    if run_logged_command_with_retries_and_progress "datasets rehydrate" 1 "${RETRY_SLEEP_SECONDS}" "${rehydrate_log}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${remaining_count}" "${selected_data_dir}" "${STORAGE_MIN_FREE_GB}" "${cmd[@]}"; then
+      cat "${rehydrate_log}" > "${log_file}" || true
+      write_state "rehydrate" "DONE" "log=${log_file};data_root=${selected_data_root};gzip=${REHYDRATE_GZIP}"
+      log "统一 rehydrate 完成。日志：${log_file}；最终数据根目录之一：${selected_data_root}"
+      return 0
+    else
+      exit_code=$?
+    fi
+
+    tail_error_log "${rehydrate_log}" 40
+    selected_avail_gb="$(storage_free_gb "${selected_data_root}")"
+    if [[ "${attempt}" -lt "${REHYDRATE_MAX_RETRIES}" ]]; then
+      if [[ "${selected_avail_gb}" -lt "${STORAGE_MIN_FREE_GB}" ]]; then
+        warnlog "当前数据盘剩余 ${selected_avail_gb} GB < ${STORAGE_MIN_FREE_GB} GB，下次尝试将选择下一个可用候选盘。"
+      else
+        warnlog "datasets rehydrate 失败；退出码：${exit_code}；当前数据盘仍有 ${selected_avail_gb} GB，${RETRY_SLEEP_SECONDS} 秒后重试。"
+      fi
+      sleep "${RETRY_SLEEP_SECONDS}"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  errlog "datasets rehydrate 失败；已尝试 ${REHYDRATE_MAX_RETRIES} 次；最后退出码：${exit_code}；日志：${log_file}"
+  write_state "rehydrate" "FAILED_EXIT_${exit_code}" "${log_file}"
+  return "${exit_code}"
 }
 
 # ==================== 阶段 6：校验 ====================
@@ -2458,7 +2733,11 @@ verify_fetch_targets() {
   while IFS= read -r target; do
     [[ -n "${target}" ]] || continue
     checked=$((checked + 1))
-    local_file="${MERGED_PACKAGE_DIR}/${target}"
+    if local_file="$(find_rehydrate_target_file "${target}")"; then
+      :
+    else
+      local_file="NOT_FOUND:$(expected_rehydrate_target "${target}")"
+    fi
     if [[ ! -s "${local_file}" ]]; then
       printf '%s\t%s\n' "${target}" "${local_file}" >> "${MISSING_TARGETS_FILE}"
       missing=$((missing + 1))
@@ -2480,6 +2759,76 @@ verify_fetch_targets() {
 
   write_state "verify_targets" "DONE" "${checked}"
   log "fetch 目标文件校验通过：${checked} 个文件均存在且非空。"
+}
+
+# verify_gzip_integrity：gzip 模式下对所有 rehydrate 目标执行 gzip -t。
+# 参数：
+#   无。
+# 输入：
+#   FETCH_TARGETS_FILE；每个 target 通过 find_rehydrate_target_file 映射到实际 .gz 文件。
+# 输出：
+#   GZIP_STATUS_FILE，记录 OK/MISSING/NOT_GZIP/FAILED 状态。
+# 行为：
+#   REHYDRATE_GZIP=0 时跳过，并把旧状态文件移入 TRASH_DIR。
+# 失败行为：
+#   任一 gzip 文件缺失、不是 .gz 后缀或 gzip -t 失败时调用 die。
+verify_gzip_integrity() {
+  local target
+  local local_file
+  local checked=0
+  local failed=0
+  local gzip_log="${LOG_DIR}/gzip_integrity_${RUN_ID}.log"
+
+  if [[ "${REHYDRATE_GZIP}" != "1" ]]; then
+    move_to_trash "${GZIP_STATUS_FILE}" "old_gzip_status_skipped"
+    write_state "verify_gzip" "SKIPPED" "REHYDRATE_GZIP=0"
+    return 0
+  fi
+
+  require_command gzip
+  [[ -s "${FETCH_TARGETS_FILE}" ]] || die "缺少 fetch target 清单，无法执行 gzip 完整性校验：${FETCH_TARGETS_FILE}"
+  move_to_trash "${GZIP_STATUS_FILE}" "old_gzip_status_before_rebuild"
+  : > "${gzip_log}"
+  printf 'target\tstatus\tlocal_file_or_reason\n' > "${GZIP_STATUS_FILE}"
+
+  while IFS= read -r target; do
+    [[ -n "${target}" ]] || continue
+    if local_file="$(find_rehydrate_target_file "${target}")"; then
+      :
+    else
+      printf '%s\t%s\t%s\n' "${target}" "MISSING" "$(expected_rehydrate_target "${target}")" >> "${GZIP_STATUS_FILE}"
+      failed=$((failed + 1))
+      continue
+    fi
+    if [[ "${local_file}" != *.gz ]]; then
+      printf '%s\t%s\t%s\n' "${target}" "NOT_GZIP" "${local_file}" >> "${GZIP_STATUS_FILE}"
+      failed=$((failed + 1))
+      continue
+    fi
+    if gzip -t "${local_file}" >> "${gzip_log}" 2>&1; then
+      printf '%s\t%s\t%s\n' "${target}" "OK" "${local_file}" >> "${GZIP_STATUS_FILE}"
+      checked=$((checked + 1))
+    else
+      printf '%s\t%s\t%s\n' "${target}" "FAILED" "${local_file}" >> "${GZIP_STATUS_FILE}"
+      failed=$((failed + 1))
+      if [[ "${failed}" -le "${MAX_VERIFY_MISSING_PREVIEW}" ]]; then
+        errlog "gzip 完整性校验失败：${local_file}"
+      fi
+    fi
+  done < "${FETCH_TARGETS_FILE}"
+
+  if [[ "${checked}" -eq 0 && "${failed}" -eq 0 ]]; then
+    write_state "verify_gzip" "FAILED_EMPTY" "${FETCH_TARGETS_FILE}"
+    die "gzip 完整性校验没有检查到任何目标。请检查 fetch target 清单：${FETCH_TARGETS_FILE}"
+  fi
+
+  if [[ "${failed}" -gt 0 ]]; then
+    write_state "verify_gzip" "FAILED" "${GZIP_STATUS_FILE}"
+    die "gzip 完整性校验失败：通过 ${checked} 个，失败/缺失 ${failed} 个。详情：${GZIP_STATUS_FILE}；gzip stderr：${gzip_log}。请重跑 rehydrate。"
+  fi
+
+  write_state "verify_gzip" "DONE" "${checked}"
+  log "gzip 完整性校验通过：${checked} 个 gzip 文件。"
 }
 
 # verify_fetch_md5：按 fetch.txt 第二列执行可选 MD5 校验。
@@ -2520,6 +2869,13 @@ verify_fetch_md5() {
     return 0
   }
 
+  if [[ "${REHYDRATE_GZIP}" == "1" ]]; then
+    move_to_trash "${MD5_STATUS_FILE}" "old_md5_status_gzip_skipped"
+    write_state "verify_md5" "SKIPPED_GZIP" "REHYDRATE_GZIP=1"
+    log "REHYDRATE_GZIP=1，fetch.txt 中官方 MD5 若存在通常对应未压缩目标，跳过直接 md5sum；已保留目标存在性和类别校验。"
+    return 0
+  fi
+
   require_command md5sum
   move_to_trash "${MD5_STATUS_FILE}" "old_md5_status_before_rebuild"
   printf 'target\tstatus\texpected_md5\tactual_md5_or_reason\n' > "${MD5_STATUS_FILE}"
@@ -2544,8 +2900,12 @@ verify_fetch_md5() {
       failed=$((failed + 1))
       continue
     fi
-    local_file="${MERGED_PACKAGE_DIR}/${target}"
-    if [[ ! -s "${local_file}" ]]; then
+    if local_file="$(find_rehydrate_target_file "${target}")"; then
+      :
+    else
+      local_file=""
+    fi
+    if [[ -z "${local_file}" || ! -s "${local_file}" ]]; then
       printf '%s\t%s\t%s\t%s\n' "${target}" "MISSING" "${checksum}" "missing_or_empty_file" >> "${MD5_STATUS_FILE}"
       failed=$((failed + 1))
       continue
@@ -2738,7 +3098,12 @@ write_summary_report() {
 
 - Run ID: ${RUN_ID}
 - Data root: ${DATA_ROOT}
+- Data root candidates: ${DATA_ROOT_CANDIDATES[*]}
 - Merged package: ${MERGED_PACKAGE_DIR}
+- Rehydrate package name: ${REHYDRATE_PACKAGE_NAME}
+- Rehydrate gzip: ${REHYDRATE_GZIP}
+- Rehydrate min free GB: ${STORAGE_MIN_FREE_GB}
+- Gzip status: ${GZIP_STATUS_FILE}
 - Assembly summary: ${RESOLVED_ASSEMBLY_SUMMARY_FILE:-${ASSEMBLY_SUMMARY_FILE}}
 - Assembly summary source URL: ${ASSEMBLY_SUMMARY_SOURCE_URL}
 - Assembly summary content token: ${ASSEMBLY_SUMMARY_CONTEXT_TOKEN}
@@ -2863,6 +3228,7 @@ main() {
   log "assembly summary source url=${ASSEMBLY_SUMMARY_SOURCE_URL}"
   log "assembly summary content token=${ASSEMBLY_SUMMARY_CONTEXT_TOKEN}"
   log "data root=${DATA_ROOT}"
+  log "data root candidates=${DATA_ROOT_CANDIDATES[*]}"
   log "run root=${RUN_ROOT}"
   log "pipeline context=${PIPELINE_CONTEXT_NAME}"
   log "pipeline context computed=${PIPELINE_CONTEXT_COMPUTED_NAME}; override=$([[ -n "${PIPELINE_CONTEXT_OVERRIDE}" ]] && printf '%s' "${PIPELINE_CONTEXT_OVERRIDE}" || printf no)"
@@ -2872,7 +3238,7 @@ main() {
   log "steps: manifest=${RUN_BUILD_MANIFEST}, download_links=${RUN_DOWNLOAD_LINKS}, unpack_links=${RUN_UNPACK_LINKS}, merge_fetch=${RUN_MERGE_FETCH}, rehydrate=${RUN_REHYDRATE}, verify=${RUN_VERIFY}"
   log "retry: download_links=${DOWNLOAD_LINK_MAX_RETRIES}, rehydrate=${REHYDRATE_MAX_RETRIES}, sleep_seconds=${RETRY_SLEEP_SECONDS}"
   log "integrity: strict=${STRICT_INTEGRITY}, verify_targets=${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}, verify_md5=${VERIFY_FETCH_MD5}, checksum_format=${VERIFY_FETCH_CHECKSUM_FORMAT}, file_profile=${VERIFY_FETCH_FILE_PROFILE}"
-  log "rehydrate max workers=${REHYDRATE_MAX_WORKERS}; progress_interval_seconds=${REHYDRATE_PROGRESS_INTERVAL_SECONDS}"
+  log "rehydrate max workers=${REHYDRATE_MAX_WORKERS}; progress_interval_seconds=${REHYDRATE_PROGRESS_INTERVAL_SECONDS}; gzip=${REHYDRATE_GZIP}; storage_min_free_gb=${STORAGE_MIN_FREE_GB}"
   log "api key mode: env_exported=$([[ -n "${NCBI_API_KEY}" ]] && printf yes || printf no); argv_api_key=disabled"
 
   if [[ "${RUN_BUILD_MANIFEST}" == "1" ]]; then
@@ -2901,6 +3267,7 @@ main() {
   if [[ "${RUN_VERIFY}" == "1" ]]; then
     verify_fetch_accession_coverage
     verify_fetch_targets
+    verify_gzip_integrity
     verify_fetch_md5
   fi
 
