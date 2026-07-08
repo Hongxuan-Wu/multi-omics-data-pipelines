@@ -6,6 +6,16 @@ Release 目录全量下载与校验流程见：
 
 - `refseq_release_dir/refseq_release_download.md`
 
+NCBI Datasets CLI 工具用于 `genomes_dir/download_refseq_genomes_api.sh` 流程。官方 conda 包同时提供 `datasets` 和 `dataformat` 两个命令。
+
+安装方式：
+
+```bash
+conda create -n ncbi_datasets
+conda activate ncbi_datasets
+conda install -c conda-forge ncbi-datasets-cli
+```
+
 ## 1. 数据来源
 
 当前已经固定下载的 RefSeq assembly summary：

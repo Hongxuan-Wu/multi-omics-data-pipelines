@@ -9,7 +9,7 @@
 #   3. 默认使用 --include all，下载 genome/protein/cds/gff3/gtf/gbff/rna/seq-report。
 #   4. 每个阶段可独立重复执行，便于断点续跑、错误定位和人工检查。
 #   5. 脚本不删除下载产物；可复用旧产物会尽量移动到 TRASH_DIR，运行状态表会按阶段重写。
-#   6. datasets download / rehydrate 阶段带自动重试；校验默认执行强 MD5 完整性检查。
+#   6. datasets download / rehydrate 阶段带自动重试；有官方 MD5 时执行强完整性检查。
 # =============================================================================
 set -Eeuo pipefail
 export LC_ALL=C
@@ -145,14 +145,14 @@ REHYDRATE_MAX_WORKERS=20
 # REHYDRATE_LIST_BEFORE_DOWNLOAD：1=下载前先执行 datasets rehydrate --list 做预检。
 REHYDRATE_LIST_BEFORE_DOWNLOAD=1
 
-# 校验策略。STRICT_INTEGRITY=1 表示默认启用强 MD5 验证。
+# 校验策略。STRICT_INTEGRITY=1 表示默认启用目标存在性、类别和可用 MD5 验证。
 # STRICT_INTEGRITY：1=严格完整性模式；若关闭，需要人工接受只做存在性/格式校验的风险。
 STRICT_INTEGRITY=1
 # VERIFY_FETCH_TARGETS_AFTER_REHYDRATE：1=检查 fetch.txt 中每个目标文件是否存在且非空。
 VERIFY_FETCH_TARGETS_AFTER_REHYDRATE=1
-# VERIFY_FETCH_MD5：1=使用 fetch.txt 第二列校验 MD5；全量 RefSeq 会非常耗时。
+# VERIFY_FETCH_MD5：1=使用 fetch.txt 第二列中可用的 MD5 校验；第二列为 0 时表示官方未提供 MD5。
 VERIFY_FETCH_MD5=1
-# VERIFY_FETCH_CHECKSUM_FORMAT：1=即使不计算 MD5，也检查 fetch.txt 第二列是否为合法 MD5 字段。
+# VERIFY_FETCH_CHECKSUM_FORMAT：1=即使不计算 MD5，也检查 fetch.txt 第二列是否为 32 位 MD5 或 0 占位值。
 VERIFY_FETCH_CHECKSUM_FORMAT=1
 # VERIFY_FETCH_FILE_PROFILE：1=按 accession 检查 fetch.txt 是否至少包含关键文件类别。
 VERIFY_FETCH_FILE_PROFILE=1
@@ -1693,7 +1693,7 @@ unpack_dehydrated_packages() {
   log "所有 dehydrated 链接包解包完成。状态表：${UNPACK_STATUS_FILE}"
 }
 
-# refresh_merged_fetch_accessions：从 MERGED_FETCH_FILE 重新提取 accession 集合。
+# refresh_merged_fetch_accessions：从 MERGED_FETCH_FILE 第三列 data/<accession>/ 重新提取 accession 集合。
 # 参数：
 #   无。
 # 输入：
@@ -1709,13 +1709,10 @@ refresh_merged_fetch_accessions() {
   local exit_code
 
   [[ -s "${MERGED_FETCH_FILE}" ]] || die "缺少汇总 fetch.txt：${MERGED_FETCH_FILE}"
-  if awk '
-    {
-      line = $0
-      while (match(line, /GC[AF]_[0-9]+\.[0-9]+/)) {
-        print substr(line, RSTART, RLENGTH)
-        line = substr(line, RSTART + RLENGTH)
-      }
+  if awk -F '\t' '
+    NF >= 3 && $3 ~ /^data\/GC[AF]_[0-9]+\.[0-9]+\// {
+      split($3, target_parts, "/")
+      print target_parts[2]
     }
   ' "${MERGED_FETCH_FILE}" 2> "${accession_log}" | sort -u 2>> "${accession_log}" > "${MERGED_FETCH_ACCESSIONS_FILE}.partial.${RUN_ID}"; then
     :
@@ -2005,18 +2002,24 @@ write_fetch_targets() {
     -v invalid_target_out="${INVALID_FETCH_TARGETS_FILE}.partial.${RUN_ID}" \
     -v invalid_row_out="${INVALID_FETCH_ROWS_FILE}.partial.${RUN_ID}" \
     -v check_checksum="${VERIFY_FETCH_CHECKSUM_FORMAT}" '
-    NF < 3 || $3 == "" {
+    NF < 3 {
       print $0 > invalid_row_out
       next
     }
     {
-      if ($3 ~ /^\// || $3 ~ /(^|\/)\.\.(\/|$)/) {
-        print $3 > invalid_target_out
+      checksum = $2
+      target = $3
+      sub(/\r$/, "", checksum)
+      sub(/\r$/, "", target)
+      if (target == "") {
         print $0 > invalid_row_out
-      } else if (check_checksum == "1" && $2 !~ /^[0-9a-fA-F]{32}$/) {
+      } else if (target ~ /^\// || target ~ /(^|\/)\.\.(\/|$)/) {
+        print target > invalid_target_out
+        print $0 > invalid_row_out
+      } else if (check_checksum == "1" && checksum != "0" && checksum !~ /^[0-9a-fA-F]{32}$/) {
         print $0 > invalid_row_out
       } else {
-        print $3
+        print target
       }
     }
   ' "${MERGED_FETCH_FILE}" > "${FETCH_TARGETS_FILE}.partial.${RUN_ID}" 2> "${target_log}"; then
@@ -2140,15 +2143,18 @@ verify_fetch_target_profile() {
         }
       }
     }
-    function target_class(t) {
-      if (t ~ /_genomic\.fna(\.gz)?$/) return "genome"
-      if (t ~ /_protein\.faa(\.gz)?$/) return "protein"
-      if (t ~ /_cds_from_genomic\.fna(\.gz)?$/) return "cds"
-      if (t ~ /_genomic\.gff(\.gz)?$/) return "gff3"
-      if (t ~ /_genomic\.gtf(\.gz)?$/) return "gtf"
-      if (t ~ /_genomic\.gbff(\.gz)?$/) return "gbff"
-      if (t ~ /_rna_from_genomic\.fna(\.gz)?$/) return "rna"
-      if (t ~ /_sequence_report\.jsonl(\.gz)?$/ || t ~ /(^|\/)sequence_report\.jsonl(\.gz)?$/) return "seq-report"
+    function target_class(t, name) {
+      name = t
+      sub(/^.*\//, "", name)
+      sub(/\r$/, "", name)
+      if (name ~ /(^|_)cds_from_genomic\.fna(\.gz)?$/) return "cds"
+      if (name ~ /(^|_)rna_from_genomic\.fna(\.gz)?$/ || name ~ /^rna\.fna(\.gz)?$/) return "rna"
+      if (name ~ /(^|_)genomic\.fna(\.gz)?$/) return "genome"
+      if (name ~ /(^|_)protein\.faa(\.gz)?$/) return "protein"
+      if (name ~ /(^|_)genomic\.gff(\.gz)?$/) return "gff3"
+      if (name ~ /(^|_)genomic\.gtf(\.gz)?$/) return "gtf"
+      if (name ~ /(^|_)genomic\.gbff(\.gz)?$/) return "gbff"
+      if (name ~ /(^|_)sequence_report\.jsonl(\.gz)?$/) return "seq-report"
       return "other"
     }
   ' "${ACCESSION_SORTED_FILE}" "${FETCH_TARGETS_FILE}" 2> "${profile_log}"; then
@@ -2241,17 +2247,17 @@ verify_fetch_targets() {
 # 参数：
 #   无。
 # 输入：
-#   MERGED_FETCH_FILE，第二列为期望 MD5，第三列为本地目标路径。
+#   MERGED_FETCH_FILE，第二列为期望 MD5 或 0 占位值，第三列为本地目标路径。
 # 输出：
 #   MD5_STATUS_FILE，每个被校验文件的 OK/MISSING/FAILED 状态。
 # 行为：
-#   VERIFY_FETCH_MD5=0 时跳过；VERIFY_FETCH_MD5=1 时会逐文件计算 md5sum，耗时很长。
+#   VERIFY_FETCH_MD5=0 时跳过；VERIFY_FETCH_MD5=1 且第二列为 32 位 MD5 时逐文件计算 md5sum，耗时很长。
 # 失败行为：
-#   任一文件缺失或 MD5 不一致时调用 die。
+#   任一有官方 MD5 的文件缺失或 MD5 不一致时调用 die；checksum=0 的行记录为跳过。
 verify_fetch_md5() {
   # url：fetch.txt 第一列，远程文件 URL；当前函数只读取但不用于下载。
   local url
-  # checksum：fetch.txt 第二列，期望 MD5。
+  # checksum：fetch.txt 第二列，期望 MD5；0 表示官方未提供 MD5。
   local checksum
   # target：fetch.txt 第三列，本地相对目标路径。
   local target
@@ -2265,6 +2271,8 @@ verify_fetch_md5() {
   local failed=0
   # invalid：checksum 或目标路径格式异常的数量。
   local invalid=0
+  # skipped_no_md5：fetch.txt 第二列为 0、无法执行强 MD5 校验的文件数量。
+  local skipped_no_md5=0
 
   [[ "${VERIFY_FETCH_MD5}" == "1" ]] || {
     move_to_trash "${MD5_STATUS_FILE}" "old_md5_status_skipped"
@@ -2277,11 +2285,18 @@ verify_fetch_md5() {
   move_to_trash "${MD5_STATUS_FILE}" "old_md5_status_before_rebuild"
   printf 'target\tstatus\texpected_md5\tactual_md5_or_reason\n' > "${MD5_STATUS_FILE}"
   while IFS=$'\t' read -r url checksum target _rest; do
+    checksum="${checksum%$'\r'}"
+    target="${target%$'\r'}"
     [[ -n "${target}" ]] || continue
     if [[ "${target}" =~ ^/ || "${target}" =~ (^|/)\.\.(/|$) ]]; then
       printf '%s\t%s\t%s\t%s\n' "${target}" "INVALID_TARGET_PATH" "${checksum}" "target must be relative and must not contain .." >> "${MD5_STATUS_FILE}"
       invalid=$((invalid + 1))
       failed=$((failed + 1))
+      continue
+    fi
+    if [[ "${checksum}" == "0" ]]; then
+      printf '%s\t%s\t%s\t%s\n' "${target}" "SKIPPED_NO_OFFICIAL_MD5" "${checksum}" "fetch checksum placeholder 0" >> "${MD5_STATUS_FILE}"
+      skipped_no_md5=$((skipped_no_md5 + 1))
       continue
     fi
     if [[ ! "${checksum}" =~ ^[0-9a-fA-F]{32}$ ]]; then
@@ -2319,16 +2334,21 @@ verify_fetch_md5() {
 
   if [[ "${failed}" -gt 0 ]]; then
     write_state "verify_md5" "FAILED" "${MD5_STATUS_FILE}"
-    die "fetch md5 校验失败：失败 ${failed} 个，其中格式异常 ${invalid} 个；详情：${MD5_STATUS_FILE}。请重跑 rehydrate/verify；若 checksum 格式异常，请先重跑 merge-fetch。"
+    die "fetch md5 校验失败：失败 ${failed} 个，其中格式异常 ${invalid} 个，官方未提供 MD5 跳过 ${skipped_no_md5} 个；详情：${MD5_STATUS_FILE}。请重跑 rehydrate/verify；若 checksum 格式异常，请先重跑 merge-fetch。"
   fi
 
   if [[ "${checked}" -eq 0 ]]; then
+    if [[ "${skipped_no_md5}" -gt 0 ]]; then
+      write_state "verify_md5" "DONE_NO_OFFICIAL_MD5" "${MD5_STATUS_FILE}"
+      log "fetch.txt 第二列均为 0 或无可用 MD5，已跳过官方 MD5 校验：${skipped_no_md5} 个文件。"
+      return 0
+    fi
     write_state "verify_md5" "FAILED_EMPTY" "${MD5_STATUS_FILE}"
-    die "fetch md5 校验没有检查到任何文件。请检查 fetch.txt 第二列是否包含 MD5；修复后重跑 merge-fetch/verify。"
+    die "fetch md5 校验没有检查到任何文件。请检查 fetch.txt 第二列是否包含 MD5 或 0 占位值；修复后重跑 merge-fetch/verify。"
   fi
 
   write_state "verify_md5" "DONE" "${checked}"
-  log "fetch md5 校验通过：${checked} 个文件。"
+  log "fetch md5 校验通过：${checked} 个文件；官方未提供 MD5 跳过：${skipped_no_md5} 个文件。"
 }
 
 # find_latest_previous_state_file：查找当前 context 下最近一次旧状态表。
