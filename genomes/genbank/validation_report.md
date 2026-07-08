@@ -2,7 +2,7 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。Linux 服务器 `bash -n` 已通过；真实下载未执行。
 
 ## 2. 流程验收
 
@@ -24,4 +24,4 @@
 - 已修复 C1：`select_assemblies` 现在统计非注释 selected assembly；数量为 0 时立即失败。`build_download_plan` 现在统计总计划数和非 metadata genome payload 数；payload 为 0 时立即失败。
 - 已修复 C2：移除 `md5sum --check --ignore-missing`，改为按下载计划中的 genome payload 逐项读取同目录 `md5checksums.txt` 并执行强 MD5 校验；缺失、空文件、checksum 条目缺失或 MD5 失败时调用 `move_to_trash` 隔离 payload/`.aria2`/异常 checksum 文件。
 - 静态复查：未发现残留 `--ignore-missing`；未发现 `rm`、`rm -f`、`rm -rf`、`del`、`Remove-Item`；未运行真实下载。
-- 待验证：本机 `bash.exe`/WSL 无法启动脚本语法检查，仍需在目标 Linux 服务器执行 `bash -n genomes/genbank/download_genbank.sh`。
+- 服务器复验：Linux 服务器 `bash -n genomes/genbank/download_genbank.sh` 已通过。

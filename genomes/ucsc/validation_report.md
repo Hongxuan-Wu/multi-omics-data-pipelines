@@ -14,4 +14,4 @@
 | 4 | bigZips 强校验 | 已完成 | bigZips 目标必须匹配官方 MD5 并写入 aria2 checksum |
 | 5 | phastCons policy | 已修复 | hg38 phastCons100way 与 mm39 phastCons60way 显式记录 `EXPLICIT_WEAK_POLICY` 并执行非空弱校验 |
 | 6 | 缺 MD5 处理 | 已修复 | 未声明 weak policy 的计划目标缺 MD5 时失败 |
-| 7 | 静态语法检查 | 待目标环境确认 | 本机未完成 Bash 语法解析；需在 Linux 服务器执行 `bash -n genomes/ucsc/download_ucsc.sh` |
+| 7 | 静态语法检查 | 通过 | Linux 服务器 `bash -n genomes/ucsc/download_ucsc.sh` 已通过 |

@@ -4,7 +4,7 @@
 
 | 项 | 结论 |
 |---|---|
-| API/CLI 优先判断 | BV-BRC Data API 可查 genome metadata；批量文件下载按官方 FTPS。 |
+| API/CLI 优先判断 | BV-BRC Data API 可查 genome metadata；批量文件下载仍按官方 FTPS。API probe 使用 RQL 查询 `eq(genome_status,Complete)`。 |
 | 固定版本 | FTPS/API freeze 2026-07-07 |
 | 固定入口 | ftps://ftp.bvbrc.org/；API probe: https://www.bv-brc.org/api/genome/ |
 | manifest 中心 | RELEASE_NOTES/genome_summary 与 genome_metadata |
@@ -14,7 +14,7 @@
 
 ## 2. 脚本说明
 
-脚本：download_bv_brc.sh。
+脚本：download_bv_brc.sh。主下载依赖 `lftp` 访问 BV-BRC FTPS；若目标服务器未安装 `lftp`，脚本会在依赖检查阶段退出。
 
 ## 3. 来源
 

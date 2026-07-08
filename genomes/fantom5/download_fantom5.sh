@@ -7,7 +7,7 @@
 #   2. 递归读取 HTML/Apache index，生成文件级下载计划。
 #   3. 先写差异报告，再执行 aria2 并行下载与弱校验。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common/common.sh"

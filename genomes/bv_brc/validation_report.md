@@ -2,7 +2,7 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本报告为服务器复验后的库内校验记录。2026-07-08 复验发现旧 API probe 查询 `limit(10)&select(...)` 返回 400；已改为 BV-BRC Data API RQL 查询 `eq(genome_status,Complete)&limit(10)&select(...)`。脚本语法在 Linux 服务器上已通过 `bash -n`。真实下载仍要求服务器安装 `lftp` 访问官方 FTPS。
 
 ## 2. 流程验收
 
@@ -18,3 +18,10 @@
 | 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
 | 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
 | 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+
+## 3. 服务器复验追加记录
+
+- 已修复：Data API probe 查询语法，当前服务器对 `eq(genome_status,Complete)&limit(10)&select(genome_id,genome_name,genome_status)` 返回 200。
+- 待环境满足：主下载仍依赖 `lftp`；当前服务器未安装 `lftp` 时该库不能真实运行。
+- 已完成：Linux 服务器 `bash -n genomes/bv_brc/download_bv_brc.sh` 通过。
+- 未执行：真实 FTPS 下载。

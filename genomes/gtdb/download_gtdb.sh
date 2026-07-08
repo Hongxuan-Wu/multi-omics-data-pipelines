@@ -8,7 +8,7 @@
 #   3. metadata 与序列/注释文件同等优先级。
 #   4. 有官方 MD5 时强校验；没有官方 MD5 时执行 gzip -t 或非空弱校验。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMMON_SH="${SCRIPT_DIR}/../common/common.sh"

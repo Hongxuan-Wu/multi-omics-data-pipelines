@@ -14,4 +14,4 @@
 | 4 | 差异报告 | 已修复 | division 根 listing、species listing、CHECKSUMS 缺失/不可读、GTF 无官方 MD5 均写入 `DIFF_REPORT` |
 | 5 | aria2 checksum | 已修复 | 只有解析到真实 32 hex MD5 的目标写入 `checksum=md5=...`；无官方 MD5 的 GTF 继续写入下载计划但不写 checksum 行 |
 | 6 | 下载后校验 | 已修复 | GTF 有官方 MD5 时执行 `md5sum --check`；无官方 MD5 时执行 `weak_verify_file`，即 gzip 文件 `gzip -t`、非 gzip 文件非空校验；metadata/CHECKSUMS 同样走 weak policy |
-| 7 | 静态语法检查 | 待目标环境确认 | 本机未完成 Bash 语法解析；需在 Linux 服务器执行 `bash -n genomes/ensembl/download_ensembl.sh` |
+| 7 | 静态语法检查 | 通过 | Linux 服务器 `bash -n genomes/ensembl/download_ensembl.sh` 已通过 |

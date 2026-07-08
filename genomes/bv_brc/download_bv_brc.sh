@@ -8,7 +8,7 @@
 #   3. 默认只下载功能注释表和 GFF，不重复下载 FASTA。
 #   4. 使用 lftp pget -c 支持断点续传，用 xargs -P 控制并行。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMMON_SH="${SCRIPT_DIR}/../common/common.sh"
@@ -19,6 +19,7 @@ DB_NAME="bv_brc"
 RELEASE="BV-BRC_FTPS_freeze_2026-07-07"
 BASE_URL="ftps://ftp.bvbrc.org"
 BV_BRC_API_URL="https://www.bv-brc.org/api/genome/"
+BV_BRC_API_PROBE_QUERY="eq(genome_status,Complete)&limit(10)&select(genome_id,genome_name,genome_status)"
 LOCAL_ROOT="/data3/p252701008/genomes/bv_brc"
 RUN_ROOT="/data3/p252701008/genomes/bv_brc_runlogs"
 USE_PROXY=0
@@ -94,11 +95,11 @@ append_bv_brc_plan_record() {
 
 download_metadata() {
   log "下载 BV-BRC RELEASE_NOTES metadata"
-  if curl -fsSL --retry 5 --retry-delay 10 "${BV_BRC_API_URL}?limit(10)&select(genome_id,genome_name,genome_status)" > "${API_PROBE_JSON}"; then
+  if curl -fsSL --retry 5 --retry-delay 10 "${BV_BRC_API_URL}?${BV_BRC_API_PROBE_QUERY}" > "${API_PROBE_JSON}"; then
     log "BV-BRC Data API probe 已保存：${API_PROBE_JSON}"
   else
-    printf 'api_probe\tFAILED\t%s\n' "${BV_BRC_API_URL}" >> "${API_PROBE_REPORT}"
-    errlog "BV-BRC Data API probe 失败；继续使用 FTPS metadata。"
+    printf 'api_probe\tFAILED\t%s?%s\n' "${BV_BRC_API_URL}" "${BV_BRC_API_PROBE_QUERY}" >> "${API_PROBE_REPORT}"
+    warnlog "BV-BRC Data API probe 失败；继续使用 FTPS metadata。"
   fi
   lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; open ${BASE_URL}; pget -c -n ${LFTP_CONNECTIONS} -o ${GENOME_SUMMARY} RELEASE_NOTES/genome_summary; pget -c -n ${LFTP_CONNECTIONS} -o ${GENOME_METADATA} RELEASE_NOTES/genome_metadata"
   [[ -s "${GENOME_SUMMARY}" ]] || die "genome_summary 为空或下载失败。"

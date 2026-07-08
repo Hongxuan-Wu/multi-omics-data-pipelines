@@ -8,7 +8,7 @@
 #   3. metadata 与 ChromHMM coreMarks 文件同等优先级。
 #   4. 有官方 MD5 时强校验；没有官方 MD5 时执行 gzip -t 或非空弱校验。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMMON_SH="${SCRIPT_DIR}/../common/common.sh"
@@ -33,20 +33,18 @@ MIN_DISK_GB=100
 
 # 官方 checksum 文件。留空表示该库未找到可直接用于目标文件的官方 MD5。
 CHECKSUM_URLS=(
-
+  "https://egg2.wustl.edu/roadmap/data/checksums.md5"
 )
 CHECKSUM_REQUIRED=0
 REMOTE_LISTING_URLS=(
-  "https://egg2.wustl.edu/roadmap/data/metadata"
+  "https://egg2.wustl.edu/roadmap/data/byFileType/metadata"
   "https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final"
 )
 
 # group | relative_path | url | role
 TARGET_RECORDS=(
-  "metadata|metadata/roadmapData.qc.xlsx|https://egg2.wustl.edu/roadmap/data/metadata/roadmapData.qc.xlsx|quality_metadata"
-  "metadata|metadata/Consolidated_EpigenomeIDs_summary_Table.xlsx|https://egg2.wustl.edu/roadmap/data/metadata/Consolidated_EpigenomeIDs_summary_Table.xlsx|epigenome_id_metadata"
+  "metadata|metadata/EID_metadata.tab|https://egg2.wustl.edu/roadmap/data/byFileType/metadata/EID_metadata.tab|epigenome_id_metadata"
   "chromhmm|chromhmm/coreMarks_all.mnemonics.bedFiles.tgz|https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/all.mnemonics.bedFiles.tgz|chromhmm_state_segments"
-  "chromhmm|chromhmm/coreMarks_model_15_coreMarks_dense.gz|https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/model_15_coreMarks_dense.gz|chromhmm_model"
 )
 
 # ==================== 派生路径 ====================

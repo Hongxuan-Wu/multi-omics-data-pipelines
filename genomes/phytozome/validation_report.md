@@ -2,7 +2,9 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。Linux 服务器 `bash -n` 已通过；真实下载未执行。
+
+服务器复验追加结论：当前目录只有 `species_ids.example.txt`，没有正式运行所需的 `species_ids.txt` 和 `frozen_file_manifest.tsv`；仓库已提供 `genomes/.env.example`，真实凭证仍需在服务器本地 `genomes/.env` 或环境变量中配置。
 
 ## 2. 流程验收
 

@@ -8,7 +8,7 @@
 #   3. 从 API JSON 提取 accession、href、md5sum、assembly、assay_title。
 #   4. 使用官方 md5sum 强校验。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common/common.sh"
@@ -18,6 +18,7 @@ DB_NAME="encode"
 RELEASE="ENCODE_API_freeze_2026-07-07"
 ENCODE_HOST="https://www.encodeproject.org"
 FREEZE_DATE="2026-07-07"
+ENCODE_API_PROBE_URL="${ENCODE_HOST}/search/?type=File&status=released&limit=1&format=json"
 LOCAL_ROOT="/data3/p252701008/genomes/encode"
 RUN_ROOT="/data3/p252701008/genomes/encode_runlogs"
 USE_PROXY=0
@@ -51,6 +52,19 @@ DIFF_REPORT="${MANIFEST_DIR}/diff_report_${RUN_ID}.tsv"
 declare -A MD5_MAP
 common_init_dirs
 
+probe_encode_api_access() {
+  local probe_json="${TMP_DIR}/encode_api_probe_${RUN_ID}.json"
+  log "预检 ENCODE API：${ENCODE_API_PROBE_URL}"
+  if ! fetch_to_file "${ENCODE_API_PROBE_URL}" "${probe_json}"; then
+    printf 'api_probe\tFAILED\t%s\n' "${ENCODE_API_PROBE_URL}" >> "${DIFF_REPORT}"
+    die "ENCODE API 当前不可达；请从本服务器检查网络访问、代理或 ENCODE 站点访问策略：${ENCODE_API_PROBE_URL}"
+  fi
+  if ! jq -e 'has("@graph") and (.["@graph"] | type == "array")' "${probe_json}" >/dev/null; then
+    printf 'api_probe\tINVALID_JSON_SCHEMA\t%s\n' "${ENCODE_API_PROBE_URL}" >> "${DIFF_REPORT}"
+    die "ENCODE API probe 返回 JSON 不符合预期；请检查 API 返回格式：${probe_json}"
+  fi
+}
+
 build_api_manifest() {
   : > "${API_JSON}"
   local assembly fmt assay url out
@@ -75,6 +89,7 @@ build_download_plan() {
   : > "${DIFF_REPORT}"
   printf '# accession\trelative_path\turl\tlocal_dir\tout_name\tmd5\n' >> "${PLAN_FILE}"
   printf '# check\tstatus\tdetail\n' >> "${DIFF_REPORT}"
+  probe_encode_api_access
   build_api_manifest
   local api_tsv="${TMP_DIR}/encode_api_records_${RUN_ID}.tsv"
   local missing_md5=0

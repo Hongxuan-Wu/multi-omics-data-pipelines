@@ -8,7 +8,7 @@
 #   3. 只下载注释和功能文件，不重复下载全量基因组 FASTA。
 #   4. 用 curl -C - + xargs -P 支持断点续传和并行控制。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMMON_SH="${SCRIPT_DIR}/../common/common.sh"

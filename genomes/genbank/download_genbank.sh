@@ -9,7 +9,7 @@
 #   4. 同步下载 assembly_summary、README 与每个 assembly 的 md5checksums.txt。
 #   5. 对 manifest 记录但远端缺失的文件生成差异报告。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common/common.sh"

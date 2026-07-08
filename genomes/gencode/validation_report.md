@@ -14,4 +14,4 @@
 | 4 | 缺 MD5 处理 | 已修复 | `write_manifests_and_diff`、`write_aria_input`、`verify_after_download` 均禁止 required checksum 降级 |
 | 5 | aria2 强校验 | 已完成 | 有 MD5 的目标写入 `checksum=md5=...` |
 | 6 | 下载后校验 | 已完成 | 有 MD5 的目标执行 `md5sum --check` |
-| 7 | 静态语法检查 | 待目标环境确认 | 本机未完成 Bash 语法解析；需在 Linux 服务器执行 `bash -n genomes/gencode/download_gencode.sh` |
+| 7 | 静态语法检查 | 通过 | Linux 服务器 `bash -n genomes/gencode/download_gencode.sh` 已通过 |

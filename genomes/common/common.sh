@@ -8,7 +8,8 @@
 #   3. 不删除文件；异常文件只移动到 TRASH_DIR。
 #   4. USE_PROXY 只作为开关占位。脚本不会自动设置代理变量。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
+export LC_ALL=C
 
 COMMON_VERSION="1.0"
 
@@ -30,6 +31,10 @@ log() {
 
 errlog() {
   printf '[%s] [ERROR] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${ERR_LOG}" >&2
+}
+
+warnlog() {
+  printf '[%s] [WARN] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${ERR_LOG}" >&2
 }
 
 die() {

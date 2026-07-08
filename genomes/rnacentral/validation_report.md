@@ -2,7 +2,7 @@
 
 ## 1. 结论
 
-本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。由于本机 Bash/WSL 语法校验受限，最终 `bash -n` 与真实下载需在目标 Linux 服务器执行。
+本报告为主会话整合子智能体只读校验后的结果。已修复校验中指出的阻断项和重要问题。Linux 服务器 `bash -n` 已通过；真实下载未执行。
 
 ## 2. 流程验收
 
@@ -23,4 +23,4 @@
 
 - 已修复：移除 `download_rnacentral.sh` 中保留的 gawk-only `match(..., array)` metalink 兼容解析，改为 POSIX awk 的 `sub`/`length`/正则判断。
 - 静态复查：未发现残留 `match($0, ..., array)`、`, a)`、`, h)` 或 `--ignore-missing`。
-- 待验证：本机 `bash.exe`/WSL 无法启动脚本语法检查，仍需在目标 Linux 服务器执行 `bash -n genomes/rnacentral/download_rnacentral.sh`；本轮未运行真实下载。
+- 服务器复验：Linux 服务器 `bash -n genomes/rnacentral/download_rnacentral.sh` 已通过；本轮未运行真实下载。

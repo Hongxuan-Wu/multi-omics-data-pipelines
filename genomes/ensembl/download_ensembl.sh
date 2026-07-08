@@ -7,7 +7,7 @@
 #   2. 只下载 GTF 注释与 species metadata，不重复下载 FASTA 序列。
 #   3. 以 FTP/HTTPS 目录 listing 生成下载计划，报告 listing 与计划差异。
 # =============================================================================
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common/common.sh"
