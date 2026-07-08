@@ -113,7 +113,7 @@ MAX_ACCESSIONS=0                    # 0 表示不限制；试跑可设为 1000
 
 # Shard 是工程容错层，不是生物学筛选。全量下载建议保留。
 # SHARD_SIZE：每个 dehydrated zip 对应的 accession 数；越小越容易重试，越大过程文件越少。
-SHARD_SIZE=1000
+SHARD_SIZE=5000
 # FORCE_SINGLE_PACKAGE：1=把所有 accession 放进单个输入文件；全量下载不推荐。
 FORCE_SINGLE_PACKAGE=0              # 1=不分片；只建议小规模试跑
 

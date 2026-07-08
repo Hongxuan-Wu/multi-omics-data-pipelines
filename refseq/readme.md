@@ -249,6 +249,7 @@ nohup bash -lc 'set -a && source .codex/.env && set +a && export PATH="/home/p25
 ```text
 STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
 STORAGE_MIN_FREE_GB=200
+SHARD_SIZE=5000
 INCLUDE_FILES=all
 FILTER_ASSEMBLY_LEVELS=all
 REHYDRATE_MAX_WORKERS=30
