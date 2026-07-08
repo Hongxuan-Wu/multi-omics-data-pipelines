@@ -141,7 +141,7 @@ RETRY_SLEEP_SECONDS=30
 
 # rehydrate 并发 worker，datasets 官方允许 1-30。
 # REHYDRATE_MAX_WORKERS：真实数据下载并发数；过高可能触发网络或 NCBI 限流。
-REHYDRATE_MAX_WORKERS=20
+REHYDRATE_MAX_WORKERS=30
 # REHYDRATE_LIST_BEFORE_DOWNLOAD：1=下载前先执行 datasets rehydrate --list 做预检。
 REHYDRATE_LIST_BEFORE_DOWNLOAD=1
 
