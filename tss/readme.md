@@ -27,6 +27,8 @@ RefSeq 原始数据已下载到：
 
 ```text
 .
+├── SRA_Run_Members头表构建与RNA-seq筛选流程.md  # 当前 SRA 侧 Run 头表构建、Step 1/2/3c 和 471,792 结果解释
+├── sra_run_members_head_table_pipeline/        # 上述流程对应的脚本、测试和运行记录，用于代码/流程审核
 ├── RefSeq与SRA关联查询流程.md       # RefSeq-SRA 关联、筛选和下载列表生成
 ├── TSS数据挖掘.md                   # 早期综合草案，保留作历史参考
 └── readme.md
@@ -34,10 +36,11 @@ RefSeq 原始数据已下载到：
 
 ## 当前主线
 
-1. RefSeq 侧先从 `assembly_summary_refseq.txt` 生成 `refseq_assembly_core.parquet`。
-2. SRA 侧使用 `SRA_Accessions` Parquet 过滤可下载 RUN。
-3. SRA XML full 索引用于补充 sample attributes、library strategy、platform、BioSample/BioProject/Taxon。
-4. 优先用 BioSample 关联 RefSeq 和 SRA。
-5. 生成 `selected_sra_runs.tsv` 作为后续下载输入。
+1. SRA 侧先用 `SRA_Run_Members` 生成 member-level 头表，保留 Run -> Experiment -> Sample/BioSample 关系。
+2. Step 1 在 `SRA_Run_Members` 内部做 live、Spots/Bases 非零、Experiment/Sample/BioSample 非空硬筛选。
+3. Step 2 join `SRA_Accessions Type=RUN`，只补 `Visibility=public` 可见性 gate。
+4. Step 3c 使用 SRA XML full index 筛选 ordinary transcriptomic RNA-seq 和 A/B 级 wildtype 证据，输出 `471,792` 个 no-exclusion Run。
+5. RefSeq 侧再从 `assembly_summary_refseq.txt` 生成 `refseq_assembly_core.parquet`，后续优先用 BioSample 与 SRA 头表关联。
 
-具体 SQL 和字段见 `RefSeq与SRA关联查询流程.md`。
+SRA 侧头表生产见 `SRA_Run_Members头表构建与RNA-seq筛选流程.md`。
+RefSeq-SRA 关联 SQL 和字段见 `RefSeq与SRA关联查询流程.md`。

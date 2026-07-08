@@ -1,0 +1,13 @@
+{
+  "generated_at_utc": "2026-07-08T01:36:38.798087+00:00",
+  "input_member_parquet": "/home/m252202014/TSS/02_stage2_run_members_head_table/step3c_xml_semantic_no_exclusion_filtering/production_runs/wildtype_ab_no_exclusion_transcriptomic_rnaseq_generic_index_20260707/merged/tables/wildtype_ab_no_exclusion_transcriptomic_rnaseq_member_level.parquet",
+  "population_rows": 471792,
+  "sample_size": 50,
+  "seed": 20260708,
+  "sampling_method": "ORDER BY hash(Run || seed) LIMIT sample_size",
+  "outputs": {
+    "sample_records_tsv": "sample_records.tsv",
+    "sample_records_csv": "sample_records.csv",
+    "readme": "README.md"
+  }
+}
