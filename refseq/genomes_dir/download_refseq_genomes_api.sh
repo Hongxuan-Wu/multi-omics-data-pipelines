@@ -144,6 +144,8 @@ RETRY_SLEEP_SECONDS=30
 REHYDRATE_MAX_WORKERS=30
 # REHYDRATE_LIST_BEFORE_DOWNLOAD：1=下载前先执行 datasets rehydrate --list 做预检。
 REHYDRATE_LIST_BEFORE_DOWNLOAD=1
+# REHYDRATE_PROGRESS_INTERVAL_SECONDS：rehydrate 下载中每隔多少秒向主日志输出一次文件数和目录大小；0=关闭。
+REHYDRATE_PROGRESS_INTERVAL_SECONDS=60
 
 # 校验策略。STRICT_INTEGRITY=1 表示默认启用目标存在性、类别和可用 MD5 验证。
 # STRICT_INTEGRITY：1=严格完整性模式；若关闭，需要人工接受只做存在性/格式校验的风险。
@@ -591,6 +593,131 @@ run_logged_command_with_retries() {
   return "${exit_code}"
 }
 
+# log_rehydrate_progress_snapshot：输出一次 rehydrate 下载进度快照。
+# 参数：
+#   $1 / target_count：fetch target 总数。
+#   $2 / data_dir：ncbi_dataset/data 目录。
+# 输出：
+#   主日志中写入当前文件数、accession 目录数和数据目录大小。
+log_rehydrate_progress_snapshot() {
+  local target_count="$1"
+  local data_dir="$2"
+  local downloaded_count=0
+  local accession_count=0
+  local data_size="0"
+  local percent="n/a"
+
+  if [[ -d "${data_dir}" ]]; then
+    downloaded_count="$(find "${data_dir}" -type f 2>/dev/null | wc -l | awk '{print $1}')" || downloaded_count=0
+    accession_count="$(find "${data_dir}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | awk '{print $1}')" || accession_count=0
+    data_size="$(du -sh "${data_dir}" 2>/dev/null | awk '{print $1}')" || data_size="unknown"
+  fi
+
+  if [[ "${target_count}" =~ ^[0-9]+$ && "${target_count}" -gt 0 ]]; then
+    percent="$(awk -v done="${downloaded_count}" -v total="${target_count}" 'BEGIN {printf "%.4f", (done * 100) / total}')"
+  fi
+  log "rehydrate progress: files=${downloaded_count}/${target_count} (${percent}%), accession_dirs=${accession_count}, data_size=${data_size}, data_dir=${data_dir}"
+}
+
+# monitor_rehydrate_progress：在 datasets rehydrate 运行时周期性记录进度。
+# 参数：
+#   $1 / watched_pid：datasets rehydrate 进程 PID。
+#   $2 / interval_seconds：进度输出间隔；0 表示关闭。
+#   $3 / target_count：fetch target 总数。
+#   $4 / data_dir：ncbi_dataset/data 目录。
+monitor_rehydrate_progress() {
+  local watched_pid="$1"
+  local interval_seconds="$2"
+  local target_count="$3"
+  local data_dir="$4"
+
+  [[ "${interval_seconds}" -gt 0 ]] || return 0
+  while kill -0 "${watched_pid}" 2>/dev/null; do
+    log_rehydrate_progress_snapshot "${target_count}" "${data_dir}" || true
+    sleep "${interval_seconds}" || return 0
+  done
+}
+
+# stop_progress_monitor：停止后台进度监控进程。
+# 参数：
+#   $1 / monitor_pid：monitor_rehydrate_progress 的 PID；空值时无动作。
+stop_progress_monitor() {
+  local monitor_pid="$1"
+
+  [[ -n "${monitor_pid}" ]] || return 0
+  if kill -0 "${monitor_pid}" 2>/dev/null; then
+    kill -TERM "${monitor_pid}" 2>/dev/null || true
+    wait "${monitor_pid}" 2>/dev/null || true
+  fi
+}
+
+# run_logged_command_with_retries_and_progress：带日志、脱敏、重试和 rehydrate 进度监控地执行命令。
+# 参数：
+#   $1 / stage：阶段名。
+#   $2 / max_retries：最大尝试次数。
+#   $3 / sleep_seconds：失败后等待秒数。
+#   $4 / log_file：最终日志路径。
+#   $5 / progress_interval_seconds：进度输出间隔；0 表示关闭。
+#   $6 / progress_target_count：fetch target 总数。
+#   $7 / progress_data_dir：ncbi_dataset/data 目录。
+#   $8...：需要执行的命令及其参数。
+run_logged_command_with_retries_and_progress() {
+  local stage="$1"
+  local max_retries="$2"
+  local sleep_seconds="$3"
+  local log_file="$4"
+  local progress_interval_seconds="$5"
+  local progress_target_count="$6"
+  local progress_data_dir="$7"
+  shift 7
+  local attempt=1
+  local exit_code=0
+  local attempt_log
+  local cmd_pid
+  local monitor_pid
+
+  while [[ "${attempt}" -le "${max_retries}" ]]; do
+    attempt_log="${log_file}"
+    if [[ "${max_retries}" -gt 1 ]]; then
+      attempt_log="${log_file}.attempt${attempt}"
+    fi
+    log "${stage}：第 ${attempt}/${max_retries} 次尝试。日志：${attempt_log}"
+    "$@" > "${attempt_log}" 2>&1 &
+    cmd_pid=$!
+    monitor_pid=""
+    if [[ "${progress_interval_seconds}" -gt 0 ]]; then
+      monitor_rehydrate_progress "${cmd_pid}" "${progress_interval_seconds}" "${progress_target_count}" "${progress_data_dir}" &
+      monitor_pid=$!
+    fi
+    if wait "${cmd_pid}"; then
+      stop_progress_monitor "${monitor_pid}"
+      log_rehydrate_progress_snapshot "${progress_target_count}" "${progress_data_dir}" || true
+      redact_log_file "${attempt_log}"
+      if [[ "${attempt_log}" != "${log_file}" ]]; then
+        cat "${attempt_log}" > "${log_file}"
+      fi
+      return 0
+    else
+      exit_code=$?
+      stop_progress_monitor "${monitor_pid}"
+      log_rehydrate_progress_snapshot "${progress_target_count}" "${progress_data_dir}" || true
+    fi
+    redact_log_file "${attempt_log}"
+    errlog "${stage} 失败：第 ${attempt}/${max_retries} 次；退出码：${exit_code}；日志：${attempt_log}"
+    tail_error_log "${attempt_log}" 30
+    if [[ "${attempt}" -lt "${max_retries}" ]]; then
+      log "${stage} 将在 ${sleep_seconds} 秒后重试。"
+      sleep "${sleep_seconds}"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  if [[ "${attempt_log}" != "${log_file}" && -f "${attempt_log}" ]]; then
+    cat "${attempt_log}" > "${log_file}" || true
+  fi
+  return "${exit_code}"
+}
+
 # redact_log_file：把外部命令完整日志中的敏感字符串原地脱敏。
 # 参数：
 #   $1 / log_file：需要脱敏的日志文件。
@@ -970,6 +1097,9 @@ require_action_commands() {
   if [[ "${RUN_REHYDRATE}" == "1" ]]; then
     require_command "${DATASETS_BIN}"
     require_command df
+    if [[ "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" != "0" ]]; then
+      require_command du
+    fi
   fi
   if [[ "${RUN_VERIFY}" == "1" && "${VERIFY_FETCH_MD5}" == "1" ]]; then
     require_command md5sum
@@ -1014,6 +1144,7 @@ validate_config() {
   [[ "${RETRY_SLEEP_SECONDS}" =~ ^[0-9]+$ ]] || die "RETRY_SLEEP_SECONDS 必须是非负整数，当前值为：${RETRY_SLEEP_SECONDS}"
   [[ "${REHYDRATE_MAX_WORKERS}" =~ ^[1-9][0-9]*$ ]] || die "REHYDRATE_MAX_WORKERS 必须是正整数，当前值为：${REHYDRATE_MAX_WORKERS}"
   [[ "${REHYDRATE_MAX_WORKERS}" -le 30 ]] || die "REHYDRATE_MAX_WORKERS 不能超过 30，当前值为：${REHYDRATE_MAX_WORKERS}"
+  [[ "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]] || die "REHYDRATE_PROGRESS_INTERVAL_SECONDS 必须是非负整数，当前值为：${REHYDRATE_PROGRESS_INTERVAL_SECONDS}"
   [[ "${MIN_DISK_GB}" =~ ^[0-9]+$ ]] || die "MIN_DISK_GB 必须是非负整数，当前值为：${MIN_DISK_GB}"
   [[ "${MIN_GENOME_SIZE}" =~ ^[0-9]+$ ]] || die "MIN_GENOME_SIZE 必须是非负整数，当前值为：${MIN_GENOME_SIZE}"
   [[ "${MAX_ACCESSIONS}" =~ ^[0-9]+$ ]] || die "MAX_ACCESSIONS 必须是非负整数，当前值为：${MAX_ACCESSIONS}"
@@ -1088,6 +1219,7 @@ FORCE_SINGLE_PACKAGE=${FORCE_SINGLE_PACKAGE}
 DOWNLOAD_LINK_MAX_RETRIES=${DOWNLOAD_LINK_MAX_RETRIES}
 REHYDRATE_MAX_RETRIES=${REHYDRATE_MAX_RETRIES}
 RETRY_SLEEP_SECONDS=${RETRY_SLEEP_SECONDS}
+REHYDRATE_PROGRESS_INTERVAL_SECONDS=${REHYDRATE_PROGRESS_INTERVAL_SECONDS}
 STRICT_INTEGRITY=${STRICT_INTEGRITY}
 VERIFY_FETCH_MD5=${VERIFY_FETCH_MD5}
 VERIFY_FETCH_CHECKSUM_FORMAT=${VERIFY_FETCH_CHECKSUM_FORMAT}
@@ -1926,10 +2058,15 @@ rehydrate_merged_package() {
   local list_cmd=()
   # list_count：rehydrate --list 输出行数，仅用于状态记录。
   local list_count=0
+  # target_count：fetch target 总数，用于 rehydrate 进度日志。
+  local target_count=0
+  # data_dir：rehydrate 真实数据目录。
+  local data_dir="${MERGED_PACKAGE_DIR}/ncbi_dataset/data"
 
   [[ -s "${MERGED_FETCH_FILE}" ]] || die "缺少汇总 fetch.txt：${MERGED_FETCH_FILE}。请先运行 merge-fetch 阶段。"
   check_fetch_accession_set "rehydrate_precheck_accessions"
   write_fetch_targets
+  target_count="$(count_lines "${FETCH_TARGETS_FILE}")"
   check_disk_space "${MERGED_PACKAGE_DIR}"
 
   if [[ "${REHYDRATE_LIST_BEFORE_DOWNLOAD}" == "1" ]]; then
@@ -1955,7 +2092,12 @@ rehydrate_merged_package() {
     --no-progressbar
   )
   log "开始统一下载真实数据：${DATASETS_BIN} rehydrate --directory ${MERGED_PACKAGE_DIR} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar"
-  if run_logged_command_with_retries "datasets rehydrate" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${log_file}" "${cmd[@]}"; then
+  if [[ "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" -gt 0 ]]; then
+    log "rehydrate 进度日志已启用：每 ${REHYDRATE_PROGRESS_INTERVAL_SECONDS} 秒输出一次；目标文件数：${target_count}"
+  else
+    log "rehydrate 进度日志已关闭：REHYDRATE_PROGRESS_INTERVAL_SECONDS=0"
+  fi
+  if run_logged_command_with_retries_and_progress "datasets rehydrate" "${REHYDRATE_MAX_RETRIES}" "${RETRY_SLEEP_SECONDS}" "${log_file}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${target_count}" "${data_dir}" "${cmd[@]}"; then
     write_state "rehydrate" "DONE" "${log_file}"
     log "统一 rehydrate 完成。日志：${log_file}"
     return 0
@@ -2514,6 +2656,7 @@ write_summary_report() {
 - Download link retries: ${DOWNLOAD_LINK_MAX_RETRIES}
 - Rehydrate retries: ${REHYDRATE_MAX_RETRIES}
 - Retry sleep seconds: ${RETRY_SLEEP_SECONDS}
+- Rehydrate progress interval seconds: ${REHYDRATE_PROGRESS_INTERVAL_SECONDS}
 
 ## Counts
 
@@ -2632,7 +2775,7 @@ main() {
   log "steps: manifest=${RUN_BUILD_MANIFEST}, download_links=${RUN_DOWNLOAD_LINKS}, unpack_links=${RUN_UNPACK_LINKS}, merge_fetch=${RUN_MERGE_FETCH}, rehydrate=${RUN_REHYDRATE}, verify=${RUN_VERIFY}"
   log "retry: download_links=${DOWNLOAD_LINK_MAX_RETRIES}, rehydrate=${REHYDRATE_MAX_RETRIES}, sleep_seconds=${RETRY_SLEEP_SECONDS}"
   log "integrity: strict=${STRICT_INTEGRITY}, verify_targets=${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}, verify_md5=${VERIFY_FETCH_MD5}, checksum_format=${VERIFY_FETCH_CHECKSUM_FORMAT}, file_profile=${VERIFY_FETCH_FILE_PROFILE}"
-  log "rehydrate max workers=${REHYDRATE_MAX_WORKERS}"
+  log "rehydrate max workers=${REHYDRATE_MAX_WORKERS}; progress_interval_seconds=${REHYDRATE_PROGRESS_INTERVAL_SECONDS}"
   log "api key mode: env_exported=$([[ -n "${NCBI_API_KEY}" ]] && printf yes || printf no); argv_api_key=disabled"
 
   if [[ "${RUN_BUILD_MANIFEST}" == "1" ]]; then
