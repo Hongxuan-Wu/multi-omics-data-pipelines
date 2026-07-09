@@ -5,6 +5,7 @@
 .agents/
 __pycache__/
 trash/
+tss/tools/
 ncbi_sra_reports/
 .env
 gcf_inventory.tsv
