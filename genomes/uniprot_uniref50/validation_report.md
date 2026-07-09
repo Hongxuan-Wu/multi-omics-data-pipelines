@@ -33,3 +33,9 @@
 - 已修复：新增归档包后处理，下载校验完成后提取 `uniref50.fasta.gz`、`uniref50.xml.gz`、`uniref50.release_note`、`uniref50.dtd`、`uniref.xsd`、`README` 到 `uniref50_extracted/`，避免后续流程只能看到完整 tarball。
 - 校验策略：继续解析 `RELEASE.metalink` 中真实 MD5；未匹配 MD5 的文件进入未强校验 manifest 并走弱校验。
 - 静态复查：`git diff --check -- genomes` 已通过；脚本层扫描未发现 `current_release` / `/latest/` URL、删除命令、凭证硬编码、`--ignore-missing`、gawk-only 或 `IGNORECASE` 残留。Linux 服务器 `bash -n` 已通过。
+
+## 5. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE=1`，UniRef50 作为蛋白序列聚类库默认继续下载。
+- 已调整：设为 `0` 时只保留 release metadata，并自动跳过 tarball 提取。
+- 已新增：`FULL_SEQUENCE_MIN_DISK_GB`，默认开启序列归档下载时恢复全量磁盘阈值。

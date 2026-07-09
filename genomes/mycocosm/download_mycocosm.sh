@@ -38,6 +38,7 @@ PARALLEL_DOWNLOADS=6
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
 MIN_DISK_GB="${MIN_DISK_GB:-150}"
+DOWNLOAD_PROTEIN_CDS_SEQUENCES="${DOWNLOAD_PROTEIN_CDS_SEQUENCES:-0}"
 
 RUN_ID="$(date -u '+%Y%m%dT%H%M%SZ').$$"
 LOG_DIR="${RUN_ROOT}/logs"
@@ -60,9 +61,21 @@ validate_config() {
   validate_positive_int PARALLEL_DOWNLOADS "${PARALLEL_DOWNLOADS}"
   validate_flag VERIFY_AFTER_DOWNLOAD "${VERIFY_AFTER_DOWNLOAD}"
   validate_flag SKIP_VERIFIED_FILES "${SKIP_VERIFIED_FILES}"
+  validate_flag DOWNLOAD_PROTEIN_CDS_SEQUENCES "${DOWNLOAD_PROTEIN_CDS_SEQUENCES}"
   [[ -n "${JGI_USER:-}" ]] || die "未设置 JGI_USER。请在 genomes/.env 或环境变量中配置。"
   [[ -n "${JGI_PASS:-}" ]] || die "未设置 JGI_PASS。请在 genomes/.env 或环境变量中配置。"
   [[ -s "${SPECIES_LIST}" ]] || die "缺少物种/portal id 清单：${SPECIES_LIST}。请按 species_ids.example.txt 创建。"
+}
+
+should_include_jgi_file() {
+  local file_name="$1"
+  case "${file_name}" in
+    *protein*.fa.gz|*proteins*.fa.gz|*cds*.fa.gz|*CDS*.fa.gz)
+      [[ "${DOWNLOAD_PROTEIN_CDS_SEQUENCES}" == "1" ]]
+      return
+      ;;
+  esac
+  return 0
 }
 
 urlencode() {
@@ -116,6 +129,10 @@ load_frozen_manifest_if_present() {
     IFS=$'\x1f' read -r organism file_id file_name file_size md5 download_url extra <<< "${parsed}"
     [[ -z "${extra:-}" ]] || die "冻结 manifest 行字段错误：列数超过 6，organism=${organism:-unknown}。"
     validate_jgi_manifest_record "冻结 manifest" "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
+    if ! should_include_jgi_file "${file_name}"; then
+      printf 'frozen_manifest\tSKIPPED_SEQUENCE_BY_SWITCH\t%s\t%s\n' "${organism}" "${file_name}" >> "${DIFF_REPORT}"
+      continue
+    fi
     append_jgi_plan_record "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
   done < "${FROZEN_MANIFEST}"
   return 0
@@ -171,6 +188,10 @@ build_download_plan() {
               printf 'api_file_status\tSKIPPED_%s\t%s\n' "${file_status}" "${file_name}" >> "${DIFF_REPORT}"
               continue
             }
+            if ! should_include_jgi_file "${file_name}"; then
+              printf 'api_file_list\tSKIPPED_SEQUENCE_BY_SWITCH\t%s\t%s\n' "${organism}" "${file_name}" >> "${DIFF_REPORT}"
+              continue
+            fi
             download_json="${TMP_DIR}/download_${file_id}.json"
             if ! curl -fsSL --retry 5 --retry-delay 10 -u "${JGI_USER}:${JGI_PASS}" \
               -H 'Content-Type: application/json' \

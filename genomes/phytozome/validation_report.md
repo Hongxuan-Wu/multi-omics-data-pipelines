@@ -20,3 +20,9 @@
 | 8 | 方案和脚本一致性校验 | 已完成 | 方案字段与脚本变量、入口和校验策略一致 | 阻断项已修复；未执行真实下载 |
 | 9 | 总体合理性校验 | 已完成 | 不使用 latest 作为版本；特殊库记录边界 | 阻断项已修复；未执行真实下载 |
 | 10 | 总体完整性校验 | 已完成 | 脚本、方案、校验报告、手动说明均归入独立库目录 | 阻断项已修复；未执行真实下载 |
+
+## 3. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_PROTEIN_CDS_SEQUENCES=0`。
+- frozen manifest 与 live candidate manifest 均会过滤 protein/CDS FASTA，并把跳过项写入差异报告。
+- 默认保留 GFF/annotation/CAZy 等功能注释，真实运行仍需要 JGI 凭证、`species_ids.txt` 与审核后的 `frozen_file_manifest.tsv`。

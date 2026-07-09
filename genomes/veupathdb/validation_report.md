@@ -23,3 +23,9 @@
 ## 4. 未执行项
 
 服务器端 `bash -n` 已通过；未运行真实下载。
+
+## 5. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_FASTA=0`。
+- 递归 listing 命中 `.fa/.fasta` 时默认不纳入下载计划，并在 remote listing manifest / 差异报告中记录 `skipped_fasta_by_switch`。
+- 默认保留 README/txt/xml/GFF 等寄生虫专项 metadata 与注释文件。

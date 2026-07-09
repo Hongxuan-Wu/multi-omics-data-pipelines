@@ -29,7 +29,10 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB="${MIN_DISK_GB:-2500}"
+MIN_DISK_GB_WAS_SET="${MIN_DISK_GB+x}"
+MIN_DISK_GB="${MIN_DISK_GB:-50}"
+FULL_SEQUENCE_MIN_DISK_GB="${FULL_SEQUENCE_MIN_DISK_GB:-2500}"
+DOWNLOAD_RNACENTRAL_SEQUENCES="${DOWNLOAD_RNACENTRAL_SEQUENCES:-0}"
 
 # 官方 checksum 文件。留空表示该库未找到可直接用于目标文件的官方 MD5。
 CHECKSUM_URLS=(
@@ -81,9 +84,26 @@ declare -A MD5_MAP
 common_init_dirs
 
 validate_config() {
+  if [[ -z "${MIN_DISK_GB_WAS_SET}" && "${DOWNLOAD_RNACENTRAL_SEQUENCES}" == "1" ]]; then
+    MIN_DISK_GB="${FULL_SEQUENCE_MIN_DISK_GB}"
+  fi
   common_validate_download_config
   validate_flag CHECKSUM_REQUIRED "${CHECKSUM_REQUIRED}"
+  validate_flag DOWNLOAD_RNACENTRAL_SEQUENCES "${DOWNLOAD_RNACENTRAL_SEQUENCES}"
   [[ "${#TARGET_RECORDS[@]}" -gt 0 ]] || die "TARGET_RECORDS 为空。"
+}
+
+should_include_target_record() {
+  local group="$1"
+  local relpath="$2"
+  local role="$3"
+  case "${group}|${relpath}|${role}" in
+    sequence\|*|*rnacentral_active.fasta.gz*|*rnacentral_inactive.fasta.gz*|*species_specific_sequence_ids*)
+      [[ "${DOWNLOAD_RNACENTRAL_SEQUENCES}" == "1" ]]
+      return
+      ;;
+  esac
+  return 0
 }
 
 append_plan_record() {
@@ -150,6 +170,7 @@ build_download_plan() {
   local record group relpath url role
   for record in "${TARGET_RECORDS[@]}"; do
     IFS='|' read -r group relpath url role <<< "${record}"
+    should_include_target_record "${group}" "${relpath}" "${role}" || continue
     append_plan_record "${group}" "${relpath}" "${url}" "${role}"
   done
 

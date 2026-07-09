@@ -15,3 +15,8 @@
 | 5 | phastCons policy | 已修复 | hg38 phastCons100way 与 mm39 phastCons60way 显式记录 `EXPLICIT_WEAK_POLICY` 并执行非空弱校验 |
 | 6 | 缺 MD5 处理 | 已修复 | 未声明 weak policy 的计划目标缺 MD5 时失败 |
 | 7 | 静态语法检查 | 通过 | Linux 服务器 `bash -n genomes/ucsc/download_ucsc.sh` 已通过 |
+
+## 3. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_UCSC_2BIT=0`。
+- 默认跳过 hg38/mm39 `.2bit` 序列，只下载 chrom.sizes 与 phastCons bigWig 等坐标/保守性辅助文件。

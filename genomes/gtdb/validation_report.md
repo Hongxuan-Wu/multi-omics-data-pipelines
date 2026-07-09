@@ -24,3 +24,9 @@
 - 已修复：移除 `download_gtdb.sh` 中 UniProt-style metalink 兼容解析的 gawk-only `match(..., array)`，改为 POSIX awk 的 `sub`/`length`/正则判断。
 - 静态复查：未发现残留 `match($0, ..., array)`、`, a)`、`, h)` 或 `--ignore-missing`。
 - 服务器复验：Linux 服务器 `bash -n genomes/gtdb/download_gtdb.sh` 已通过；本轮未运行真实下载。
+
+## 4. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_GTDB_REP_GENOMES=0`，默认跳过 GTDB representative genome tarball。
+- 已保留：bac120/ar53 metadata、taxonomy、sp_clusters、qc_failed 与版本说明文件。
+- 已新增：`FULL_SEQUENCE_MIN_DISK_GB`，仅开启 representative genome 序列下载时恢复全量磁盘阈值。

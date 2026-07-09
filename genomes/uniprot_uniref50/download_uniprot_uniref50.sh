@@ -30,7 +30,10 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB="${MIN_DISK_GB:-400}"
+MIN_DISK_GB_WAS_SET="${MIN_DISK_GB+x}"
+MIN_DISK_GB="${MIN_DISK_GB:-50}"
+FULL_SEQUENCE_MIN_DISK_GB="${FULL_SEQUENCE_MIN_DISK_GB:-400}"
+DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE="${DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE:-1}"
 EXTRACT_ARCHIVE_AFTER_DOWNLOAD=1
 UNIREF_ARCHIVE_NAME="uniref2026_01.tar.gz"
 EXTRACT_DIR="${LOCAL_ROOT}/uniref50_extracted"
@@ -77,10 +80,27 @@ declare -A MD5_MAP
 common_init_dirs
 
 validate_config() {
+  if [[ -z "${MIN_DISK_GB_WAS_SET}" && "${DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE}" == "1" ]]; then
+    MIN_DISK_GB="${FULL_SEQUENCE_MIN_DISK_GB}"
+  fi
   common_validate_download_config
   validate_flag CHECKSUM_REQUIRED "${CHECKSUM_REQUIRED}"
+  validate_flag DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE "${DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE}"
   validate_flag EXTRACT_ARCHIVE_AFTER_DOWNLOAD "${EXTRACT_ARCHIVE_AFTER_DOWNLOAD}"
   [[ "${#TARGET_RECORDS[@]}" -gt 0 ]] || die "TARGET_RECORDS 为空。"
+}
+
+should_include_target_record() {
+  local group="$1"
+  local relpath="$2"
+  local role="$3"
+  case "${group}|${relpath}|${role}" in
+    sequence\|*|*uniref2026_01.tar.gz*|*archived_uniref_release_archive*)
+      [[ "${DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE}" == "1" ]]
+      return
+      ;;
+  esac
+  return 0
 }
 
 append_plan_record() {
@@ -147,6 +167,7 @@ build_download_plan() {
   local record group relpath url role
   for record in "${TARGET_RECORDS[@]}"; do
     IFS='|' read -r group relpath url role <<< "${record}"
+    should_include_target_record "${group}" "${relpath}" "${role}" || continue
     append_plan_record "${group}" "${relpath}" "${url}" "${role}"
   done
 
@@ -352,6 +373,10 @@ is_uniref50_archive_member() {
 }
 
 extract_uniref50_archive() {
+  [[ "${DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE}" == "1" ]] || {
+    log "DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE=0，跳过 UniRef50 归档包提取。"
+    return 0
+  }
   [[ "${EXTRACT_ARCHIVE_AFTER_DOWNLOAD}" == "1" ]] || return 0
   local archive="${LOCAL_ROOT}/${UNIREF_ARCHIVE_NAME}"
   local all_members="${TMP_DIR}/uniref_archive_members_${RUN_ID}.txt"

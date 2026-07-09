@@ -24,3 +24,9 @@
 - 已修复：移除 `download_rnacentral.sh` 中保留的 gawk-only `match(..., array)` metalink 兼容解析，改为 POSIX awk 的 `sub`/`length`/正则判断。
 - 静态复查：未发现残留 `match($0, ..., array)`、`, a)`、`, h)` 或 `--ignore-missing`。
 - 服务器复验：Linux 服务器 `bash -n genomes/rnacentral/download_rnacentral.sh` 已通过；本轮未运行真实下载。
+
+## 4. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_RNACENTRAL_SEQUENCES=0`，默认跳过 active/inactive/species-specific FASTA。
+- 已保留：id_mapping、md5.tsv、toc.dat、release notes 等 metadata/mapping 文件。
+- 已新增：`FULL_SEQUENCE_MIN_DISK_GB`，仅重新下载 RNAcentral FASTA 时恢复全量磁盘阈值。

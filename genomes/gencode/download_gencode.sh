@@ -30,6 +30,8 @@ ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
 MIN_DISK_GB="${MIN_DISK_GB:-50}"
+DOWNLOAD_GENCODE_TRANSCRIPTS="${DOWNLOAD_GENCODE_TRANSCRIPTS:-0}"
+DOWNLOAD_GENCODE_TRANSLATIONS="${DOWNLOAD_GENCODE_TRANSLATIONS:-0}"
 
 # 官方 checksum 文件。留空表示该库未找到可直接用于目标文件的官方 MD5。
 CHECKSUM_URLS=(
@@ -81,7 +83,26 @@ common_init_dirs
 validate_config() {
   common_validate_download_config
   validate_flag CHECKSUM_REQUIRED "${CHECKSUM_REQUIRED}"
+  validate_flag DOWNLOAD_GENCODE_TRANSCRIPTS "${DOWNLOAD_GENCODE_TRANSCRIPTS}"
+  validate_flag DOWNLOAD_GENCODE_TRANSLATIONS "${DOWNLOAD_GENCODE_TRANSLATIONS}"
   [[ "${#TARGET_RECORDS[@]}" -gt 0 ]] || die "TARGET_RECORDS 为空。"
+}
+
+should_include_target_record() {
+  local group="$1"
+  local relpath="$2"
+  local role="$3"
+  case "${relpath}|${role}" in
+    *transcripts.fa.gz*|*transcripts*)
+      [[ "${DOWNLOAD_GENCODE_TRANSCRIPTS}" == "1" ]]
+      return
+      ;;
+    *translation.fa.gz*|*translation*)
+      [[ "${DOWNLOAD_GENCODE_TRANSLATIONS}" == "1" ]]
+      return
+      ;;
+  esac
+  return 0
 }
 
 append_plan_record() {
@@ -148,6 +169,7 @@ build_download_plan() {
   local record group relpath url role
   for record in "${TARGET_RECORDS[@]}"; do
     IFS='|' read -r group relpath url role <<< "${record}"
+    should_include_target_record "${group}" "${relpath}" "${role}" || continue
     append_plan_record "${group}" "${relpath}" "${url}" "${role}"
   done
 

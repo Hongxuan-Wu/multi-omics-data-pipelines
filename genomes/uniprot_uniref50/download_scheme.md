@@ -17,6 +17,8 @@
 
 脚本：download_uniprot_uniref50.sh。
 
+序列下载开关：`DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE=1`。UniRef50 是蛋白序列聚类库，不与 RefSeq genome 重复，默认保留归档包下载；仅做 metadata 审计时可设为 `0`，此时自动跳过归档包提取。
+
 ## 3. 来源
 
 - https://www.uniprot.org/api-documentation

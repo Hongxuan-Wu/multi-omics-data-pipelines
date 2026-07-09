@@ -15,3 +15,8 @@
 | 5 | aria2 强校验 | 已完成 | 有 MD5 的目标写入 `checksum=md5=...` |
 | 6 | 下载后校验 | 已完成 | 有 MD5 的目标执行 `md5sum --check` |
 | 7 | 静态语法检查 | 通过 | Linux 服务器 `bash -n genomes/gencode/download_gencode.sh` 已通过 |
+
+## 3. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_GENCODE_TRANSCRIPTS=0`、`DOWNLOAD_GENCODE_TRANSLATIONS=0`。
+- 默认只下载人/鼠 GTF 与 README；转录本 FASTA 和翻译蛋白 FASTA 需要显式开启。

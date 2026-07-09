@@ -8,13 +8,15 @@
 | 固定版本 | hg38/mm39 static target freeze 2026-07-07 with live official md5 audit |
 | 固定入口 | https://hgdownload.soe.ucsc.edu/goldenPath/ |
 | manifest 中心 | 脚本内固定 TARGET_RECORDS + bigZips live official md5sum.txt |
-| metadata 同步 | chrom.sizes 同步下载 |
+| metadata 同步 | 默认同步 chrom.sizes 与保守性 bigWig；2bit 序列由开关控制 |
 | 校验策略 | bigZips 目标必须匹配官方 MD5 并执行 aria2/md5sum 强校验；hg38/mm39 phastCons bigWig 未找到对应官方 MD5 文件，显式标记 `EXPLICIT_WEAK_POLICY`，执行非空弱校验；其他缺 MD5 目标失败 |
 | 差异报告 | 报告 checksum 未纳入计划的文件、计划目标缺 MD5、phastCons 显式 weak policy |
 
 ## 2. 脚本说明
 
 脚本：download_ucsc.sh。
+
+序列下载开关：`DOWNLOAD_UCSC_2BIT=0`。默认不下载 hg38/mm39 `.2bit`，避免与 RefSeq/GENCODE 主序列重复；需要 UCSC 2bit 坐标源时设为 `1`。
 
 ## 3. 来源
 

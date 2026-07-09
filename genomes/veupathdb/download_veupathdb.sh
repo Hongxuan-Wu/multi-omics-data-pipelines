@@ -27,6 +27,7 @@ ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
 MIN_DISK_GB="${MIN_DISK_GB:-100}"
+DOWNLOAD_FASTA="${DOWNLOAD_FASTA:-0}"
 
 # group | root_url | max_depth | include_regex
 ROOT_RECORDS=(
@@ -48,6 +49,11 @@ REMOTE_LISTING_MANIFEST="${MANIFEST_DIR}/remote_listing_${RUN_ID}.tsv"
 
 common_init_dirs
 
+validate_config() {
+  common_validate_download_config
+  validate_flag DOWNLOAD_FASTA "${DOWNLOAD_FASTA}"
+}
+
 extract_hrefs() {
   awk '{line=$0; while (match(line, /[Hh][Rr][Ee][Ff][[:space:]]*=[[:space:]]*"[^"]+"/)) {href=substr(line,RSTART,RLENGTH); sub(/^[^"]*"/,"",href); sub(/"$/,"",href); print href; line=substr(line,RSTART+RLENGTH)}}'
 }
@@ -59,6 +65,17 @@ append_plan_record() {
   local local_dir="${LOCAL_ROOT}/${relpath%/*}"
   local out_name="${relpath##*/}"
   printf '%s\t%s\t%s\t%s\t%s\n' "${group}" "${relpath}" "${url}" "${local_dir}" "${out_name}" >> "${PLAN_FILE}"
+}
+
+should_include_veupathdb_file() {
+  local relpath="$1"
+  case "${relpath}" in
+    *.fasta|*.fasta.gz|*.fa|*.fa.gz)
+      [[ "${DOWNLOAD_FASTA}" == "1" ]]
+      return
+      ;;
+  esac
+  return 0
 }
 
 normalise_child_url() {
@@ -105,8 +122,13 @@ collect_root() {
         else
           relpath="${group}/${child_url#${root_url%/}/}"
           if [[ "${relpath}" =~ ${include_regex} ]]; then
-            printf '%s\t%s\t%s\tyes\tincluded_by_include_regex\n' "${current%/}/" "${href}" "${child_url}" >> "${REMOTE_LISTING_MANIFEST}"
-            append_plan_record "${group}" "${relpath}" "${child_url}"
+            if should_include_veupathdb_file "${relpath}"; then
+              printf '%s\t%s\t%s\tyes\tincluded_by_include_regex\n' "${current%/}/" "${href}" "${child_url}" >> "${REMOTE_LISTING_MANIFEST}"
+              append_plan_record "${group}" "${relpath}" "${child_url}"
+            else
+              printf '%s\t%s\t%s\tno\tskipped_fasta_by_switch\n' "${current%/}/" "${href}" "${child_url}" >> "${REMOTE_LISTING_MANIFEST}"
+              printf 'listing_vs_plan\tSKIPPED_FASTA_BY_SWITCH\t%s\n' "${child_url}" >> "${DIFF_REPORT}"
+            fi
           else
             printf '%s\t%s\t%s\tno\texcluded_by_include_regex\n' "${current%/}/" "${href}" "${child_url}" >> "${REMOTE_LISTING_MANIFEST}"
             printf 'listing_vs_plan\tREMOTE_NOT_SELECTED\t%s\n' "${child_url}" >> "${DIFF_REPORT}"
@@ -172,7 +194,7 @@ main() {
   require_command aria2c
   require_command awk
   require_command gzip
-  common_validate_download_config
+  validate_config
   log "========== ${DB_NAME} ${RELEASE} 下载开始 =========="
   build_download_plan
   write_aria_input

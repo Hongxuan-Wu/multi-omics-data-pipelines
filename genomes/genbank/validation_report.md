@@ -25,3 +25,9 @@
 - 已修复 C2：移除 `md5sum --check --ignore-missing`，改为按下载计划中的 genome payload 逐项读取同目录 `md5checksums.txt` 并执行强 MD5 校验；缺失、空文件、checksum 条目缺失或 MD5 失败时调用 `move_to_trash` 隔离 payload/`.aria2`/异常 checksum 文件。
 - 静态复查：未发现残留 `--ignore-missing`；未发现 `rm`、`rm -f`、`rm -rf`、`del`、`Remove-Item`；未运行真实下载。
 - 服务器复验：Linux 服务器 `bash -n genomes/genbank/download_genbank.sh` 已通过。
+
+## 4. 统一建模下载策略更新（2026-07-09）
+
+- 已新增：`DOWNLOAD_GENBANK_ASSEMBLY_FILES=0`，默认 metadata-only，不筛选和下载 GenBank assembly payload。
+- 已调整：metadata-only 模式只生成 `assembly_summary_genbank.txt` 与 README 下载计划，并跳过 assembly MD5 校验。
+- 已新增：`FULL_SEQUENCE_MIN_DISK_GB`，仅开启 assembly 文件下载时恢复全量磁盘阈值。

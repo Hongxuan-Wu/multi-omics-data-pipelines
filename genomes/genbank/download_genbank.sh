@@ -5,8 +5,8 @@
 # 目标：
 #   1. 以 assembly_summary_genbank.txt 为中心生成精准下载计划。
 #   2. 排除已有 RefSeq 配对的 GenBank assembly，避免和 RefSeq 重复。
-#   3. 下载真核增量 genomic.fna.gz / genomic.gff.gz，病毒默认只取 genomic.fna.gz。
-#   4. 同步下载 assembly_summary、README 与每个 assembly 的 md5checksums.txt。
+#   3. 默认只下载 metadata；开启开关后下载真核 genomic.fna.gz / genomic.gff.gz，病毒只取 genomic.fna.gz。
+#   4. 同步下载 assembly_summary、README；开启 assembly 文件下载时同步每个 assembly 的 md5checksums.txt。
 #   5. 对 manifest 记录但远端缺失的文件生成差异报告。
 # =============================================================================
 set -Eeuo pipefail
@@ -33,7 +33,10 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB="${MIN_DISK_GB:-1000}"
+MIN_DISK_GB_WAS_SET="${MIN_DISK_GB+x}"
+MIN_DISK_GB="${MIN_DISK_GB:-50}"
+FULL_SEQUENCE_MIN_DISK_GB="${FULL_SEQUENCE_MIN_DISK_GB:-1000}"
+DOWNLOAD_GENBANK_ASSEMBLY_FILES="${DOWNLOAD_GENBANK_ASSEMBLY_FILES:-0}"
 PROBE_REMOTE_TARGETS=1
 MAX_PER_SPECIES=3
 
@@ -70,9 +73,13 @@ common_init_dirs
 mkdir -p "${RUN_ROOT}/metadata"
 
 validate_config() {
+  if [[ -z "${MIN_DISK_GB_WAS_SET}" && "${DOWNLOAD_GENBANK_ASSEMBLY_FILES}" == "1" ]]; then
+    MIN_DISK_GB="${FULL_SEQUENCE_MIN_DISK_GB}"
+  fi
   common_validate_download_config
   validate_flag PROBE_REMOTE_TARGETS "${PROBE_REMOTE_TARGETS}"
   validate_flag REFRESH_MANIFEST "${REFRESH_MANIFEST}"
+  validate_flag DOWNLOAD_GENBANK_ASSEMBLY_FILES "${DOWNLOAD_GENBANK_ASSEMBLY_FILES}"
   validate_positive_int MAX_PER_SPECIES "${MAX_PER_SPECIES}"
 }
 
@@ -201,6 +208,15 @@ build_download_plan() {
   append_plan_record "metadata" "metadata/assembly_summary_genbank.txt" "${ASSEMBLY_SUMMARY_URL}"
   append_plan_record "metadata" "metadata/README_assembly_summary.txt" "${ASSEMBLY_SUMMARY_README_URL}"
 
+  if [[ "${DOWNLOAD_GENBANK_ASSEMBLY_FILES}" != "1" ]]; then
+    log "DOWNLOAD_GENBANK_ASSEMBLY_FILES=0，metadata-only 模式跳过 assembly 文件计划。"
+    local metadata_only_count
+    metadata_only_count="$(awk 'BEGIN{n=0} !/^(#|[[:space:]]*$)/{n++} END{print n}' "${PLAN_FILE}")"
+    (( metadata_only_count > 0 )) || die "GenBank metadata-only 下载计划为空。"
+    log "下载计划生成完成：${PLAN_FILE}，文件数 ${metadata_only_count}，metadata-only"
+    return 0
+  fi
+
   local group species acc level ftp_path base_url base_name rel_prefix suffix file_url relpath
   while IFS=$'\t' read -r group species acc level ftp_path; do
     [[ -z "${group}" || "${group}" == \#* ]] && continue
@@ -265,6 +281,10 @@ write_aria_input() {
 
 verify_ncbi_md5checksums() {
   [[ "${VERIFY_AFTER_DOWNLOAD}" == "1" ]] || return 0
+  if [[ "${DOWNLOAD_GENBANK_ASSEMBLY_FILES}" != "1" ]]; then
+    log "DOWNLOAD_GENBANK_ASSEMBLY_FILES=0，metadata-only 模式跳过 assembly MD5 校验。"
+    return 0
+  fi
   local group relpath url local_dir out_name local_file checksum_file expected_md5
   local failed=0 checked=0 checksum_files_seen=0
   while IFS=$'\t' read -r group relpath url local_dir out_name; do
@@ -339,7 +359,9 @@ main() {
   validate_config
   log "========== GenBank 下载开始：${RELEASE} =========="
   download_metadata
-  select_assemblies
+  if [[ "${DOWNLOAD_GENBANK_ASSEMBLY_FILES}" == "1" ]]; then
+    select_assemblies
+  fi
   build_download_plan
   probe_and_write_diff
   write_aria_input
