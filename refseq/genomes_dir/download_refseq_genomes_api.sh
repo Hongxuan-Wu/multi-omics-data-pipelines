@@ -76,7 +76,7 @@ TRASH_DIR="${RUN_ROOT}/trash"
 
 # PIPELINE_CONTEXT_OVERRIDE：手动指定既有 context 名称，用于源表路径变化后复用旧运行上下文。
 #   默认留空，脚本按来源表指纹和过滤参数自动生成 context；设置后必须确认该 context 属于当前任务。
-PIPELINE_CONTEXT_OVERRIDE=""
+PIPELINE_CONTEXT_OVERRIDE="${PIPELINE_CONTEXT_OVERRIDE:-}"
 
 # datasets / unzip 命令名。若服务器上安装在非 PATH 位置，可改成绝对路径。
 # DATASETS_BIN：NCBI Datasets CLI 可执行文件；例如 /path/to/datasets。
@@ -118,13 +118,15 @@ SHARD_SIZE=5000
 FORCE_SINGLE_PACKAGE=0              # 1=不分片；只建议小规模试跑
 
 # 多阶段解耦开关。默认完整执行。
-# 也可用第一个命令行参数覆盖：manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / summary / all
+# 也可用第一个命令行参数覆盖：manifest / download-links / unpack-links / repair-shards / merge-fetch / rehydrate / verify / summary / all
 # RUN_BUILD_MANIFEST：1=解析 assembly_summary 并生成 accession/shard 清单。
 RUN_BUILD_MANIFEST=1
 # RUN_DOWNLOAD_LINKS：1=运行 datasets download --dehydrated，下载轻量链接包。
 RUN_DOWNLOAD_LINKS=1
 # RUN_UNPACK_LINKS：1=解包 dehydrated zip，提取每个 shard 内的 fetch.txt。
 RUN_UNPACK_LINKS=1
+# RUN_REPAIR_SHARDS：1=只重下 REPAIR_SHARDS 指定的异常 shard，并重建 merge-fetch。
+RUN_REPAIR_SHARDS=0
 # RUN_MERGE_FETCH：1=汇总所有 shard 的 fetch.txt，形成统一 rehydrate 入口。
 RUN_MERGE_FETCH=1
 # RUN_REHYDRATE：1=运行 datasets rehydrate，统一下载真实数据文件。
@@ -141,6 +143,9 @@ FORCE_DOWNLOAD_LINKS=0
 FORCE_UNPACK_LINKS=0
 # FORCE_MERGE_FETCH：1=重新汇总 fetch.txt，并把旧汇总文件移入 TRASH_DIR。
 FORCE_MERGE_FETCH=0
+
+# REPAIR_SHARDS：repair-shards action 指定的 shard id，逗号或空白分隔，例如 refseq_000093,refseq_000103。
+REPAIR_SHARDS="${REPAIR_SHARDS:-}"
 
 # 下载链接阶段：0=某些 shard 失败后继续其他 shard，最后汇总失败；1=遇到失败立即停止。
 # STOP_ON_LINK_DOWNLOAD_ERROR：控制 dehydrated 包下载失败时是否立刻停止。
@@ -324,12 +329,16 @@ MISSING_TARGETS_FILE="${STATUS_DIR}/missing_download_targets.tsv"
 GZIP_STATUS_FILE="${STATUS_DIR}/fetch_gzip_status.tsv"
 # MD5_STATUS_FILE：可选 MD5 校验结果表。
 MD5_STATUS_FILE="${STATUS_DIR}/fetch_md5_status.tsv"
+# SHARD_COVERAGE_DIR：单 shard fetch accession 覆盖校验输出目录。
+SHARD_COVERAGE_DIR="${STATUS_DIR}/shard_fetch_coverage"
+# SHARD_REPAIR_STATUS_FILE：repair-shards 阶段状态表。
+SHARD_REPAIR_STATUS_FILE="${STATUS_DIR}/repair_shard_status.tsv"
 
 REQUESTED_ACTION="${1:-all}"
 case "${REQUESTED_ACTION}" in
-  all|manifest|download-links|unpack-links|merge-fetch|rehydrate|verify|summary) ;;
+  all|manifest|download-links|unpack-links|repair-shards|merge-fetch|rehydrate|verify|summary) ;;
   *)
-    printf '[FATAL] 未知 action：%s。可选：all / manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / summary\n' "${REQUESTED_ACTION}" >&2
+    printf '[FATAL] 未知 action：%s。可选：all / manifest / download-links / unpack-links / repair-shards / merge-fetch / rehydrate / verify / summary\n' "${REQUESTED_ACTION}" >&2
     exit 1
     ;;
 esac
@@ -362,6 +371,7 @@ if ! mkdir -p \
   "${MANIFEST_DIR}" \
   "${SHARD_ROOT}" \
   "${STATUS_DIR}" \
+  "${SHARD_COVERAGE_DIR}" \
   "${LINK_ROOT}" \
   "${ZIP_DIR}" \
   "${UNPACK_DIR}" \
@@ -1171,6 +1181,15 @@ init_unpack_status() {
   printf 'shard_id\tstatus\tdetail\n' > "${UNPACK_STATUS_FILE}"
 }
 
+# init_repair_status：初始化 repair-shards 状态表。
+# 参数：
+#   无。
+# 输出：
+#   SHARD_REPAIR_STATUS_FILE，包含表头。
+init_repair_status() {
+  printf 'shard_id\tstatus\tdetail\n' > "${SHARD_REPAIR_STATUS_FILE}"
+}
+
 # count_lines：安全统计文件行数。
 # 参数：
 #   $1 / file：待统计文件。
@@ -1234,9 +1253,9 @@ count_current_unpacked_fetch_files() {
 
 # configure_action：根据命令行 action 覆盖阶段开关。
 # 参数：
-#   $1 / action：all、manifest、download-links、unpack-links、merge-fetch、rehydrate、verify、summary。
+#   $1 / action：all、manifest、download-links、unpack-links、repair-shards、merge-fetch、rehydrate、verify、summary。
 # 修改的全局变量：
-#   RUN_BUILD_MANIFEST、RUN_DOWNLOAD_LINKS、RUN_UNPACK_LINKS、RUN_MERGE_FETCH、RUN_REHYDRATE、RUN_VERIFY。
+#   RUN_BUILD_MANIFEST、RUN_DOWNLOAD_LINKS、RUN_UNPACK_LINKS、RUN_REPAIR_SHARDS、RUN_MERGE_FETCH、RUN_REHYDRATE、RUN_VERIFY。
 # 失败行为：
 #   action 不在白名单内时调用 die。
 configure_action() {
@@ -1249,6 +1268,7 @@ configure_action() {
       RUN_BUILD_MANIFEST=1
       RUN_DOWNLOAD_LINKS=1
       RUN_UNPACK_LINKS=1
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=1
       RUN_REHYDRATE=1
       RUN_VERIFY=1
@@ -1258,6 +1278,7 @@ configure_action() {
       RUN_BUILD_MANIFEST=1
       RUN_DOWNLOAD_LINKS=0
       RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=0
       RUN_REHYDRATE=0
       RUN_VERIFY=0
@@ -1267,6 +1288,7 @@ configure_action() {
       RUN_BUILD_MANIFEST=1
       RUN_DOWNLOAD_LINKS=1
       RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=0
       RUN_REHYDRATE=0
       RUN_VERIFY=0
@@ -1276,15 +1298,28 @@ configure_action() {
       RUN_BUILD_MANIFEST=0
       RUN_DOWNLOAD_LINKS=0
       RUN_UNPACK_LINKS=1
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=0
       RUN_REHYDRATE=0
       RUN_VERIFY=0
+      ;;
+    repair-shards)
+      # repair-shards：只重下 REPAIR_SHARDS 指定的异常 shard，校验单 shard 覆盖后重建汇总 fetch.txt。
+      RUN_BUILD_MANIFEST=0
+      RUN_DOWNLOAD_LINKS=0
+      RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=1
+      RUN_MERGE_FETCH=1
+      RUN_REHYDRATE=0
+      RUN_VERIFY=0
+      FORCE_MERGE_FETCH=1
       ;;
     merge-fetch)
       # merge-fetch：只汇总 fetch.txt，不检查真实数据文件是否已经 rehydrate。
       RUN_BUILD_MANIFEST=0
       RUN_DOWNLOAD_LINKS=0
       RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=1
       RUN_REHYDRATE=0
       RUN_VERIFY=0
@@ -1294,6 +1329,7 @@ configure_action() {
       RUN_BUILD_MANIFEST=0
       RUN_DOWNLOAD_LINKS=0
       RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=0
       RUN_REHYDRATE=1
       RUN_VERIFY=1
@@ -1303,6 +1339,7 @@ configure_action() {
       RUN_BUILD_MANIFEST=0
       RUN_DOWNLOAD_LINKS=0
       RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=0
       RUN_REHYDRATE=0
       RUN_VERIFY=1
@@ -1312,12 +1349,13 @@ configure_action() {
       RUN_BUILD_MANIFEST=0
       RUN_DOWNLOAD_LINKS=0
       RUN_UNPACK_LINKS=0
+      RUN_REPAIR_SHARDS=0
       RUN_MERGE_FETCH=0
       RUN_REHYDRATE=0
       RUN_VERIFY=0
       ;;
     *)
-      die "未知 action：${action}。可选：all / manifest / download-links / unpack-links / merge-fetch / rehydrate / verify / summary"
+      die "未知 action：${action}。可选：all / manifest / download-links / unpack-links / repair-shards / merge-fetch / rehydrate / verify / summary"
       ;;
   esac
 }
@@ -1381,6 +1419,12 @@ require_action_commands() {
   if [[ "${RUN_UNPACK_LINKS}" == "1" ]]; then
     require_command "${UNZIP_BIN}"
   fi
+  if [[ "${RUN_REPAIR_SHARDS}" == "1" ]]; then
+    require_command "${DATASETS_BIN}"
+    require_command "${UNZIP_BIN}"
+    require_command comm
+    require_command df
+  fi
   if [[ "${RUN_MERGE_FETCH}" == "1" || "${RUN_REHYDRATE}" == "1" || "${RUN_VERIFY}" == "1" ]]; then
     require_command comm
   fi
@@ -1416,6 +1460,7 @@ validate_config() {
   validate_flag RUN_BUILD_MANIFEST "${RUN_BUILD_MANIFEST}"
   validate_flag RUN_DOWNLOAD_LINKS "${RUN_DOWNLOAD_LINKS}"
   validate_flag RUN_UNPACK_LINKS "${RUN_UNPACK_LINKS}"
+  validate_flag RUN_REPAIR_SHARDS "${RUN_REPAIR_SHARDS}"
   validate_flag RUN_MERGE_FETCH "${RUN_MERGE_FETCH}"
   validate_flag RUN_REHYDRATE "${RUN_REHYDRATE}"
   validate_flag RUN_VERIFY "${RUN_VERIFY}"
@@ -1478,6 +1523,10 @@ validate_config() {
       IFS=','
     done
     IFS="${old_ifs}"
+  fi
+
+  if [[ "${RUN_REPAIR_SHARDS}" == "1" ]]; then
+    validate_repair_shard_config
   fi
 }
 
@@ -2128,6 +2177,238 @@ unpack_dehydrated_packages() {
 
   write_state "unpack_links" "DONE" "${UNPACK_STATUS_FILE}"
   log "所有 dehydrated 链接包解包完成。状态表：${UNPACK_STATUS_FILE}"
+}
+
+# ==================== 阶段 3b：定点修复异常 shard ====================
+# print_repair_shard_ids：输出 REPAIR_SHARDS 中的去重 shard id。
+# 参数：
+#   无。
+# 输入：
+#   REPAIR_SHARDS，逗号或空白分隔。
+# 输出：
+#   每行一个 shard id，保持首次出现顺序。
+print_repair_shard_ids() {
+  printf '%s\n' "${REPAIR_SHARDS}" |
+    awk '
+      {
+        gsub(/[, \t\r\n]+/, "\n")
+        print
+      }
+    ' |
+    awk 'NF > 0 && !seen[$0]++ { print }'
+}
+
+# validate_repair_shard_config：校验 repair-shards 必需配置。
+# 参数：
+#   无。
+# 失败行为：
+#   REPAIR_SHARDS 为空或 shard id 格式非法时调用 die。
+validate_repair_shard_config() {
+  local repair_count=0
+  local shard_id
+
+  while IFS= read -r shard_id; do
+    [[ -n "${shard_id}" ]] || continue
+    repair_count=$((repair_count + 1))
+    [[ "${shard_id}" =~ ^refseq_[0-9]{6}$ ]] || die "REPAIR_SHARDS 只能包含 refseq_000000 这类 shard id，当前值为：${shard_id}"
+  done < <(print_repair_shard_ids)
+
+  [[ "${repair_count}" -gt 0 ]] || die "repair-shards action 必须设置 REPAIR_SHARDS，例如：REPAIR_SHARDS=\"refseq_000093,refseq_000103\""
+}
+
+# find_shard_file_by_id：按 shard id 在当前 SHARD_LIST_FILE 中定位输入文件。
+# 参数：
+#   $1 / target_shard_id：例如 refseq_000093。
+# 输出：
+#   匹配的 shard 文件绝对路径。
+# 返回：
+#   找到返回 0；找不到返回 1。
+find_shard_file_by_id() {
+  local target_shard_id="$1"
+  local shard_file
+  local shard_id
+
+  [[ -s "${SHARD_LIST_FILE}" ]] || return 1
+  while IFS= read -r shard_file; do
+    [[ -n "${shard_file}" ]] || continue
+    shard_id="$(basename "${shard_file}" .txt)"
+    if [[ "${shard_id}" == "${target_shard_id}" ]]; then
+      printf '%s' "${shard_file}"
+      return 0
+    fi
+  done < "${SHARD_LIST_FILE}"
+  return 1
+}
+
+# validate_shard_fetch_accession_coverage：校验单个 shard 解包后的 fetch.txt 覆盖输入 accession。
+# 参数：
+#   $1 / shard_file：当前 shard 的 accession 输入文件。
+#   $2 / fetch_file：当前 shard 解包出的 fetch.txt。
+# 输出：
+#   SHARD_COVERAGE_DIR/<shard_id>.* 覆盖明细。
+# 返回：
+#   覆盖完全且无额外 accession 返回 0；否则返回 1。
+validate_shard_fetch_accession_coverage() {
+  local shard_file="$1"
+  local fetch_file="$2"
+  local shard_id
+  local expected_file
+  local actual_file
+  local missing_file
+  local extra_file
+  local coverage_log
+  local expected_count
+  local actual_count
+  local missing_count
+  local extra_count
+  local exit_code
+
+  shard_id="$(basename "${shard_file}" .txt)"
+  expected_file="${SHARD_COVERAGE_DIR}/${shard_id}.expected_accessions.sorted.txt"
+  actual_file="${SHARD_COVERAGE_DIR}/${shard_id}.fetch_accessions.sorted.txt"
+  missing_file="${SHARD_COVERAGE_DIR}/${shard_id}.missing_accessions.tsv"
+  extra_file="${SHARD_COVERAGE_DIR}/${shard_id}.extra_accessions.tsv"
+  coverage_log="${LOG_DIR}/shard_fetch_coverage_${shard_id}_${RUN_ID}.log"
+
+  mkdir -p "${SHARD_COVERAGE_DIR}"
+  [[ -s "${shard_file}" ]] || {
+    errlog "repair-shards 找不到 shard 输入文件或文件为空：${shard_file}"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_MISSING_SHARD_FILE" "${shard_file}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  }
+  [[ -s "${fetch_file}" ]] || {
+    errlog "repair-shards 解包后缺少 fetch.txt 或文件为空：${fetch_file}"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_MISSING_FETCH" "${fetch_file}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  }
+
+  if awk 'NF > 0 { print $1 }' "${shard_file}" 2> "${coverage_log}" | sort -u 2>> "${coverage_log}" > "${expected_file}.partial.${RUN_ID}"; then
+    mv -- "${expected_file}.partial.${RUN_ID}" "${expected_file}"
+  else
+    exit_code=$?
+    tail_error_log "${coverage_log}" 30
+    move_to_trash "${expected_file}.partial.${RUN_ID}" "failed_repair_expected_accessions"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_EXPECTED_ACCESSIONS_EXIT_${exit_code}" "${coverage_log}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  fi
+
+  if awk -F '\t' '
+    NF >= 3 && $3 ~ /^data\/GC[AF]_[0-9]+\.[0-9]+\// {
+      split($3, target_parts, "/")
+      print target_parts[2]
+    }
+  ' "${fetch_file}" 2>> "${coverage_log}" | sort -u 2>> "${coverage_log}" > "${actual_file}.partial.${RUN_ID}"; then
+    mv -- "${actual_file}.partial.${RUN_ID}" "${actual_file}"
+  else
+    exit_code=$?
+    tail_error_log "${coverage_log}" 30
+    move_to_trash "${actual_file}.partial.${RUN_ID}" "failed_repair_fetch_accessions"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_FETCH_ACCESSIONS_EXIT_${exit_code}" "${coverage_log}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  fi
+
+  if comm -23 "${expected_file}" "${actual_file}" > "${missing_file}.partial.${RUN_ID}" 2>> "${coverage_log}"; then
+    mv -- "${missing_file}.partial.${RUN_ID}" "${missing_file}"
+  else
+    exit_code=$?
+    tail_error_log "${coverage_log}" 30
+    move_to_trash "${missing_file}.partial.${RUN_ID}" "failed_repair_missing_accessions"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_MISSING_COMPARE_EXIT_${exit_code}" "${coverage_log}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  fi
+
+  if comm -13 "${expected_file}" "${actual_file}" > "${extra_file}.partial.${RUN_ID}" 2>> "${coverage_log}"; then
+    mv -- "${extra_file}.partial.${RUN_ID}" "${extra_file}"
+  else
+    exit_code=$?
+    tail_error_log "${coverage_log}" 30
+    move_to_trash "${extra_file}.partial.${RUN_ID}" "failed_repair_extra_accessions"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_EXTRA_COMPARE_EXIT_${exit_code}" "${coverage_log}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  fi
+
+  expected_count="$(count_lines "${expected_file}")"
+  actual_count="$(count_lines "${actual_file}")"
+  missing_count="$(count_lines "${missing_file}")"
+  extra_count="$(count_lines "${extra_file}")"
+
+  if [[ "${missing_count}" -gt 0 || "${extra_count}" -gt 0 ]]; then
+    errlog "repair-shards 单 shard 覆盖校验失败：${shard_id}；expected=${expected_count}，fetch=${actual_count}，missing=${missing_count}，extra=${extra_count}"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_COVERAGE_MISSING_${missing_count}_EXTRA_${extra_count}" "${missing_file};${extra_file}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  fi
+
+  log "repair-shards 单 shard 覆盖校验通过：${shard_id}；accession=${expected_count}"
+  printf '%s\t%s\t%s\n' "${shard_id}" "DONE" "accession=${expected_count};fetch_unique=${actual_count}" >> "${SHARD_REPAIR_STATUS_FILE}"
+  return 0
+}
+
+# repair_one_shard：重下、解包并校验单个指定 shard。
+# 参数：
+#   $1 / shard_id：例如 refseq_000093。
+# 返回：
+#   修复成功返回 0；失败返回 1。
+repair_one_shard() {
+  local shard_id="$1"
+  local shard_file
+  local zip_file="${ZIP_DIR}/${shard_id}.zip"
+  local unpack_root="${UNPACK_DIR}/${shard_id}"
+  local fetch_file="${unpack_root}/ncbi_dataset/fetch.txt"
+
+  shard_file="$(find_shard_file_by_id "${shard_id}")" || {
+    errlog "repair-shards 未在 shard 列表中找到：${shard_id}；列表：${SHARD_LIST_FILE}"
+    printf '%s\t%s\t%s\n' "${shard_id}" "FAILED_NOT_IN_SHARD_LIST" "${SHARD_LIST_FILE}" >> "${SHARD_REPAIR_STATUS_FILE}"
+    return 1
+  }
+
+  log "repair-shards 开始修复：${shard_id}；输入：${shard_file}"
+  move_to_trash "${zip_file}" "repair_old_zip"
+  move_to_trash "${unpack_root}" "repair_old_unpacked_package"
+
+  if ! download_one_dehydrated_package "${shard_file}"; then
+    errlog "repair-shards 重新下载失败：${shard_id}"
+    return 1
+  fi
+
+  if ! unpack_one_dehydrated_package "${zip_file}"; then
+    errlog "repair-shards 重新解包失败：${shard_id}"
+    return 1
+  fi
+
+  validate_shard_fetch_accession_coverage "${shard_file}" "${fetch_file}"
+}
+
+# repair_selected_shards：按 REPAIR_SHARDS 定点修复异常 shard。
+# 参数：
+#   无。
+# 行为：
+#   只处理指定 shard；成功后由 main 继续执行 merge_fetch_files。
+# 失败行为：
+#   任一指定 shard 修复失败时调用 die。
+repair_selected_shards() {
+  local shard_id
+  local failed=0
+
+  [[ -s "${SHARD_LIST_FILE}" ]] || die "缺少 shard 列表：${SHARD_LIST_FILE}。请先运行 manifest 阶段，或设置 PIPELINE_CONTEXT_OVERRIDE 复用已有 context。"
+  validate_repair_shard_config
+  init_package_status
+  init_unpack_status
+  init_repair_status
+
+  while IFS= read -r shard_id; do
+    [[ -n "${shard_id}" ]] || continue
+    if ! repair_one_shard "${shard_id}"; then
+      failed=1
+    fi
+  done < <(print_repair_shard_ids)
+
+  if [[ "${failed}" -ne 0 ]]; then
+    write_state "repair_shards" "FAILED" "${SHARD_REPAIR_STATUS_FILE}"
+    die "repair-shards 有指定 shard 修复失败。状态表：${SHARD_REPAIR_STATUS_FILE}；错误日志：${ERR_LOG}"
+  fi
+
+  write_state "repair_shards" "DONE" "${SHARD_REPAIR_STATUS_FILE}"
+  log "repair-shards 指定 shard 修复完成。状态表：${SHARD_REPAIR_STATUS_FILE}"
 }
 
 # refresh_merged_fetch_accessions：从 MERGED_FETCH_FILE 第三列 data/<accession>/ 重新提取 accession 集合。
@@ -3254,7 +3535,8 @@ main() {
   log "include=${INCLUDE_FILES}; assembly_source=${ASSEMBLY_SOURCE}"
   log "filters: latest_only=${FILTER_LATEST_ONLY}, genome_rep=${FILTER_GENOME_REP}, excluded=${FILTER_EXCLUDED_FROM_REFSEQ}, assembly_levels=${FILTER_ASSEMBLY_LEVELS}, groups=${FILTER_GROUPS}, min_genome_size=${MIN_GENOME_SIZE}, max_accessions=${MAX_ACCESSIONS}"
   log "shard: size=${SHARD_SIZE}, force_single_package=${FORCE_SINGLE_PACKAGE}"
-  log "steps: manifest=${RUN_BUILD_MANIFEST}, download_links=${RUN_DOWNLOAD_LINKS}, unpack_links=${RUN_UNPACK_LINKS}, merge_fetch=${RUN_MERGE_FETCH}, rehydrate=${RUN_REHYDRATE}, verify=${RUN_VERIFY}"
+  log "steps: manifest=${RUN_BUILD_MANIFEST}, download_links=${RUN_DOWNLOAD_LINKS}, unpack_links=${RUN_UNPACK_LINKS}, repair_shards=${RUN_REPAIR_SHARDS}, merge_fetch=${RUN_MERGE_FETCH}, rehydrate=${RUN_REHYDRATE}, verify=${RUN_VERIFY}"
+  log "repair shards=$([[ -n "${REPAIR_SHARDS}" ]] && printf '%s' "${REPAIR_SHARDS}" || printf none)"
   log "retry: download_links=${DOWNLOAD_LINK_MAX_RETRIES}, rehydrate=${REHYDRATE_MAX_RETRIES}, sleep_seconds=${RETRY_SLEEP_SECONDS}"
   log "integrity: strict=${STRICT_INTEGRITY}, verify_targets=${VERIFY_FETCH_TARGETS_AFTER_REHYDRATE}, verify_md5=${VERIFY_FETCH_MD5}, checksum_format=${VERIFY_FETCH_CHECKSUM_FORMAT}, file_profile=${VERIFY_FETCH_FILE_PROFILE}"
   log "rehydrate max workers=${REHYDRATE_MAX_WORKERS}; progress_interval_seconds=${REHYDRATE_PROGRESS_INTERVAL_SECONDS}; gzip=${REHYDRATE_GZIP}; storage_min_free_gb=${STORAGE_MIN_FREE_GB}"
@@ -3271,6 +3553,10 @@ main() {
 
   if [[ "${RUN_UNPACK_LINKS}" == "1" ]]; then
     unpack_dehydrated_packages
+  fi
+
+  if [[ "${RUN_REPAIR_SHARDS}" == "1" ]]; then
+    repair_selected_shards
   fi
 
   if [[ "${RUN_MERGE_FETCH}" == "1" ]]; then
