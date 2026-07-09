@@ -15,9 +15,9 @@ common_require_version "1.0"
 
 DB_NAME="fantom5"
 RELEASE="FANTOM5_phase1.3_phase2.0"
-LOCAL_ROOT="/data3/p252701008/genomes/fantom5_phase1.3_phase2.0"
-RUN_ROOT="/data3/p252701008/genomes/fantom5_phase1.3_phase2.0_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/fantom5_phase1.3_phase2.0}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/fantom5_phase1.3_phase2.0_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4
 ARIA2_MAX_CONCURRENT=6
@@ -26,7 +26,7 @@ ARIA2_MIN_SPLIT_SIZE="64M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=50
+MIN_DISK_GB="${MIN_DISK_GB:-50}"
 
 # group | root_url | max_depth | include_regex
 ROOT_RECORDS=(

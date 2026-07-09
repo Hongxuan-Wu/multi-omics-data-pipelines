@@ -19,9 +19,11 @@ RELEASE="ENCODE_API_freeze_2026-07-07"
 ENCODE_HOST="https://www.encodeproject.org"
 FREEZE_DATE="2026-07-07"
 ENCODE_API_PROBE_URL="${ENCODE_HOST}/search/?type=File&status=released&limit=1&format=json"
-LOCAL_ROOT="/data3/p252701008/genomes/encode"
-RUN_ROOT="/data3/p252701008/genomes/encode_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/encode}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/encode_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
+ALLOW_LIVE_API="${ALLOW_LIVE_API:-1}"
+FROZEN_MANIFEST="${FROZEN_MANIFEST:-${SCRIPT_DIR}/frozen_file_manifest.tsv}"
 
 ARIA2_CONNECTIONS=4
 ARIA2_MAX_CONCURRENT=8
@@ -30,7 +32,7 @@ ARIA2_MIN_SPLIT_SIZE="64M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=200
+MIN_DISK_GB="${MIN_DISK_GB:-200}"
 
 ASSEMBLIES=(GRCh38 mm10)
 FILE_FORMATS=(bigWig bigBed bed)
@@ -52,17 +54,61 @@ DIFF_REPORT="${MANIFEST_DIR}/diff_report_${RUN_ID}.tsv"
 declare -A MD5_MAP
 common_init_dirs
 
+validate_encode_config() {
+  validate_flag ALLOW_LIVE_API "${ALLOW_LIVE_API}"
+}
+
 probe_encode_api_access() {
   local probe_json="${TMP_DIR}/encode_api_probe_${RUN_ID}.json"
   log "预检 ENCODE API：${ENCODE_API_PROBE_URL}"
   if ! fetch_to_file "${ENCODE_API_PROBE_URL}" "${probe_json}"; then
     printf 'api_probe\tFAILED\t%s\n' "${ENCODE_API_PROBE_URL}" >> "${DIFF_REPORT}"
-    die "ENCODE API 当前不可达；请从本服务器检查网络访问、代理或 ENCODE 站点访问策略：${ENCODE_API_PROBE_URL}"
+    return 1
   fi
   if ! jq -e 'has("@graph") and (.["@graph"] | type == "array")' "${probe_json}" >/dev/null; then
     printf 'api_probe\tINVALID_JSON_SCHEMA\t%s\n' "${ENCODE_API_PROBE_URL}" >> "${DIFF_REPORT}"
-    die "ENCODE API probe 返回 JSON 不符合预期；请检查 API 返回格式：${probe_json}"
+    return 1
   fi
+  return 0
+}
+
+load_frozen_manifest_if_present() {
+  [[ -s "${FROZEN_MANIFEST}" ]] || return 1
+
+  log "使用 ENCODE frozen manifest：${FROZEN_MANIFEST}"
+  local line parsed extra accession relpath url local_dir out_name md5 records=0 invalid=0
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    [[ -n "${line}" && "${line}" != \#* ]] || continue
+    parsed="${line//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r accession relpath url local_dir out_name md5 extra <<< "${parsed}"
+    if [[ "${accession}" == "accession" && "${relpath}" == "relative_path" ]]; then
+      continue
+    fi
+    if [[ -n "${extra:-}" || -z "${accession}" || -z "${relpath}" || -z "${url}" || -z "${local_dir}" || -z "${out_name}" || -z "${md5}" ]]; then
+      printf 'frozen_manifest\tINVALID_ROW\t%s\n' "${line}" >> "${DIFF_REPORT}"
+      invalid=1
+      continue
+    fi
+    if [[ ! "${md5}" =~ ^[0-9A-Fa-f]{32}$ ]]; then
+      printf 'frozen_manifest\tINVALID_MD5\t%s\t%s\n' "${accession}" "${md5}" >> "${DIFF_REPORT}"
+      invalid=1
+      continue
+    fi
+    case "${url}" in
+      http://*|https://*) ;;
+      /*) url="${ENCODE_HOST}${url}" ;;
+      *) url="${ENCODE_HOST}/${url}" ;;
+    esac
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${accession}" "${relpath}" "${url}" "${local_dir}" "${out_name}" "${md5}" >> "${PLAN_FILE}"
+    MD5_MAP["${relpath}"]="${md5}"
+    records=$((records + 1))
+  done < "${FROZEN_MANIFEST}"
+
+  [[ "${invalid}" -eq 0 ]] || die "ENCODE frozen manifest 存在格式错误；详情见差异报告：${DIFF_REPORT}"
+  [[ "${records}" -gt 0 ]] || die "ENCODE frozen manifest 未提供有效记录：${FROZEN_MANIFEST}"
+  log "ENCODE frozen manifest 加载完成，文件数 ${records}"
+  return 0
 }
 
 build_api_manifest() {
@@ -89,7 +135,15 @@ build_download_plan() {
   : > "${DIFF_REPORT}"
   printf '# accession\trelative_path\turl\tlocal_dir\tout_name\tmd5\n' >> "${PLAN_FILE}"
   printf '# check\tstatus\tdetail\n' >> "${DIFF_REPORT}"
-  probe_encode_api_access
+  if load_frozen_manifest_if_present; then
+    return 0
+  fi
+  if [[ "${ALLOW_LIVE_API}" != "1" ]]; then
+    die "未找到 ENCODE frozen manifest，且 ALLOW_LIVE_API=0：${FROZEN_MANIFEST}"
+  fi
+  if ! probe_encode_api_access; then
+    die "ENCODE API 当前不可达；如本服务器被 403 拒绝，请提供 ${FROZEN_MANIFEST} 后重跑，或配置代理后保留 ALLOW_LIVE_API=1。"
+  fi
   build_api_manifest
   local api_tsv="${TMP_DIR}/encode_api_records_${RUN_ID}.tsv"
   local missing_md5=0
@@ -177,6 +231,7 @@ main() {
   require_command jq
   require_command md5sum
   common_validate_download_config
+  validate_encode_config
   log "========== ENCODE 下载开始：${RELEASE} =========="
   build_download_plan
   write_aria_input

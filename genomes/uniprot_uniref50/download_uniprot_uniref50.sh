@@ -19,9 +19,9 @@ common_require_version "1.0"
 DB_NAME="uniprot_uniref50"
 RELEASE="2026_01"
 ARCHIVE_BASE_URL="https://ftp.uniprot.org/pub/databases/uniprot/previous_releases/release-2026_01/uniref"
-LOCAL_ROOT="/data3/p252701008/genomes/uniprot_uniref50_2026_01"
-RUN_ROOT="/data3/p252701008/genomes/uniprot_uniref50_2026_01_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/uniprot_uniref50_2026_01}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/uniprot_uniref50_2026_01_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4
 ARIA2_MAX_CONCURRENT=6
@@ -30,7 +30,7 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=400
+MIN_DISK_GB="${MIN_DISK_GB:-400}"
 EXTRACT_ARCHIVE_AFTER_DOWNLOAD=1
 UNIREF_ARCHIVE_NAME="uniref2026_01.tar.gz"
 EXTRACT_DIR="${LOCAL_ROOT}/uniref50_extracted"

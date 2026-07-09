@@ -18,9 +18,9 @@ common_require_version "1.0"
 # ==================== 用户配置 ====================
 DB_NAME="gencode"
 RELEASE="Human_v50_Mouse_M39"
-LOCAL_ROOT="/data3/p252701008/genomes/gencode_v50_m39"
-RUN_ROOT="/data3/p252701008/genomes/gencode_v50_m39_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/gencode_v50_m39}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/gencode_v50_m39_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4
 ARIA2_MAX_CONCURRENT=6
@@ -29,7 +29,7 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=50
+MIN_DISK_GB="${MIN_DISK_GB:-50}"
 
 # 官方 checksum 文件。留空表示该库未找到可直接用于目标文件的官方 MD5。
 CHECKSUM_URLS=(

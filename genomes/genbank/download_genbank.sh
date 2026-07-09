@@ -21,9 +21,9 @@ RELEASE="NCBI_GenBank_assembly_summary_freeze_2026-07-07"
 BASE_URL="https://ftp.ncbi.nlm.nih.gov/genomes/genbank"
 ASSEMBLY_SUMMARY_URL="${BASE_URL}/assembly_summary_genbank.txt"
 ASSEMBLY_SUMMARY_README_URL="${BASE_URL}/README_assembly_summary.txt"
-LOCAL_ROOT="/data3/p252701008/genomes/genbank"
-RUN_ROOT="/data3/p252701008/genomes/genbank_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/genbank}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/genbank_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
 REFRESH_MANIFEST=0
 
 ARIA2_CONNECTIONS=4
@@ -33,7 +33,7 @@ ARIA2_MIN_SPLIT_SIZE="128M"
 ARIA2_SUMMARY_INTERVAL=120
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=1000
+MIN_DISK_GB="${MIN_DISK_GB:-1000}"
 PROBE_REMOTE_TARGETS=1
 MAX_PER_SPECIES=3
 

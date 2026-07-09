@@ -2,7 +2,7 @@
 
 ## 1. 结论
 
-本报告为服务器复验后的库内校验记录。2026-07-08 复验发现旧 API probe 查询 `limit(10)&select(...)` 返回 400；已改为 BV-BRC Data API RQL 查询 `eq(genome_status,Complete)&limit(10)&select(...)`。脚本语法在 Linux 服务器上已通过 `bash -n`。真实下载仍要求服务器安装 `lftp` 访问官方 FTPS。
+本报告为服务器复验后的库内校验记录。2026-07-09 已将主下载从 FTPS/lftp 改为 BV-BRC Data API TSV 导出；`genome_feature`、`pathway`、`subsystem` 使用字段白名单，避免空结果全字段导出返回 500。脚本语法、静态契约和 `MAX_GENOMES=1` 小样本 Data API 下载均已通过；全量真实下载未执行。
 
 ## 2. 流程验收
 
@@ -22,6 +22,7 @@
 ## 3. 服务器复验追加记录
 
 - 已修复：Data API probe 查询语法，当前服务器对 `eq(genome_status,Complete)&limit(10)&select(genome_id,genome_name,genome_status)` 返回 200。
-- 待环境满足：主下载仍依赖 `lftp`；当前服务器未安装 `lftp` 时该库不能真实运行。
-- 已完成：Linux 服务器 `bash -n genomes/bv_brc/download_bv_brc.sh` 通过。
-- 未执行：真实 FTPS 下载。
+- 已修复：主下载不再依赖 `lftp`；当前服务器缺少 `lftp` 不再阻断 BV-BRC。
+- 已修复：`MAX_GENOMES` 小样本模式不再使用 `awk | while` 提前截断，避免 `pipefail` 下 141 退出。
+- 已验证：`LOCAL_ROOT=/tmp/codex-bvbrc-local-3 RUN_ROOT=/tmp/codex-bvbrc-run-3 MAX_GENOMES=1 PARALLEL_DOWNLOADS=1 MIN_DISK_GB=1 bash genomes/bv_brc/download_bv_brc.sh` 成功。
+- 未执行：全量 Data API 下载。

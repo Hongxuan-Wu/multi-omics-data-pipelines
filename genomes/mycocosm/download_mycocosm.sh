@@ -31,13 +31,13 @@ FILE_LIST_QUERY="q=annotation"
 SPECIES_LIST="${SCRIPT_DIR}/species_ids.txt"
 FROZEN_MANIFEST="${SCRIPT_DIR}/frozen_file_manifest.tsv"
 ALLOW_LIVE_MANIFEST=0
-LOCAL_ROOT="/data3/p252701008/genomes/mycocosm"
-RUN_ROOT="/data3/p252701008/genomes/mycocosm_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/mycocosm}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/mycocosm_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
 PARALLEL_DOWNLOADS=6
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=150
+MIN_DISK_GB="${MIN_DISK_GB:-150}"
 
 RUN_ID="$(date -u '+%Y%m%dT%H%M%SZ').$$"
 LOG_DIR="${RUN_ROOT}/logs"

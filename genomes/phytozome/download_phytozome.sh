@@ -31,13 +31,13 @@ FILE_LIST_QUERY="ff%5Bfile_status%5D=available"
 SPECIES_LIST="${SCRIPT_DIR}/species_ids.txt"
 FROZEN_MANIFEST="${SCRIPT_DIR}/frozen_file_manifest.tsv"
 ALLOW_LIVE_MANIFEST=0
-LOCAL_ROOT="/data3/p252701008/genomes/phytozome"
-RUN_ROOT="/data3/p252701008/genomes/phytozome_runlogs"
-USE_PROXY=0
+LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/phytozome}"
+RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/phytozome_runlogs}"
+USE_PROXY="${USE_PROXY:-0}"
 PARALLEL_DOWNLOADS=6
 VERIFY_AFTER_DOWNLOAD=1
 SKIP_VERIFIED_FILES=1
-MIN_DISK_GB=100
+MIN_DISK_GB="${MIN_DISK_GB:-100}"
 
 RUN_ID="$(date -u '+%Y%m%dT%H%M%SZ').$$"
 LOG_DIR="${RUN_ROOT}/logs"
