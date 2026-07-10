@@ -1,41 +1,129 @@
-# S1 TSS/UTR 注释流程复现设计
+# S1 TSS/UTR 注释流程复现设计（PEGS 版）
 
-## 1. 目标与边界
+## 1. 结论与版本状态
 
-本项目从 9 份双端 RNA-seq 原始数据出发，按流程图给出的软件版本和参数完成独立质控、比对、单样本转录本组装、九样本非冗余合并、PASA 注释更新和 AGAT 后处理，得到复现版 GFF3，并与公司交付的 `S1.genome_new.gff3` 做结构化比较。
+公司于 2026-07-10 明确指定使用 [zxgsy520/pegs](https://github.com/zxgsy520/pegs) 补齐前期注释阶段生成的 PASA 比对数据库和转录本数据。因此，现行复现目标不再是仅串联流程图中的五个软件，而是复现以下两段 PEGS 数据链：
 
-本项目的目标包括：
+1. `pegs/rnaseq2gene.py` 中与 UTR 更新直接相关的前置链，生成去冗余、清洗后的转录本和 `pasa.sqlite`。
+2. `pegs/add_utr.py` 中的注释加载、PASA annotation compare/update 和 AGAT longest-isoform 后处理。
 
-1. 建立可重复运行、可审计、可断点续跑的完整流程。
-2. 使用流程图中明确给出的参数，其余参数采用对应软件版本的官方默认值。
-3. 在运行前固定全部配置，不使用公司版 GFF3 反向调参。
-4. 量化复现结果与公司版 GFF3 在 gene、mRNA、exon、CDS 和 UTR 层面的差异。
+旧版设计和实施计划已原样归档至：
 
-本项目不把普通 RNA-seq 推断的 mRNA 5' 端表述为实验验证的 TSS。最终只能输出候选 TSS，即链方向上的转录本 5' 端坐标。
+- `archive/design_pre_pegs_20260710.md`
+- `archive/implementation_plan_pre_pegs_20260710.md`
 
-### 1.1 运行时审核结论（2026-07-10）
+旧版中“只缺 PASA config”“使用 GMAP+BLAT 即可重建前置数据库”的判断已废止。输入隔离、不可变 run ID、失败产物进入 `trash/`、完成标记和结构化验证等工程约束继续有效。
 
-| 审核项 | 结论 | 证据 |
+## 2. 目标与边界
+
+### 2.1 目标
+
+从 9 份双端 RNA-seq 原始数据出发，以公司流程图为显式参数依据、以固定 PEGS 源码为缺失步骤依据，逐步生成：
+
+1. 9 份 clean paired FASTQ。
+2. 9 份 STAR 排序 BAM 和 StringTie 单样本 GTF。
+3. 9 样本 StringTie 合并 GTF。
+4. 去冗余并经 SeqClean 清洗的转录本 FASTA。
+5. 与该转录本集合一致的 PASA alignment SQLite 数据库。
+6. 基于 `S1.genome.gff` 的 PASA 更新版 GFF3。
+7. AGAT longest-isoform 后的 `S1.genome_reproduced.gff3`。
+8. 与公司 `S1.genome_new.gff3` 的结构化验证报告和候选 TSS/UTR 表。
+
+### 2.2 非目标
+
+- 不运行 PEGS 的完整真核基因预测流程。
+- 不运行同源蛋白注释、EVIANN、MetaEuk、EVM、GeneMark、AUGUSTUS、DIAMOND、TransDecoder 训练、BUSCO 或 transposonPSI，除非 PASA 2.5.2 annotation update 内部按固定配置调用其自带 TransDecoder。
+- 不复刻公司的专有 GFF 排序工具；公司已说明该步骤不改变生物结构。
+- 不将普通 RNA-seq 推断的 transcript 5' 边界表述为实验验证 TSS。
+- 不使用公司结果反向选择参数、过滤转录本或决定 PASA 更新轮次。
+
+### 2.3 TSS 结论边界
+
+本流程能够生成 RNA-seq 支持的候选 UTR，并可将链方向上的 mRNA 5' 端导出为候选 TSS。由于输入不是 CAGE、RAMPAGE、TSS-seq、dRNA-seq、Cappable-seq 或 5' RACE，候选 TSS 不能升级为实验验证 TSS。
+
+## 3. 权威来源与冲突裁决
+
+### 3.1 来源优先级
+
+当参数或步骤冲突时，按以下顺序裁决：
+
+1. 公司提供的 `tss/resources/tss注释流程.png` 中明确写出的命令或参数。
+2. 公司随后指定的 PEGS 固定提交中，与 `rnaseq2gene.py` 和 `add_utr.py` 直接相关的步骤。
+3. 对应固定软件版本的源码默认值。
+4. 本项目为保证不覆盖、不删除、可恢复而增加的工程包装；不得改变生物学算法输出。
+
+### 3.2 PEGS 源码锁
+
+PEGS 主分支当前自称 `v1.3.0a`，但没有对应 tag；必须锁定提交而不是跟随 `main`。
+
+| 项目 | 固定值 |
+| --- | --- |
+| Repository | `https://github.com/zxgsy520/pegs.git` |
+| Commit | `043a69d6ad272affda6efdc40990ad3140899c63` |
+| Commit date | `2026-07-08T11:34:59+08:00` |
+| `pegs/rnaseq2gene.py` SHA-256 | `be7a5c745ceb2f57de28b61eb1b9990070990550f30792dfdb34091879164806` |
+| `pegs/add_utr.py` SHA-256 | `a477bf8500f043b4bd26f5c9df3732835a9bfaf2db7d8f182d2c6091c5c806c3` |
+| `pegs/config.py` SHA-256 | `283e92a035f062bdc886700f80dc4482b6751f5424d0638e366c3e6a14eaf8cd` |
+| `scripts/rename_pasa_gtf.py` SHA-256 | `e720401f15015aa1d4dbc9fc08d7711a8ac2f357f038a382d004e0d6c38d614a` |
+
+PEGS 源码安装到 `tss/tools/pegs/source/`，但该目录由 `tss/.gitignore` 屏蔽。仓库中跟踪 URL、commit 和上述文件哈希，不跟踪第三方源码副本。
+
+### 3.3 已确认的冲突与裁决
+
+| 项目 | 公司流程图 | PEGS 源码 | 现行裁决 |
+| --- | --- | --- | --- |
+| fastp N 阈值 | `-n 0` | `-n 0` | 精确保留；当前数据不兼容，正式运行设硬门禁 |
+| fastp 质量阈值 | `-q 20` | `-q 20` | `-q 20` |
+| fastp 固定裁剪 | 未写 | 默认 `trim=3`，传给 `-f/-F/-t/-T` | 双端两侧各 3 bp，记为 PEGS 补充参数 |
+| STAR bedGraph | 明确要求 | 明确要求 | 保留 |
+| STAR `intronMotif` | 明确要求 | 明确要求 | 保留 |
+| STAR 建库前过滤 | 未写 | 去除 `<2 kb` contig | 执行等价过滤并记录；S1 的 86 条 contig 均不小于 28,453 bp，过滤前后应字节一致 |
+| StringTie guide | `-G gff` | 单样本命令未加 `-G` | 公司显式参数优先，使用 run-local `S1.genome.gff` 副本 |
+| StringTie 合并 | 9 样本取并集 | `stringtie --merge` | 使用 S1-S9 严格九行列表合并 |
+| CD-HIT identity | 未写 | `-c 0.98b` | `0.98b` 不是合法数值，按唯一可解释意图修正为 `-c 0.98`，偏差写入报告 |
+| SeqClean | 未写 | 对 UniVec 和 UniVec_Core 执行 | 保留，属于生成 PEGS 前置数据的必要步骤 |
+| PASA aligner | 未写 | `minimap2` | 使用 PASA 环境中的 minimap2，不再使用旧方案的 GMAP+BLAT |
+| PASA 对齐过滤 | 未写 | 75% aligned、85% identity、0 bp perfect splice、`-m 50` | 完整保留 |
+| PASA admin 字段 | 未写 | 作者邮箱和 `PASA2_admin` | 属于作者服务器运维配置，不复制；SQLite 本地运行不发送邮件、不连接外部 admin DB |
+| PASA annotation update | `-c annotCompare.config -A -g` | 相同，并先加载当前 GFF | 完整保留；数据库使用 alignment DB 的独立副本 |
+| AGAT | keep longest isoform | keep longest isoform | 使用 AGAT 0.8.0 conda prefix，不使用 PEGS Docker 包装 |
+
+### 3.4 不直接运行 PEGS 原脚本的原因
+
+PEGS 是算法和参数来源，不作为未经修改的调度器直接执行，原因均可由固定提交复核：
+
+1. 软件和数据库路径硬编码为作者服务器的 `/Work/...`。
+2. `rnaseq2gene.py`、`add_utr.py` 和 PEGS 调用的 SeqClean 含删除旧产物的命令，不符合本项目不可删除约束。
+3. `cd-hit-est -c 0.98b` 为语法错误。
+4. `add_utr.py` 默认 BUSCO 分支引用未定义变量 `kingdom`。
+5. 直接运行会引入本次生成 UTR GFF 不需要的全基因组预测、蛋白数据库和 BUSCO 环节。
+6. 原脚本没有原始输入只读审计、完成标记原子发布、输出哈希和不可变 run ID。
+
+因此实现为“PEGS-compatible runner”：命令参数和数据变换与上述裁决一致，执行、隔离、审计和恢复由仓库自己的 Bash/Perl 包装负责。
+
+### 3.5 可复现性不确定项
+
+| 层级 | 事项 | 处理 |
 | --- | --- | --- |
-| 五个软件入口 | 通过 | fastp 0.23.1、STAR 2.7.9a、StringTie 2.2.0、PASA 2.5.2 和 AGAT 0.8.0 均以各自 conda prefix 成功调用 |
-| 下游功能链 | 通过 | 已完成真实 FASTQ 子集的 STAR 比对、StringTie 组装/合并、PASA SQLite 初始化与转录本提取、GMAP/BLAT 功能测试及 AGAT GFF3 处理 |
-| 原始文件隔离 | 通过 | 所有测试产物均位于被忽略的 `work/`；原始 FASTA、GFF、公司版 GFF3 和流程图的校验和未变化 |
-| fastp 流程参数 | **阻断** | 9 个样本各抽检 10,000 条 R1，所有样本第 9 位的 `N` 比例均为 100%；S1 前 50,000 对 reads 使用 `-n 0 -q 20` 后输出为 0 对 reads |
+| 已知 | 公司当前明确要求使用 PEGS | 以当前指定仓库为方案依据 |
+| 待验证 | 公司生成 `S1.genome_new.gff3` 时使用的历史 PEGS commit 未提供；现行 add-UTR 源码提交日期为 2026-07-08 | 锁定当前指定 commit，最终报告不得声称已证明历史代码完全相同 |
+| 已知 | 公司流程图要求 StringTie `-G`，当前 PEGS 源码未写 `-G` | 公司显式参数优先，并把冲突写入 provenance |
+| 推断 | `cd-hit-est -c 0.98b` 只能解释为 `0.98` 后的录入字符错误 | 修正为 `0.98`，单列为源码语法修正 |
+| 待验证 | 公司历史 UniVec/UniVec_Core 快照未提供 | 固定本次 NCBI 下载文件及 index 哈希，差异分析中列为潜在来源 |
+| 已知 | 当前 FASTQ 与 `-n 0` 不兼容 | 保留 company-exact 失败证据，正式兼容参数需用户另行批准 |
 
-五个软件本身均可正常调用，但流程图指定的 fastp `-n 0` 与当前数据不兼容，因此完整复现运行尚不具备启动条件。`-n 1 -q 20` 的审核分支在 S1 前 50,000 对 reads 中保留了 49,937 对，可作为最小兼容候选；它不是流程图原参数，必须在正式运行前由用户明确确认并记录为参数偏差，不能静默替换。
+## 4. 已知输入与基准
 
-## 2. 已知输入与基准
-
-| 类型 | 路径或规模 | 状态 |
+| 类型 | 路径或规模 | 固定约束 |
 | --- | --- | --- |
-| 参考基因组 | `tss/resources/S1.genome.fasta`，约 40.3 MB | 已纳入版本控制 |
-| 原始注释 | `tss/resources/S1.genome.gff`，10,370 个 gene | 已纳入版本控制 |
-| 原始 RNA-seq | `tss/resources/裂殖壶菌原始数据-BYT2025041001/` | 9 个样本、18 个 BGZF FASTQ、约 53 GB |
-| 原始数据校验 | 每个 FASTQ 均有同名 `.md5` 文件 | 运行前逐一校验 |
-| 公司结果 | `tss/resources/S1.genome_new.gff3` | 只读基准，仅用于审核和最终验证 |
-| 流程图 | `tss/resources/tss注释流程.png` | 唯一公司流程说明 |
+| 参考基因组 | `tss/resources/S1.genome.fasta`，约 40.3 MB | 只读；86 条 contig；最短 28,453 bp |
+| 原始注释 | `tss/resources/S1.genome.gff` | 只读；10,370 个 gene |
+| RNA-seq | `tss/resources/裂殖壶菌原始数据-BYT2025041001/` | 9 样本、18 个 BGZF FASTQ、约 53 GB |
+| FASTQ 校验 | 每个 FASTQ 的同目录 `.md5` | 运行前后均对实际样本路径计算并验证 MD5 |
+| 公司结果 | `tss/resources/S1.genome_new.gff3` | 只读；只用于最终比较 |
+| 公司流程图 | `tss/resources/tss注释流程.png` | 显式参数最高优先级 |
 
-公司结果的已知结构基准如下：
+公司结果的结构基准：
 
 | feature | 数量 |
 | --- | ---: |
@@ -46,296 +134,396 @@
 | five_prime_UTR | 3,051 |
 | three_prime_UTR | 2,922 |
 
-初步反向检查还确认：公司结果中有 2,972 个可直接按 ID 对应的 mRNA 改变了边界，1,957 个可直接对应的 CDS 模型发生变化，并出现 3 个两基因合并事件。最终验证不能只比较 UTR 数量。
+已确认公司结果中有 2,972 个可直接按 ID 对应的 mRNA 改变边界，1,957 个可直接对应的 CDS 模型发生变化，并有 3 个两基因合并事件。因此不能只比较 UTR 总数，也不能把 gene 数接近视为复现成功。
 
-## 3. 固定决策
+## 5. 工具链
 
-| 项目 | 固定决策 |
-| --- | --- |
-| 参数策略 | 流程图参数优先；未展示参数采用固定版本的实际代码默认值 |
-| 样本处理 | 9 个样本分别完成 fastp、STAR 和 StringTie |
-| 九样本合并 | 使用 `stringtie --merge` 合并 9 个单样本 GTF |
-| 链特异性 | 公司复现主线按 StringTie 默认的非链特异模式运行；另做 BAM 链特异性统计，不据此修改主线参数 |
-| STAR 索引 | 使用参考 FASTA；不额外加入流程图未说明的注释剪接位点 |
-| PASA 数据库 | 使用运行目录内的 SQLite 数据库 |
-| PASA 比对器 | 同时使用已随 PASA 环境安装的 GMAP 和 BLAT |
-| PASA 更新 | 执行一次 annotation compare/update，不依据公司结果追加轮次 |
-| AGAT | 使用 `agat_sp_keep_longest_isoform.pl` 默认规则，每个基因保留最长 CDS 或最长拼接 exon 的 isoform |
-| 公司排序脚本 | 不复刻；使用确定性 GFF3 排序，比较时忽略行顺序和属性顺序 |
+### 5.1 五个公司主工具
 
-### 3.1 五个工具的固定调用入口
+| 工具 | 固定版本 | 安装 prefix |
+| --- | --- | --- |
+| fastp | 0.23.1 | `tss/tools/fastp/env` |
+| STAR | 2.7.9a | `tss/tools/STAR/env` |
+| StringTie | 2.2.0 | `tss/tools/stringtie/env` |
+| PASA | 2.5.2 | `tss/tools/pasa/env` |
+| AGAT | 0.8.0 | `tss/tools/agat/env` |
 
-所有工具统一通过各自环境的**绝对 conda prefix** 调用。相对 prefix 会随阶段工作目录变化而解析到错误位置，因此脚本必须拒绝相对路径。
+### 5.2 PEGS 前置链新增依赖
 
-```bash
-TOOL_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools
-PASA_HOME="$TOOL_ROOT/pasa/env/opt/pasa-2.5.2"
-```
+| 依赖 | 固定版本或来源 | 用途 |
+| --- | --- | --- |
+| PEGS | commit `043a69d...` | 权威脚本、参数与 ID 重命名逻辑 |
+| Python | 3.11 | 通过独立 `tss/tools/pegs/env` 调用 PEGS 的 stdlib 脚本 |
+| gffread | 0.12.7 | 从 merged GTF 提取 transcript FASTA |
+| CD-HIT | 4.8.1 | `cd-hit-est -c 0.98 -d 0 -M 64000` 去冗余 |
+| SeqClean | PASA 2.5.2 内置副本 | transcript polyA/low-complexity/UniVec 清洗 |
+| blast-legacy | 2.2.26 | 为 SeqClean 提供 `blastall`、`megablast` 和 `formatdb` |
+| UniVec | NCBI 运行时固定快照 | SeqClean vector database |
+| UniVec_Core | NCBI 运行时固定快照 | SeqClean core vector database |
+| minimap2 | 2.31，已在 PASA prefix | PASA transcript-to-genome alignment |
+| samtools | 1.23.1，已在 PASA prefix | BAM 完整性和统计 |
+| SQLite | 3.53.3，已在 PASA prefix | PASA 数据库审计 |
+| TransDecoder | 6.0.0，已在 PASA prefix | PEGS `RUN_TRANS_DECODER=1` 的 PASA update 内部依赖 |
 
-| 工具 | 固定调用形式 |
-| --- | --- |
-| fastp | `conda run --no-capture-output -p "$TOOL_ROOT/fastp/env" fastp ...` |
-| STAR | `conda run --no-capture-output -p "$TOOL_ROOT/STAR/env" STAR ...` |
-| StringTie | `conda run --no-capture-output -p "$TOOL_ROOT/stringtie/env" stringtie ...` |
-| PASA | `conda run --no-capture-output -p "$TOOL_ROOT/pasa/env" "$PASA_HOME/Launch_PASA_pipeline.pl" ...` |
-| AGAT | `conda run --no-capture-output -p "$TOOL_ROOT/agat/env" agat_sp_keep_longest_isoform.pl ...` |
+新增依赖各自放入 `tss/tools/` 下的独立目录。UniVec 和 UniVec_Core 下载后必须分别用固定 blast-legacy `formatdb -p F` 建立 nucleotide index；FASTA 与全部 index sidecar 的 SHA-256 均写入跟踪的 `config/toolchain.lock.tsv`。
 
-PASA 环境的激活脚本会设置 `PASAHOME`，但不会将其加入 `PATH`，因此直接调用 `Launch_PASA_pipeline.pl` 会失败。启动器和 `misc_utilities/cufflinks_gtf_genome_to_cdna_fasta.pl` 必须使用 `$PASA_HOME` 下的完整路径；GMAP 和 BLAT 则通过 PASA conda prefix 调用。不能依赖交互式 shell 当前的 `PATH`、`PASAHOME` 或 base 环境。
+### 5.3 调用规则
 
-## 4. 项目目录
+- 所有 conda prefix 必须是绝对路径。
+- 不依赖 base 环境、交互式 `PATH` 或当前 `PASAHOME`。
+- PASA 启动器固定使用 `$PASA_HOME/Launch_PASA_pipeline.pl` 的绝对路径。
+- PEGS Python 脚本通过 `conda run --no-capture-output -p "$PEGS_PREFIX" python ...` 调用。
+- SeqClean 使用 `build_safe_seqclean.sh` 从 PASA 2.5.2 固定副本生成无删除版；构建只跳过固定源码中 5 行文件清理逻辑，不改序列过滤算法。
+- 每个工具先通过真实功能测试，再允许进入正式运行。
+
+## 6. 文件与运行隔离
 
 ```text
 tss/tss_utr_reproduction_20260710/
-├── design.md
 ├── README.md
+├── design.md
+├── implementation_plan.md
+├── archive/
+│   ├── design_pre_pegs_20260710.md
+│   └── implementation_plan_pre_pegs_20260710.md
 ├── config/
+│   ├── pipeline.env
 │   ├── samples.tsv
-│   ├── alignAssembly.config
-│   └── annotCompare.config
+│   ├── toolchain.lock.tsv
+│   ├── pegs_alignAssembly.config.in
+│   └── pegs_annotCompare.config.in
 ├── scripts/
-├── reports/
-├── work/
-├── logs/
-└── results/
+│   ├── build_safe_seqclean.sh
+├── tests/
+├── work/<RUN_ID>/
+├── logs/<RUN_ID>/
+├── reports/<RUN_ID>/
+├── results/<RUN_ID>/
+└── trash/<RUN_ID>/
 ```
 
-版本控制范围：
+跟踪：文档、配置模板、工具锁、safe SeqClean 构建脚本、小型测试 fixture 和汇总报告。
 
-- 跟踪 `design.md`、`README.md`、`config/`、`scripts/` 和最终汇总报告。
-- 忽略 `work/`、`logs/` 和 `results/`，其中包含 FASTQ、STAR 索引、BAM、bedGraph、GTF、PASA SQLite 数据库、检查点和生成版 GFF3。
-- `tss/tools/` 和原始测序数据目录继续由 `tss/.gitignore` 屏蔽。
+忽略：第三方工具、UniVec 快照、FASTQ、clean FASTQ、STAR 索引、BAM、bedGraph、GTF、transcript FASTA、CD-HIT cluster、SeqClean 临时文件、PASA SQLite/checkpoint/GFF3、AGAT 过程文件和生成版 GFF3。
 
-`tss/.gitignore` 已增加：
+原始 `resources/` 只读。所有可能产生旁文件的工具只接收 `work/<RUN_ID>/reference/` 下的副本。任何失败重试使用新的 `attempt-XXXX/`，旧 attempt 原样保留或移动到 run-local `trash/`，不原位清空。
 
-```gitignore
-/tss_utr_reproduction_20260710/work/
-/tss_utr_reproduction_20260710/logs/
-/tss_utr_reproduction_20260710/results/
-```
-
-## 5. 数据流
+## 7. 现行数据流
 
 ```text
-只读原始 FASTQ、参考 FASTA 和原始 GFF
-  -> MD5/SHA-256 输入校验
-  -> FASTA/GFF 复制或 reflink 到 work/<RUN_ID>/reference/
-运行目录内的参考副本 + 9 对只读原始 FASTQ
-  -> 每样本 fastp
-  -> 每样本 STAR SortedByCoordinate BAM + bedGraph
-  -> 每样本 StringTie guided assembly
-  -> stringtie --merge
-  -> merged.gtf
-  -> PASA 自带 StringTie/Cufflinks GTF 转录本提取工具
-  -> merged_transcripts.fasta
-  -> PASA SQLite alignment assembly（GMAP + BLAT）
-  -> PASA annotation compare/update
-  -> PASA 更新版 GFF3
-  -> AGAT longest isoform
-  -> 确定性排序与结构校验
-  -> S1.genome_reproduced.gff3
-  -> 与公司版 S1.genome_new.gff3 结构化比较
+9 paired FASTQ
+  -> fastp per sample
+       company exact: -n 0 -q 20
+       PEGS supplement: -f 3 -F 3 -t 3 -T 3
+  -> STAR index on >=2 kb reference copy
+  -> STAR per sample (SortedByCoordinate + bedGraph + intronMotif)
+  -> samtools validation
+  -> StringTie per sample with -G run-local S1.genome.gff
+  -> stringtie --merge on strict S1..S9 list
+  -> gffread merged transcript FASTA
+  -> cd-hit-est 0.98 identity
+  -> PEGS rename_id.py, IDs transngs1..N
+  -> safe SeqClean with formatted UniVec,UniVec_Core
+  -> PASA alignment assembly with minimap2
+       MIN_PERCENT_ALIGNED=75
+       MIN_AVG_PER_ID=85
+       NUM_BP_PERFECT_SPLICE_BOUNDARY=0
+       subcluster -m=50
+  -> copy alignment SQLite to independent update attempt
+  -> Load_Current_Gene_Annotations.dbi with S1.genome.gff copy
+  -> PASA annotation compare/update (-A, RUN_TRANS_DECODER=1)
+  -> AGAT keep longest isoform
+  -> deterministic GFF3 normalization
+  -> structural comparison with S1.genome_new.gff3
+  -> candidate UTR/TSS report
 ```
 
-## 6. 分阶段设计
+## 8. 阶段设计
 
-### 6.1 输入预检
+### 8.1 Preflight
 
-1. 校验 18 个 FASTQ 与对应 `.md5`。
-2. 检查 R1/R2 read 名称配对、read 数量一致性和 read 长度。
-3. 检查 FASTA 序列 ID 与 GFF 第 1 列的一致性。
-4. 对原始 GFF3 检查 feature 数量、ID 唯一性、Parent 关系、坐标范围和 CDS phase。
-5. 记录输入文件大小、mtime、MD5/SHA-256 和工具版本。
-6. 将参考 FASTA 和 GFF 复制或 reflink 到 `work/<RUN_ID>/reference/`，再次校验副本与原件的 SHA-256 一致。
-7. 后续 STAR、StringTie 和 PASA 只使用运行目录内的参考副本；原始 FASTQ 只作为 fastp 的只读输入。
+Preflight 在读取 53 GB FASTQ 前先检查策略门禁。允许执行的 `audit` 模式只做工具、配置和小型 fixture 审核；`smoke/full` 在 fastp policy 未批准时以退出码 42 立即停止，并且不创建 run 目录。
 
-任何 FASTQ 校验失败都会阻断后续运行，不通过跳过样本的方式继续。
+通过策略门禁后依次执行：
 
-### 6.2 fastp
+1. 精确工具版本和二进制哈希。
+2. 至少 300 GB 可用磁盘；该下限不能被配置降级。
+3. 18 个 FASTQ 官方 MD5 对实际样本绝对路径的直接验证。
+4. R1/R2 全文件流式四行结构、read name、长度和 pair 数验证。
+5. 参考 FASTA/GFF 复制、字节比较和 SHA-256。
+6. GFF seqid、坐标、ID/Parent 和 10,370 gene 结构门禁。
+7. PEGS commit/hash、UniVec FASTA/index hash 和 safe SeqClean hash。
+8. 输入清单在复制前后字节一致。
 
-每个样本独立运行 fastp v0.23.1：
+任何失败均不得发布 `preflight.done`。
+
+### 8.2 fastp 精确模式与兼容门禁
+
+PEGS 和公司流程均固定 `-n 0 -q 20`，PEGS 另固定双端首尾各裁 3 bp：
+
+```bash
+fastp \
+  --in1 R1.fastq.gz --in2 R2.fastq.gz \
+  --out1 clean_R1.fastq.gz --out2 clean_R2.fastq.gz \
+  --thread THREADS -n 0 -q 20 \
+  -f 3 -F 3 -t 3 -T 3 \
+  --json sample.fastp.json --html sample.fastp.html
+```
+
+已知事实：9 个样本的 R1 第 9 位均为 100% `N` 且质量字符为 `!`；S1 前 50,000 对 reads 在 `-n 0` 下输出 0 对。`-n 1` 在同一子集中保留 49,937 对，是最小单参数兼容候选，但尚未获用户批准。
+
+正式流程必须：
+
+1. 先保存 `company_exact` smoke 证据。
+2. 在 `FASTP_POLICY_STATUS=blocked` 时停止。
+3. 仅在用户明确批准后，将 `FASTP_MAX_N` 改为批准值并记录审批时间、理由和前后统计。
+4. 任何样本输出为 0、pair 数为奇数、gzip 失败或 pass fraction 小于 0.50 时停止。
+
+### 8.3 STAR
+
+先在 run-local reference 中执行 PEGS 的 `<2 kb` contig 过滤语义。当前参考应保持 86 条 contig 且过滤前后 SHA-256 相同；若未来输入不满足，不允许把过滤后参考与原始 GFF 混用。
+
+每个样本独立运行 STAR，保留：
+
+- `--readFilesCommand zcat`
+- `--outWigType bedGraph`
+- `--outSAMtype BAM SortedByCoordinate`
+- `--outSAMstrandField intronMotif`
+
+不额外添加公司和 PEGS 均未指定的 two-pass、注释 SJDB 或链特异参数。BAM 必须通过 `samtools quickcheck`，mapped read 数大于 0，并解析 STAR final log。
+
+### 8.4 StringTie 与九样本并集
+
+9 个样本各自运行：
+
+```bash
+stringtie sample.sorted.bam \
+  -G work/RUN_ID/reference/S1.genome.gff \
+  -o sample.stringtie.gtf \
+  -p THREADS
+```
+
+不添加 `-e`、`-t`、`--rf` 或 `--fr`。`merge.list` 必须按 S1-S9 固定顺序恰有九行，之后执行：
+
+```bash
+stringtie --merge -p THREADS -o S1.merged.gtf merge.list
+```
+
+单样本 GTF 和 merged GTF 均需验证 transcript/exon 数、Parent 关系和参考坐标。
+
+### 8.5 PEGS transcript preparation
+
+按 PEGS 顺序执行：
+
+1. `gffread -w S1.transcript.fasta -g S1.genome.fasta S1.merged.gtf`。
+2. `cd-hit-est -c 0.98 -d 0 -T THREADS -M 64000` 生成 `S1.unitranscript.fasta`。
+3. 固定 PEGS `rename_id.py -p transngs` 生成 `trans.rename.fasta` 和旧 ID 到新 ID 日志。
+4. safe SeqClean 使用已建立 legacy BLAST index 的 `UniVec_Core,UniVec` 和 `-c THREADS` 生成 `trans.rename.fasta.clean` 与 `.cln` 报告。
+
+PASA alignment 的 `-u` 输入为 `trans.rename.fasta`，`-t` 输入为 `trans.rename.fasta.clean`；PASA update 的 `-t` 也必须使用同一份 clean FASTA，确保 transcript ID 与 SQLite 一致。
+
+每一步报告输入条目数、输出条目数、移除数、长度分布、重复 ID 和 SHA-256。SeqClean 所有临时文件保留在被忽略的 run-local attempt 中。
+
+### 8.6 PASA alignment assembly
+
+alignment config 固定为：
 
 ```text
--n 0 -q 20
+DATABASE=@DATABASE@
+validate_alignments_in_db.dbi:--MIN_PERCENT_ALIGNED=75
+validate_alignments_in_db.dbi:--MIN_AVG_PER_ID=85
+validate_alignments_in_db.dbi:--NUM_BP_PERFECT_SPLICE_BOUNDARY=0
+subcluster_builder.dbi:-m=50
 ```
 
-其余过滤、接头处理、长度阈值和 polyG/polyX 行为使用 v0.23.1 默认值。每个样本保留 JSON 和 HTML 报告，汇总过滤前后 reads、bases、Q20、Q30、GC 和失败原因。
+首次运行命令语义与 PEGS 一致：
 
-审核发现该参数会因 R1 第 9 位的系统性 `N` 清空已测试数据。正式脚本必须增加非空门禁：任一样本输出 read pair 数为 0，或低于输入的预设最低比例时立即阻断，不能生成 STAR 任务。当前保留 `-n 0 -q 20` 仅用于忠实记录流程图；在用户确认改为 `-n 1` 或其他有依据的处理方案前，不启动九样本正式运行。
+```bash
+Launch_PASA_pipeline.pl \
+  -c pegs_alignAssembly.config \
+  -C -R -g S1.genome.fasta -T \
+  -u trans.rename.fasta \
+  -t trans.rename.fasta.clean \
+  --CPU THREADS --ALIGNERS minimap2
+```
 
-### 6.3 STAR
+数据库、参考副本、日志和 checkpoint 全部位于 `work/<RUN_ID>/pasa_align/attempt-XXXX/`。恢复只允许使用同一 config/input hash 的 attempt；不能重建或覆盖已有 SQLite。
 
-使用 STAR v2.7.9a 基于运行目录内的 FASTA 副本构建一次共享索引。参考基因组约 40 Mb，`genomeSAindexNbases` 按 STAR 小基因组公式设置为 11；该值属于基因组规模适配，不属于经验调参。
+通过门禁至少要求：SQLite `quick_check=ok`、核心表存在、clean transcript 可在数据库中追溯、有效 alignment 大于 0、assembly GFF3/GTF 非空、失败原因统计完整。
 
-每个样本独立比对，保留流程图明确参数：
+### 8.7 PASA annotation compare/update
+
+alignment SQLite 先复制或 reflink 到独立 update attempt，原 alignment DB 前后 SHA-256 必须一致。加载 run-local `S1.genome.gff` 副本后执行一次 update。
+
+annotation config 固定包含：
 
 ```text
---outWigType bedGraph
---outSAMstrandField intronMotif
+DATABASE=@DATABASE@
+RUN_TRANS_DECODER=1
+cDNA_annotation_comparer.dbi:--MIN_PERCENT_OVERLAP=50
+cDNA_annotation_comparer.dbi:--MIN_PERCENT_PROT_CODING=40
+cDNA_annotation_comparer.dbi:--MIN_PERID_PROT_COMPARE=70
+cDNA_annotation_comparer.dbi:--MIN_PERCENT_LENGTH_FL_COMPARE=70
+cDNA_annotation_comparer.dbi:--MIN_PERCENT_LENGTH_NONFL_COMPARE=70
+cDNA_annotation_comparer.dbi:--MIN_PERCENT_ALIGN_LENGTH=70
+cDNA_annotation_comparer.dbi:--MIN_PERCENT_OVERLAP_GENE_REPLACE=80
+cDNA_annotation_comparer.dbi:--MAX_UTR_EXONS=2
+cDNA_annotation_comparer.dbi:--GENETIC_CODE=universal
 ```
 
-同时输出 StringTie 所需的坐标排序 BAM。其他比对过滤、多重比对、错配、两遍比对和剪接相关参数使用 STAR v2.7.9a 默认值。
+PEGS 中未替换的 `MIN_FL_ORF_SIZE`、`STOMP_HIGH_PERCENTAGE_OVERLAPPING_GENE` 和 `TRUST_FL_STATUS` 会被 PASA launcher 跳过，因此本配置也不写这些项，保留 PASA 2.5.2 默认行为。
 
-### 6.4 单样本 StringTie
+命令为：
 
-每个样本使用 StringTie v2.2.0 对自己的 STAR BAM 进行有参组装：
+```bash
+Load_Current_Gene_Annotations.dbi \
+  -c pegs_alignAssembly.config \
+  -g S1.genome.fasta \
+  -P S1.genome.gff
+
+Launch_PASA_pipeline.pl \
+  --CPU THREADS \
+  -c pegs_annotCompare.config \
+  -A -g S1.genome.fasta \
+  -t trans.rename.fasta.clean
+```
+
+只执行一轮 annotation update。要求唯一、非空的 `gene_structures_post_PASA_updates.*.gff3`，并报告 update、merge、split、rejected 和 unchanged 事件。
+
+### 8.8 AGAT 与最终发布
+
+对 PASA 更新 GFF3 运行 AGAT 0.8.0：
+
+```bash
+agat_sp_keep_longest_isoform.pl \
+  --gff S1.pasa.updated.gff3 \
+  --output S1.longest.gff3
+```
+
+之后使用 AGAT GFF3 转换或仓库的结构化排序器做确定性规范化。只有 gene/mRNA/exon/CDS/UTR 关系、坐标和 ID 检查全部通过，才以无覆盖方式发布：
 
 ```text
--G work/<RUN_ID>/reference/S1.genome.gff
+results/<RUN_ID>/S1.genome_reproduced.gff3
 ```
 
-不添加 `--rf`、`--fr`、`-e` 或 `-t`。覆盖度、junction、isoform fraction、最小长度和端部 trimming 使用 v2.2.0 默认值。每个样本生成独立 GTF 和基础统计。
+AGAT 前后分别统计结构变化，避免把 AGAT 修复误记为 PASA 更新。
 
-### 6.5 九样本合并
+### 8.9 结构化比较与候选 TSS
 
-将 9 个单样本 GTF 写入固定顺序的 `mergelist.txt`，按 S1 到 S9 顺序执行 `stringtie --merge`。合并阶段继续使用运行目录内的原始 GFF 副本作为 guide，其余 merge 阈值使用 v2.2.0 默认值。
+比较维度包括：
 
-该结果定义为九样本非冗余转录本并集，不等同于简单文本拼接，也不通过合并 BAM 后重新组装替代。
+1. feature 总数和每 contig 数量。
+2. gene/mRNA ID 集合。
+3. gene/mRNA/exon/CDS/UTR 坐标集合。
+4. mRNA 边界完全匹配率。
+5. CDS 模型完全匹配率。
+6. merge/split 事件和对应原始 gene。
+7. five_prime_UTR、three_prime_UTR 覆盖 transcript 数和长度分布。
+8. 1-3 bp 极短 UTR。
+9. 候选 TSS 精确匹配、链一致性和距离分布。
+10. source、属性顺序和 feature 行顺序差异；这些格式差异与结构差异分开报告。
 
-### 6.6 转录本 FASTA
+候选 TSS 定义：正链取 mRNA 最小坐标，负链取 mRNA 最大坐标。输出必须标记 `candidate_tss`，不能使用 `validated_tss`。
 
-使用 PASA 2.5.2 自带的 `cufflinks_gtf_genome_to_cdna_fasta.pl` 从 `merged.gtf` 和 `work/<RUN_ID>/reference/S1.genome.fasta` 提取转录本 FASTA。该工具明确支持 Cufflinks/StringTie GTF，不增加新的外部软件。
+## 9. 状态、恢复与失败隔离
 
-提取后检查：
-
-1. FASTA ID 唯一。
-2. FASTA 条目数与 merged GTF transcript 数一致。
-3. 所有序列非空且只包含允许的核苷酸字符。
-4. 负链转录本方向正确。
-
-### 6.7 PASA alignment assembly
-
-PASA v2.5.2 使用 SQLite 数据库：
+阶段顺序固定为：
 
 ```text
-/data/p252701008/projects/multi-omics-data-pipelines/tss/tss_utr_reproduction_20260710/work/<RUN_ID>/pasa/S1_pasa.sqlite
+preflight
+-> fastp
+-> star
+-> stringtie
+-> transcript_prepare
+-> pasa_align
+-> pasa_update
+-> agat
+-> compare
+-> postflight
 ```
 
-alignment assembly 阶段使用 GMAP 和 BLAT。两者均随当前 PASA conda prefix 安装。PASA 要求显式指定至少一个 aligner，因此选择官方帮助示例中的 `gmap,blat` 组合。
+每个完成标记包含：run ID、stage、mode、开始/结束时间、配置哈希、输入哈希、输出哈希、工具锁哈希和命令日志路径。标记先写临时文件并完成全部哈希，再用无覆盖原子发布；任何失败不得留下部分 `.done`。
 
-实际 `Launch_PASA_pipeline.pl` v2.5.2 源码中的启动器默认值为：
+恢复条件：
 
-| 参数 | 值 |
-| --- | ---: |
-| 最大 intron 长度 | 500,000 bp |
-| top alignment 数量 | 1 |
-| CPU | 由运行环境指定，不属于算法复现参数 |
+- run ID 相同。
+- config hash、toolchain lock hash 和输入 hash 相同。
+- 前一阶段输出 hash 与 marker 一致。
+- 失败 attempt 未被当成完成产物。
 
-源码帮助文本仍写 100,000 bp，但实际变量初始化为 500,000 bp。本项目以运行代码为准，并在报告中记录该差异。
+不满足任一条件即拒绝 resume。PASA 重试新建 attempt，不原位替换数据库。
 
-PASA 会在参考 FASTA 同目录自动创建 `.fai`，并在当前工作目录生成 checkpoint、日志和数据库相关文件。因此 PASA 的参考输入和当前工作目录都必须位于 `work/<RUN_ID>/`，不能直接使用 `tss/resources/S1.genome.fasta` 作为运行参数。
+## 10. 已实现基础与待修复项
 
-alignment 配置采用：
+### 10.1 已实现并保留
 
-| 配置项 | 值 |
-| --- | ---: |
-| `MIN_PERCENT_ALIGNED` | 90 |
-| `MIN_AVG_PER_ID` | 95 |
-| `subcluster_builder.dbi:-m` | 50 |
+- 配置和九样本清单。
+- `tss/.gitignore` 对 tools、work、logs、results、trash 和大过程文件的屏蔽。
+- run-local 路径守卫、不可变 run ID、输出哈希和失败产物隔离。
+- blocked fastp policy 在大文件扫描前快速退出。
+- FASTQ/参考输入快照和初版 preflight。
 
-### 6.8 PASA annotation compare/update
+### 10.2 Task 3 独立审查必须先修复
 
-首次更新时加载运行目录副本 `work/<RUN_ID>/reference/S1.genome.gff`，执行一次 annotation compare/update。`annotCompare.config` 显式写入 PASA 2.5.2 源码默认值：
+1. 300 GB 磁盘门禁不能被配置降至更低。
+2. PEGS/PASA 新增依赖必须精确版本和哈希门禁。
+3. `.done` marker 必须失败原子。
+4. MD5 必须直接验证样本表指定的 FASTQ 绝对路径。
+5. gzip checker 必须启用严格 gzip/CRC 校验并检查 close 错误。
 
-| 参数 | 值 |
-| --- | ---: |
-| `MIN_PERCENT_OVERLAP` | 50 |
-| `MIN_PERCENT_PROT_CODING` | 40 |
-| `MIN_PERID_PROT_COMPARE` | 70 |
-| `MIN_PERCENT_LENGTH_FL_COMPARE` | 70 |
-| `MIN_PERCENT_LENGTH_NONFL_COMPARE` | 70 |
-| `MIN_PERCENT_ALIGN_LENGTH` | 70 |
-| `MIN_PERCENT_OVERLAP_GENE_REPLACE` | 80 |
-| `MAX_UTR_EXONS` | 2 |
-| `GENETIC_CODE` | `universal` |
+旧 Task 4-14 全部由新版 `implementation_plan.md` 取代，不再按旧 GMAP+BLAT 路线继续。
 
-`MIN_FL_ORF_SIZE` 在源码中没有固定数值默认值，因此从配置中省略。`TRUST_FL_STATUS` 和 `STOMP_HIGH_PERCENTAGE_OVERLAPPING_GENE` 默认关闭，也通过省略对应 flag 保持关闭。
+## 11. 正式运行停止边界
 
-### 6.9 AGAT 与最终整理
-
-对 PASA 输出运行 AGAT v0.8.0：
+当前保持：
 
 ```text
-agat_sp_keep_longest_isoform.pl
+FASTP_POLICY_STATUS=blocked
+FASTP_MAX_N=0
 ```
 
-随后执行结构校验和确定性排序。AGAT 可以修正部分 gene/mRNA 包含关系，因此验证报告同时保留 PASA 原始输出与 AGAT 后输出的统计。
+在用户明确批准数据兼容参数前，只允许完成：
 
-公司版 GFF3 经 AGAT v0.8.0 再处理时会修正 5 个 gene 边界，并调整一个局部 feature 顺序。因此不会使用文件 MD5 或逐行 diff 作为生物结构一致性的唯一标准。
+- 文档和配置更新。
+- 工具安装与调用验证。
+- 单元/契约测试。
+- 不读取全量 FASTQ 的 audit preflight。
+- S1 前 50,000 对 reads 的 `company_exact` fastp 失败复核。
 
-## 7. 验证设计
+不允许开始九样本 STAR、StringTie、PASA 或正式 full run。若用户批准 `-n 1`，必须单独提交配置变更，随后依次执行九样本 fastp review、STAR review、StringTie review、PASA alignment review 和最终 update/compare；不得一条后台命令无检查地跑到底。
 
-### 7.1 过程验证
+## 12. 验收标准
 
-| 阶段 | 必须记录的指标 |
-| --- | --- |
-| 输入 | MD5、文件大小、read 配对和 read 长度 |
-| fastp | 输入/输出 reads、过滤率、Q20、Q30、GC、adapter 和 N 过滤 |
-| STAR | uniquely mapped、multi-mapped、unmapped、splice junction、mismatch、chimeric |
-| StringTie | 每样本 transcript 数、参考匹配数、新转录本数、长度分布 |
-| merge | 九样本各自贡献、合并前后 transcript 数、去冗余比例 |
-| PASA | 有效 alignment、更新/合并/拆分/拒绝事件及其原因 |
-| AGAT | 删除的 isoform 数、坐标修复、重复和 orphan 记录 |
+### 12.1 工程验收
 
-### 7.2 工具功能审核记录
+- PEGS commit 和关键文件 SHA-256 精确匹配。
+- 所有工具和依赖入口通过真实调用。
+- 原始 FASTQ/FASTA/GFF/公司 GFF3 前后清单完全一致。
+- 所有大文件和过程文件被 `tss/.gitignore` 命中。
+- 阶段失败不发布 marker，不覆盖已有结果，不删除旧 attempt。
+- full run 可从任一已验证阶段恢复。
 
-| 工具 | 审核范围 | 结果 |
-| --- | --- | --- |
-| fastp 0.23.1 | S1 前 50,000 对真实 reads | 程序正常退出；`-n 0` 清空数据，参数兼容性失败；仅审核用 `-n 1` 分支保留 49,937 对 |
-| STAR 2.7.9a | 完整约 39.9 Mb 参考索引及 49,937 对真实 reads 比对 | 通过；BAM 通过 `samtools quickcheck`，唯一比对率 81.44% |
-| StringTie 2.2.0 | 真实 BAM guided assembly 及单文件 merge 路径 | 通过；单样本子集得到 1,246 个 transcript，merge 正常完成 |
-| PASA 2.5.2 | SQLite schema、GTF 转 FASTA、GMAP 和 BLAT | 通过；10,538 个 merged transcript 均提取为 FASTA，GMAP/BLAT 均完成功能性比对 |
-| AGAT 0.8.0 | 对公司版 GFF3 的只读输入处理 | 通过；输出写入 `work/`，原件未修改 |
+### 12.2 生物信息验收
 
-以上结果证明软件安装与调用链可用，不代表九样本正式分析已经完成。BAM 完整性校验使用 PASA prefix 中作为依赖安装的 samtools，不将其计为主流程的第六个软件。审核数据和日志位于 `work/smoke_20260710_review1/`，由 `.gitignore` 屏蔽。
+- 9 个样本分别完成 fastp、STAR 和 StringTie。
+- merge list 恰有 S1-S9 九行。
+- CD-HIT、SeqClean 前后 transcript 数和映射可审计。
+- PASA SQLite 与 clean transcript ID 一致且 `quick_check=ok`。
+- PASA update 仅使用 `S1.genome.gff` 副本，不读取公司结果。
+- 最终 GFF3 结构合法并包含可追溯的 UTR。
+- 与公司结果的差异可定位到 StringTie、transcript preparation、PASA 或 AGAT 阶段。
+- 报告明确区分候选 UTR/TSS 与实验验证 TSS。
 
-### 7.3 最终结构验证
+## 13. 来源
 
-最终比较前，将复现版和公司版 GFF3 规范化为与行顺序、属性顺序无关的 feature 表。比较内容包括：
-
-1. 各 feature 类型总数。
-2. gene 和 mRNA ID 集合。
-3. 同 ID gene/mRNA 的染色体、链、起止坐标完全匹配率。
-4. exon、CDS、five_prime_UTR、three_prime_UTR 的坐标集合精确匹配率。
-5. CDS phase 一致率。
-6. 3 个已知基因合并事件是否复现。
-7. UTR 覆盖 transcript 数和长度分布。
-8. 候选 TSS 坐标的精确匹配、距离分布和链一致性。
-9. 仅存在于复现版或公司版的结构差异清单。
-
-### 7.4 成功判据
-
-技术复现成功要求：
-
-1. fastp 正式参数已明确确认并记录；所有 9 个样本的输出 FASTQ 非空且通过 read pair 数门禁。
-2. 所有 9 个样本通过输入校验并完成全部阶段。
-3. 最终 GFF3 通过语法、ID、Parent、坐标和 CDS phase 校验。
-4. 每一步具有命令、版本、配置、日志和统计证据。
-5. 最终差异可逐 gene 追溯到 StringTie、PASA 或 AGAT 阶段。
-
-与公司结果是否相同属于验证结果，而不是预设条件。只有规范化后的全部结构完全一致时，才表述为结构级精确复现；否则报告匹配率和差异原因，不通过调整官方默认参数追求目标文件。
-
-## 8. 运行、恢复与文件保护
-
-1. `tss/resources/` 和 `tss/tools/` 定义为不可写输入区；脚本启动时解析真实路径，并拒绝任何落入这两个目录的输出路径。
-2. 每次完整运行使用不可变 run ID，全部可写路径限定为 `work/<RUN_ID>/`、`logs/<RUN_ID>/` 和 `results/<RUN_ID>/`，已有结果不覆盖。
-3. 每个阶段的当前工作目录必须位于 `work/<RUN_ID>/<STAGE>/`，不能在仓库根目录、`resources/` 或 `tools/` 中启动软件。
-4. FASTA/GFF 在运行开始时复制或 reflink 到 `work/<RUN_ID>/reference/`；STAR、StringTie 和 PASA 只读取该副本。
-5. 运行前后比较原始 FASTQ、FASTA、GFF、公司版 GFF3 和流程图的文件清单、大小、mtime 与校验和；任何变化都判定为文件保护失败。
-6. 长任务使用后台运行和独立日志，保存 PID、开始时间、结束时间和退出码。
-7. 各阶段成功后写入完成标记，下游只读取通过校验的上游产物。
-8. 失败重跑从最近有效检查点继续。
-9. 不删除任何文件；需要隔离的失败产物移动到项目 `trash/` 下按 run ID 分类保存。
-10. 运行前检查可用磁盘，运行过程中记录 FASTQ、BAM、索引和 PASA 数据库占用。
-
-## 9. 交付物
-
-| 交付物 | 是否纳入 Git |
-| --- | --- |
-| 设计文档 | 是 |
-| 样本清单 | 是 |
-| 两份 PASA 配置 | 是 |
-| 可重复运行脚本 | 是 |
-| 版本与命令清单 | 是 |
-| 过程统计汇总 | 是 |
-| 最终结构比较报告 | 是 |
-| STAR 索引、FASTQ、BAM、bedGraph、GTF、SQLite、生成 GFF3 | 否，由 `.gitignore` 屏蔽 |
+- [PEGS repository](https://github.com/zxgsy520/pegs)
+- [PEGS `rnaseq2gene.py`](https://github.com/zxgsy520/pegs/blob/043a69d6ad272affda6efdc40990ad3140899c63/pegs/rnaseq2gene.py)
+- [PEGS `add_utr.py`](https://github.com/zxgsy520/pegs/blob/043a69d6ad272affda6efdc40990ad3140899c63/pegs/add_utr.py)
+- [PEGS usage](https://github.com/zxgsy520/pegs/blob/043a69d6ad272affda6efdc40990ad3140899c63/docs/USAGE.md)
+- [gffread](https://github.com/gpertea/gffread)
+- [CD-HIT](https://github.com/weizhongli/cdhit)
+- [PASA](https://github.com/PASApipeline/PASApipeline)
+- [minimap2](https://github.com/lh3/minimap2)
+- [SeqClean downloads](https://sourceforge.net/projects/seqclean/files/)
+- [Bioconda blast-legacy](https://bioconda.github.io/recipes/blast-legacy/README.html)
+- [NCBI UniVec](https://ftp.ncbi.nlm.nih.gov/pub/UniVec/)

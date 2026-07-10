@@ -29,6 +29,11 @@ RefSeq 原始数据已下载到：
 .
 ├── RefSeq与SRA关联查询流程.md       # RefSeq-SRA 关联、筛选和下载列表生成
 ├── TSS数据挖掘.md                   # 早期综合草案，保留作历史参考
+├── tss_utr_annotation_flow_review_20260709/
+│   └── tss_utr_annotation_flow_review.md  # 流程图与PEGS证据审计
+├── tss_utr_reproduction_20260710/
+│   ├── design.md                    # PEGS兼容复现设计
+│   └── implementation_plan.md       # PEGS兼容实施计划
 └── readme.md
 ```
 
@@ -41,3 +46,5 @@ RefSeq 原始数据已下载到：
 5. 生成 `selected_sra_runs.tsv` 作为后续下载输入。
 
 具体 SQL 和字段见 `RefSeq与SRA关联查询流程.md`。
+
+S1 九样本 UTR 注释复现是独立执行线，按公司 2026-07-10 指定的 PEGS 源码补齐 transcript preparation 和 PASA alignment SQLite；其设计、停止边界和执行状态见 `tss_utr_reproduction_20260710/README.md`。

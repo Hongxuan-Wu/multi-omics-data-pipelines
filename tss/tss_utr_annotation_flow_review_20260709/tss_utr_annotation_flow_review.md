@@ -14,6 +14,29 @@
 
 核心风险：普通 RNA-seq 的 read coverage 只能支持“转录区域被表达”，不能证明 read 覆盖边界就是真实转录起始位点。若研究目标是启动子、TSS、5' UTR 长度、leaderless transcript 或调控元件，该流程只能作为候选生成，不足以作为最终证据。
 
+### 1.1 2026-07-10 PEGS 证据更新
+
+公司进一步说明：最终 UTR 更新依赖前期注释时生成的 PASA transcript alignment 数据，并指定使用 [zxgsy520/pegs](https://github.com/zxgsy520/pegs)。本项目将 PEGS commit `043a69d6ad272affda6efdc40990ad3140899c63` 固定为缺失步骤的来源。
+
+该源码确认完整依赖链并非只有图中的五个命令：
+
+```text
+9 样本 fastp/STAR/StringTie
+-> StringTie merge
+-> gffread transcript FASTA
+-> CD-HIT-EST 去冗余
+-> PEGS transcript ID 重命名
+-> SeqClean + NCBI UniVec
+-> PASA/minimap2 alignment SQLite
+-> 加载原始 GFF
+-> PASA annotation compare/update
+-> AGAT keep longest isoform
+```
+
+源码还补充了 fastp 双端首尾各裁 3 bp、PASA aligned 75%、identity 85%、perfect splice boundary 0、subcluster overlap 50 和 minimap2 aligner。PEGS 与公司流程图在 StringTie `-G` 上有冲突；复现时按公司显式流程保留 `-G`。详细裁决见 `../tss_utr_reproduction_20260710/design.md`。
+
+这项更新提高了“能否重建 UTR 注释流程”的可执行性，但不改变普通 RNA-seq 不能验证真实 TSS 的科学结论。
+
 ## 2. 流程图内容转写
 
 原图位置：
@@ -132,7 +155,7 @@ tss/resources/S1.genome.fasta
 | 主要功能 | 基于 spliced transcript alignments 建模和更新真核基因结构。 |
 | 对 UTR 的作用 | 明确支持添加/更新 UTR，是该流程中真正执行 UTR 注释的核心环节。 |
 | 对 TSS 的作用 | 只会依据输入转录本边界更新 5' 端结构；若输入不是高质量全长/5' 端证据，则不能证明 TSS。 |
-| 图中参数风险 | `-A` annotation compare/update；需要完整 `annotCompare.config`、转录本 fasta、基因组 fasta、原始 GFF。图中没有提供配置细节和过滤阈值。 |
+| 参数与前置数据 | `-A` annotation compare/update 需要转录本 FASTA、PASA alignment SQLite、基因组和原始 GFF。PEGS 已给出 alignment/update 配置来源及 75/85/0/50 过滤阈值，但仍需锁定源码并验证实际运行。 |
 | 适用范围 | PASA 官方定位是真核基因组注释工具；对细菌 TSS/5' UTR 研究不是首选主线。 |
 
 判断：PASA 能让流程“产出 UTR 注释”，但可信度取决于转录本证据质量。若输入只是普通短读长 RNA-seq 组装转录本，则 UTR 边界属于候选级。
@@ -184,7 +207,7 @@ tss/resources/S1.genome.fasta
 4. 是否有 TSS peak caller。
 5. 是否有 motif/promoter sanity check。
 6. 是否有 IGV/manual curation 或正交验证。
-7. 是否有 PASA config、StringTie 参数完整列表、过滤阈值。
+7. PASA config 和过滤阈值已由 PEGS 补齐；仍需验证公司实际运行是否使用同一 commit、UniVec 快照和 StringTie `-G` 调整。
 8. 是否保留多 isoform，还是只保留 longest isoform。
 
 ## 6. 对“可以筛出 TSS/UTR”这句话的审计结论
@@ -193,7 +216,7 @@ tss/resources/S1.genome.fasta
 | --- | --- | --- |
 | 可以筛出 UTR | 可以生成基于 RNA-seq 组装转录本和 PASA 更新的候选 UTR 注释。 | 中等；需检查转录本证据和边界质量。 |
 | 可以筛出 TSS | 不能直接筛出实验 TSS；最多从 5' UTR/mRNA 起点推断候选 TSS。 | 低；需 5' 端专用数据验证。 |
-| 流程对结果可靠 | 流程工具本身合理，但缺少关键参数、配置、数据类型和验证标准。 | 待验证。 |
+| 流程对结果可靠 | PEGS 已补齐前置 transcript/PASA 数据链和主要参数；仍需验证 fastp 数据兼容性、依赖快照、运行产物及与公司 GFF3 的结构一致性。 | 待验证。 |
 | 最终 GFF 排序不影响结果 | 格式排序通常不改变坐标，但如果自写软件做了合并、过滤、ID 重写或最长转录本筛选，就会影响结果。 | 待验证。 |
 
 ## 7. 如果目标是“开始研究怎么筛 TSS”，建议路线
@@ -239,7 +262,13 @@ tss/resources/S1.genome.fasta
 | fastp 官方仓库 | https://github.com/OpenGene/fastp | 确认 fastp 是 FASTQ 质控/预处理工具。 |
 | STAR 参数文件 | https://raw.githubusercontent.com/alexdobin/STAR/master/source/parametersDefault | 确认 `outWigType bedGraph`、`read1_5p`、`outSAMstrandField intronMotif` 的含义。 |
 | StringTie 手册 | https://ccb.jhu.edu/software/stringtie/index.shtml?t=manual | 确认 `-G`、转录本组装、端部 trimming 逻辑。 |
+| PEGS 固定源码 | https://github.com/zxgsy520/pegs/tree/043a69d6ad272affda6efdc40990ad3140899c63 | 补齐 transcript preparation、PASA alignment SQLite 和 add-UTR 数据链。 |
+| gffread 官方仓库 | https://github.com/gpertea/gffread | PEGS merged GTF 转 transcript FASTA。 |
+| CD-HIT 官方仓库 | https://github.com/weizhongli/cdhit | PEGS transcript 98% identity 去冗余。 |
+| SeqClean 下载页 | https://sourceforge.net/projects/seqclean/files/ | PEGS transcript 清洗逻辑来源。 |
+| NCBI UniVec | https://ftp.ncbi.nlm.nih.gov/pub/UniVec/ | SeqClean vector 数据库。 |
 | PASA Wiki | https://github.com/PASApipeline/PASApipeline/wiki | 确认 PASA 用于真核基因结构更新、UTR 添加和转录本比对证据整合。 |
+| minimap2 官方仓库 | https://github.com/lh3/minimap2 | PEGS PASA transcript-to-genome aligner。 |
 | AGAT 文档 | https://agat.readthedocs.io/en/latest/ | 确认 AGAT 是 GFF/GTF 工具集。 |
 | AGAT longest isoform | https://agat.readthedocs.io/en/latest/tools/agat_sp_keep_longest_isoform.html | 确认 `agat_sp_keep_longest_isoform.pl` 的筛选规则。 |
 | FANTOM5 promoter atlas | https://www.nature.com/articles/nature13182 | CAGE/TSS 层级证据参考。 |

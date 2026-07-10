@@ -1,367 +1,403 @@
-# S1 TSS/UTR 注释复现 Implementation Plan
+# PEGS-Compatible S1 TSS/UTR Reproduction Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立并运行一条可审计、可恢复、严格隔离原始文件的九样本 RNA-seq 注释流程，产出 `S1.genome_reproduced.gff3`，并与公司版 `S1.genome_new.gff3` 做结构和候选 TSS/UTR 对比。
+**Goal:** 以公司指定的 PEGS 固定提交补齐 transcript preparation 和 PASA alignment 数据，安全、可审计地从 9 份 RNA-seq 复现 `S1.genome_new.gff3` 的候选 UTR 注释过程。
 
-**Architecture:** 使用仓库现有的 Bash 风格实现一个阶段化驱动器，每个阶段只写入不可变 run ID 对应的 `work/`、`logs/`、`results/`，并在通过输出校验后写入完成标记。五个主工具通过绝对 conda prefix 调用；PASA 对齐数据库与注释更新数据库分离，AGAT 负责最终标准化与官方比较工具调用，少量 AWK/Perl 脚本只负责结构化 QC 和候选 TSS 表格。
+**Architecture:** 不直接执行 PEGS 的服务器专用调度器，而实现一个 PEGS-compatible staged runner。公司流程图中的显式参数优先；PEGS `rnaseq2gene.py`/`add_utr.py` 提供缺失的数据变换、PASA 阈值和前后依赖；每个阶段只写不可变 run/attempt 目录，并在结构、哈希和工具版本门禁通过后原子发布完成标记。
 
-**Tech Stack:** Bash 5、coreutils、awk、Perl `JSON::PP`、fastp 0.23.1、STAR 2.7.9a、StringTie 2.2.0、PASA 2.5.2（GMAP、BLAT、samtools、SQLite）、AGAT 0.8.0、Git。
+**Tech Stack:** Bash 5、Perl 5、Python 3.11（独立 conda prefix）、fastp 0.23.1、STAR 2.7.9a、StringTie 2.2.0、gffread 0.12.7、CD-HIT 4.8.1、SeqClean（PASA 2.5.2 固定副本）、blast-legacy 2.2.26、PASA 2.5.2、minimap2 2.31、samtools 1.23.1、SQLite 3.53.3、AGAT 0.8.0、Git。
 
 ## Global Constraints
 
-- 原始目录 `tss/resources/` 和软件目录 `tss/tools/` 在所有执行脚本中视为只读；禁止任何输出路径解析到这两个目录。
-- 大文件和过程文件只允许进入 `work/$RUN_ID/`、`logs/$RUN_ID/`、`results/$RUN_ID/` 或 `trash/$RUN_ID/`，这些目录必须由 `tss/.gitignore` 屏蔽。
-- `reports/$RUN_ID/` 只允许 Markdown/TSV 小型报告，单文件不得超过 10 MiB；阶段程序不能把 FASTQ、BAM、GTF、SQLite 或 GFF3 过程文件写入 reports。
-- 参考 FASTA/GFF 必须先复制或 reflink 到 `work/$RUN_ID/reference/`；STAR、StringTie、PASA 只读取副本。
-- 原始 FASTQ 只允许被 fastp 读取；运行前后均验证 18 份官方 MD5，并比较原始文件清单、大小和 mtime。
-- 五个主工具版本固定为 fastp 0.23.1、STAR 2.7.9a、StringTie 2.2.0、PASA 2.5.2、AGAT 0.8.0。
-- 所有 conda prefix 使用绝对路径；PASA 启动器固定为 `$PASA_HOME/Launch_PASA_pipeline.pl`，不能依赖当前 shell 的 `PATH`。
-- 流程图 fastp 参数 `-n 0 -q 20` 已证实会清空当前数据；正式运行必须等待用户明确批准参数偏差。当前推荐候选为 `-n 1 -q 20`。
-- 不以公司版 GFF3 反向调参；公司版只作为只读审核与最终比较基准。
-- PASA 不使用会覆盖数据库的 replace 操作；失败产物只移动到 `trash/`，不删除文件。
-- 长任务使用 `nohup bash ... >...log 2>&1 &` 启动，记录 PID、开始时间、结束时间和退出码。
-- 测试运行目录使用被忽略的 `work/tests/$TEST_ID/`；测试结束后保留证据或移动到 `trash/tests/`，不执行删除式清理。
-- 默认 `THREADS=32`、`SAMPLE_PARALLELISM=1`、`MIN_FREE_GB=300`；输入、输出、线程可由命令行覆盖，算法参数不可由命令行静默覆盖。
-- 普通 RNA-seq 只能产生候选 TSS；报告中不得将转录本 5' 端写成实验验证 TSS。
+- PEGS 固定为 commit `043a69d6ad272affda6efdc40990ad3140899c63`；不得跟随浮动 `main`。
+- 公司流程图显式参数优先于 PEGS；PEGS 参数优先于软件默认值。
+- fastp 固定基础参数为 `-n 0 -q 20 -f 3 -F 3 -t 3 -T 3`；当前 `FASTP_POLICY_STATUS=blocked`，未经用户明确批准不得开始九样本正式运行。
+- StringTie 单样本必须使用 run-local `S1.genome.gff` 副本作为 `-G` guide；不添加 `-e`、`-t`、`--rf` 或 `--fr`。
+- transcript preparation 顺序固定为 `gffread -> cd-hit-est 0.98 -> PEGS rename_id.py -> SeqClean UniVec`。
+- PASA alignment 固定使用 minimap2，阈值为 aligned 75、identity 85、perfect splice boundary 0、subcluster 50。
+- PASA update 固定只执行一轮，使用 alignment SQLite 的独立副本和同一份 clean transcript FASTA。
+- AGAT 固定为 `agat_sp_keep_longest_isoform.pl` 0.8.0。
+- 原始 FASTQ 仅允许 fastp 读取；FASTA/GFF 必须先复制或 reflink 到 run-local `reference/`。
+- 公司 `S1.genome_new.gff3` 只用于 compare 阶段，不得出现在 fastp、STAR、StringTie、transcript preparation 或 PASA 命令中。
+- 不覆盖已有文件，不清空 attempt，不使用删除命令；失败产物保留或移动到 run-local `trash/`。
+- `work/`、`logs/`、`results/`、`trash/`、第三方工具、数据库和大过程文件必须由 `tss/.gitignore` 屏蔽。
+- 所有 Python 调用必须通过 `tss/tools/pegs/env` 的 conda prefix；不使用 base 或系统 Python。
+- 长时间正式任务使用 `nohup bash ... >log 2>&1 &`，保存 PID、命令、开始时间和日志路径。
+- 每个任务先写失败测试，再实现，再运行 focused tests，再提交；提交信息使用中文。
 
 ---
 
-## 1. 已确认事实与停止边界
+## 0. Current Baseline and Supersession
 
-| 项目 | 当前事实 | 实施影响 |
+### 0.1 已完成并保留
+
+| 范围 | 提交 | 状态 |
 | --- | --- | --- |
-| 原始数据 | 9 个双端样本，18 个 BGZF FASTQ，约 53 GB | 九个样本独立 fastp、STAR、StringTie，之后合并 |
-| fastp 阻断 | 9 个样本各抽检 10,000 条 R1，第 9 位 `N` 比例均为 100% | `-n 0` 不得进入正式运行；参数决策作为硬门禁 |
-| 软件调用 | 五个工具及 PASA 的 GMAP/BLAT 已通过功能测试 | 不再安装软件，只实现固定入口和版本检查 |
-| PASA 副文件 | PASA 会在 FASTA 旁写 `.fai`，并在当前目录写 checkpoint | PASA 只能在 run-local 工作目录运行 |
-| PASA 入口 | conda 激活设置 `PASAHOME`，但不把它加入 `PATH` | 必须调用启动器完整路径 |
-| 原始文件 | 4 个受控参考文件校验和已记录，原始测序目录仅有 FASTQ/MD5 | pre/post manifest 必须完全一致 |
-| 可用磁盘 | 2026-07-10 检查约 1,564 GB | 300 GB 门禁当前可满足，正式运行时重新检查 |
+| 旧设计与首次实施计划 | `ad54836` | 已归档，设计结论被 PEGS 新证据替代 |
+| 配置、样本表、ignore 契约 | `fbc9b68`、`749446d` | 保留，Task 1 扩展 |
+| run layout、状态与失败隔离 | `334d6e2`、`1c014b1`、`a1db0f4` | 保留，Task 3 修正 marker 原子性 |
+| 初版 preflight | `f322fdc` | 未通过独立审查，Task 3 修复后才算完成 |
 
-**停止边界：** Task 1-11 可以在 `FASTP_POLICY_STATUS=blocked` 状态下完成实现和静态测试；Task 12 的九样本烟雾测试及 Task 13-14 的正式运行，必须等用户明确批准 fastp 策略后才能开始。
+旧 `implementation_plan.md` 已移至 `archive/implementation_plan_pre_pegs_20260710.md`。旧 Task 4-14 不再执行，尤其废止 GMAP+BLAT alignment 和 90/95 PASA 过滤阈值。
 
-## 2. 实施文件结构
+### 0.2 Canonical File Map
 
 ```text
 tss/tss_utr_reproduction_20260710/
+├── README.md
 ├── design.md
 ├── implementation_plan.md
-├── README.md
+├── archive/
 ├── config/
 │   ├── pipeline.env
 │   ├── samples.tsv
-│   ├── alignAssembly.config.in
-│   └── annotCompare.config.in
+│   ├── pegs_sources.sha256
+│   ├── toolchain.expected.tsv
+│   ├── toolchain.lock.tsv
+│   ├── pegs_alignAssembly.config.in
+│   └── pegs_annotCompare.config.in
 ├── scripts/
-│   ├── lib/common.sh
+│   ├── install_pegs_toolchain.sh
+│   ├── build_safe_seqclean.sh
+│   ├── verify_toolchain.sh
 │   ├── preflight.sh
 │   ├── snapshot_inputs.sh
 │   ├── check_fastq_pairs.pl
+│   ├── check_fastp_json.pl
 │   ├── run_fastp.sh
+│   ├── filter_reference.pl
 │   ├── run_star.sh
+│   ├── parse_star_logs.pl
 │   ├── estimate_strandedness.pl
 │   ├── run_stringtie.sh
+│   ├── validate_gtf.pl
+│   ├── prepare_pegs_transcripts.sh
+│   ├── check_fasta.pl
+│   ├── summarize_seqclean.pl
 │   ├── render_pasa_configs.sh
 │   ├── run_pasa_align.sh
+│   ├── check_pasa_db.pl
 │   ├── run_pasa_update.sh
+│   ├── parse_pasa_updates.pl
 │   ├── run_agat_finalize.sh
-│   ├── check_fastp_json.pl
-│   ├── gff3_to_tables.awk
-│   ├── compare_annotations.sh
+│   ├── compare_annotations.pl
+│   ├── export_candidate_tss.pl
+│   ├── postflight.sh
 │   ├── run_pipeline.sh
-│   └── launch_pipeline.sh
-├── tests/
-│   ├── fixtures/
-│   │   ├── reference.fa
-│   │   ├── original.gff3
-│   │   ├── reproduced.gff3
-│   │   ├── fastp_zero.json
-│   │   ├── fastp_pass.json
-│   │   ├── strandedness.gff3
-│   │   └── strandedness.sam
-│   ├── test_config_contracts.sh
-│   ├── test_common.sh
-│   ├── test_preflight.sh
-│   ├── test_fastp_gate.sh
-│   ├── test_stage_commands.sh
-│   ├── test_gff3_comparison.sh
-│   └── test_orchestrator.sh
-├── reports/
-├── work/                  # Git ignored
-├── logs/                  # Git ignored
-├── results/               # Git ignored
-└── trash/                 # Git ignored
+│   └── lib/common.sh
+└── tests/
 ```
 
-## 3. 稳定接口
+### 0.3 Stage Interfaces
 
-| 接口 | 输入 | 输出/保证 |
+| Script | Consumes | Produces |
 | --- | --- | --- |
-| `scripts/preflight.sh --run-id ID --mode MODE` | `MODE=smoke|full`、配置、样本表 | 初始化 run 目录、校验工具/输入/磁盘、复制参考、写 before manifest |
-| `scripts/run_fastp.sh --run-id ID --mode MODE --threads N` | 9 对原始 FASTQ | 9 对 clean FASTQ、JSON/HTML、`fastp_summary.tsv` |
-| `scripts/run_star.sh --run-id ID --threads N` | clean FASTQ、参考副本 | STAR 索引、9 个排序 BAM、bedGraph、`star_summary.tsv` |
-| `scripts/run_stringtie.sh --run-id ID --threads N` | 9 个 BAM、参考 GFF 副本 | 9 个 GTF、`mergelist.txt`、`merged.gtf` |
-| `scripts/run_pasa_align.sh --run-id ID --threads N` | `merged.gtf`、参考 FASTA 副本 | transcript FASTA、alignment SQLite、PASA assembly 文件 |
-| `scripts/run_pasa_update.sh --run-id ID --threads N` | alignment DB 副本、原始 GFF 副本 | PASA 更新版 GFF3 |
-| `scripts/run_agat_finalize.sh --run-id ID` | PASA GFF3 | longest-isoform GFF3、标准化最终 GFF3 |
-| `scripts/compare_annotations.sh --run-id ID` | 复现版和公司版 GFF3 | feature、ID、坐标、UTR、候选 TSS、融合/拆分比较报告 |
-| `scripts/run_pipeline.sh` | run ID、mode、threads、stop-after、resume | 顺序执行阶段，仅跳过哈希验证通过的 `.done` 阶段 |
-| `scripts/launch_pipeline.sh` | 与驱动器相同的参数 | nohup 会话、PID 文件、driver 日志 |
+| `preflight.sh` | config、tool lock、samples、原始输入 | run-local reference、input manifest、`preflight.done` |
+| `run_fastp.sh` | 9 对原始 FASTQ | clean FASTQ、JSON/HTML、`fastp_summary.tsv` |
+| `run_star.sh` | clean FASTQ、reference copy | index、9 BAM、bedGraph、STAR metrics |
+| `run_stringtie.sh` | 9 BAM、GFF guide | 9 GTF、strict merge list、merged GTF |
+| `prepare_pegs_transcripts.sh` | merged GTF、genome | raw/dedup/renamed/clean FASTA、ID map、SeqClean report |
+| `run_pasa_align.sh` | unclean/clean FASTA、genome | alignment SQLite、assemblies、alignment metrics |
+| `run_pasa_update.sh` | alignment DB copy、clean FASTA、old GFF | PASA updated GFF3、update events |
+| `run_agat_finalize.sh` | PASA updated GFF3 | longest/normalized/final GFF3 |
+| `compare_annotations.pl` | final GFF3、company GFF3 | feature/ID/coordinate/event comparison |
+| `export_candidate_tss.pl` | final GFF3 | candidate UTR/TSS TSV |
 
-## 4. 任务计划
+---
 
-### Task 1: 建立配置、样本清单与忽略契约
+### Task 1: Replace Configuration Contracts with PEGS-Aware Contracts
 
 **Files:**
-- Create: `tss/tss_utr_reproduction_20260710/README.md`
-- Create: `tss/tss_utr_reproduction_20260710/config/pipeline.env`
-- Create: `tss/tss_utr_reproduction_20260710/config/samples.tsv`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh`
-- Modify: `tss/.gitignore`
+- Modify: `tss/tss_utr_reproduction_20260710/config/pipeline.env`
+- Create: `tss/tss_utr_reproduction_20260710/config/pegs_sources.sha256`
+- Create: `tss/tss_utr_reproduction_20260710/config/toolchain.expected.tsv`
+- Modify: `tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh`
 
 **Interfaces:**
-- Consumes: 已审核的 `design.md`、9 个样本真实路径、五个工具绝对 prefix。
-- Produces: 后续所有脚本唯一读取的静态配置和五列样本表 `sample_id/r1/r2/r1_md5/r2_md5`。
+- Consumes: current absolute project paths and `design.md` source lock.
+- Produces: sourceable config with exact PEGS/tool paths and an expected toolchain contract used by installer and preflight.
 
-- [ ] **Step 1: 写配置契约测试并确认失败**
+- [ ] **Step 1: Extend the failing config test**
 
-测试必须断言：配置文件存在；样本表恰有 9 条数据；样本 ID 为 S1-S9 且不重复；每行 4 个输入文件存在；`pipeline.env` 初始为 blocked；`work/logs/results/trash` 均被 Git 忽略；原始 FASTA/GFF/公司版 GFF3/流程图仍被 Git 跟踪。
+Add assertions for exact values:
 
-Run:
-
-```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
-```
-
-Expected: FAIL，首个失败原因是配置或样本表尚不存在。
-
-- [ ] **Step 2: 写入固定配置**
-
-`config/pipeline.env` 使用以下键和值：
-
-```bash
-PROJECT_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss/tss_utr_reproduction_20260710
-TSS_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss
-RESOURCE_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources
-RAW_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001
-TOOL_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools
-CONDA_EXE=/opt/miniconda3/bin/conda
-REFERENCE_FASTA=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/S1.genome.fasta
-REFERENCE_GFF=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/S1.genome.gff
-COMPANY_GFF=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/S1.genome_new.gff3
-FLOW_IMAGE=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/tss注释流程.png
-FASTP_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/fastp/env
-STAR_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/STAR/env
-STRINGTIE_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/stringtie/env
-PASA_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pasa/env
-AGAT_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/agat/env
-PASA_HOME=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pasa/env/opt/pasa-2.5.2
+```text
+PEGS_COMMIT=043a69d6ad272affda6efdc40990ad3140899c63
+PEGS_SOURCE=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pegs/source
+PEGS_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pegs/env
+GFFREAD_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/gffread/env
+CDHIT_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/cd-hit/env
+BLAST_LEGACY_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/blast-legacy/env
+SEQCLEAN_SAFE_DIR=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pegs/seqclean-safe
+UNIVEC_DIR=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pegs/data/univec
 FASTP_POLICY_STATUS=blocked
 FASTP_MAX_N=0
 FASTP_QUAL=20
-FASTP_MIN_PASS_FRACTION=0.50
-SMOKE_READ_PAIRS=50000
-STAR_GENOME_SA_INDEX_NBASES=11
-PASA_MAX_INTRON_LENGTH=500000
-PASA_TOP_ALIGNMENTS=1
-DEFAULT_THREADS=32
-SAMPLE_PARALLELISM=1
+FASTP_TRIM_FRONT=3
+FASTP_TRIM_TAIL=3
+STRINGTIE_USE_GUIDE=1
+CDHIT_IDENTITY=0.98
+PASA_ALIGNER=minimap2
+PASA_MIN_PERCENT_ALIGNED=75
+PASA_MIN_AVG_PER_ID=85
+PASA_PERFECT_SPLICE_BP=0
+PASA_SUBCLUSTER_OVERLAP=50
 MIN_FREE_GB=300
 ```
 
-- [ ] **Step 3: 写入精确样本表**
+Test that paths are absolute, numeric values are strict decimal integers except `CDHIT_IDENTITY`, `FASTP_POLICY_STATUS` is `blocked|approved`, and `FASTP_MAX_N` cannot be nonzero while status is blocked. Require obsolete inference keys `STAR_GENOME_SA_INDEX_NBASES`, `PASA_MAX_INTRON_LENGTH` and `PASA_TOP_ALIGNMENTS` to be absent; PEGS leaves those values at fixed-tool defaults.
 
-`samples.tsv` 使用以下精确内容，不得使用通配符在运行时猜测配对关系：
-
-```text
-sample_id	r1	r2	r1_md5	r2_md5
-S1	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S1-BY2105/WH25005593-BY20250509-3-S1-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S1-BY2105/WH25005593-BY20250509-3-S1-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S1-BY2105/WH25005593-BY20250509-3-S1-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S1-BY2105/WH25005593-BY20250509-3-S1-BY2105_combined_R2.fastq.gz.md5
-S2	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S2-BY2105/WH25005593-BY20250509-3-S2-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S2-BY2105/WH25005593-BY20250509-3-S2-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S2-BY2105/WH25005593-BY20250509-3-S2-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S2-BY2105/WH25005593-BY20250509-3-S2-BY2105_combined_R2.fastq.gz.md5
-S3	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S3-BY2105/WH25005593-BY20250509-3-S3-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S3-BY2105/WH25005593-BY20250509-3-S3-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S3-BY2105/WH25005593-BY20250509-3-S3-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S3-BY2105/WH25005593-BY20250509-3-S3-BY2105_combined_R2.fastq.gz.md5
-S4	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S4-BY2105/WH25005593-BY20250509-3-S4-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S4-BY2105/WH25005593-BY20250509-3-S4-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S4-BY2105/WH25005593-BY20250509-3-S4-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S4-BY2105/WH25005593-BY20250509-3-S4-BY2105_combined_R2.fastq.gz.md5
-S5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S5-BY2105/WH25005593-BY20250509-3-S5-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S5-BY2105/WH25005593-BY20250509-3-S5-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S5-BY2105/WH25005593-BY20250509-3-S5-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S5-BY2105/WH25005593-BY20250509-3-S5-BY2105_combined_R2.fastq.gz.md5
-S6	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S6-BY2105/WH25005593-BY20250509-3-S6-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S6-BY2105/WH25005593-BY20250509-3-S6-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S6-BY2105/WH25005593-BY20250509-3-S6-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S6-BY2105/WH25005593-BY20250509-3-S6-BY2105_combined_R2.fastq.gz.md5
-S7	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S7-BY2105/WH25005593-BY20250509-3-S7-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S7-BY2105/WH25005593-BY20250509-3-S7-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S7-BY2105/WH25005593-BY20250509-3-S7-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S7-BY2105/WH25005593-BY20250509-3-S7-BY2105_combined_R2.fastq.gz.md5
-S8	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S8-BY2105/WH25005593-BY20250509-3-S8-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S8-BY2105/WH25005593-BY20250509-3-S8-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S8-BY2105/WH25005593-BY20250509-3-S8-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S8-BY2105/WH25005593-BY20250509-3-S8-BY2105_combined_R2.fastq.gz.md5
-S9	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S9-BY2105/WH25005593-BY20250509-3-S9-BY2105_combined_R1.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S9-BY2105/WH25005593-BY20250509-3-S9-BY2105_combined_R2.fastq.gz	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S9-BY2105/WH25005593-BY20250509-3-S9-BY2105_combined_R1.fastq.gz.md5	/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/裂殖壶菌原始数据-BYT2025041001/Sample_WH25005593-BY20250509-3-S9-BY2105/WH25005593-BY20250509-3-S9-BY2105_combined_R2.fastq.gz.md5
-```
-
-- [ ] **Step 4: 扩展 Git 忽略规则并写 README 状态**
-
-在 `tss/.gitignore` 增加：
-
-```gitignore
-/tss_utr_reproduction_20260710/trash/
-```
-
-README 必须列出快速测试命令、正式运行阻断状态、五个工具入口、输出目录和“公司版只读、不用于调参”的约束。
-
-- [ ] **Step 5: 运行测试并提交**
-
-Run:
+- [ ] **Step 2: Run the test and confirm RED**
 
 ```bash
 bash tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
-git diff --check
 ```
 
-Expected: `[PASS] config contracts`，`git diff --check` 无输出。
+Expected: FAIL on missing `PEGS_COMMIT` or `FASTP_TRIM_FRONT`.
 
-Commit:
+- [ ] **Step 3: Add source hashes and expected toolchain rows**
 
-```bash
-git add tss/.gitignore tss/tss_utr_reproduction_20260710/README.md tss/tss_utr_reproduction_20260710/config tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
-git commit -m "feat(tss): 建立复现流程配置与样本清单"
-```
-
-### Task 2: 实现公共运行库与路径隔离
-
-**Files:**
-- Create: `tss/tss_utr_reproduction_20260710/scripts/lib/common.sh`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_common.sh`
-
-**Interfaces:**
-- Consumes: `config/pipeline.env`。
-- Produces: `die`、`log`、`assert_absolute`、`assert_safe_output_path`、`assert_process_output_path`、`assert_report_output_path`、`init_run_layout`、`move_to_trash`、`run_conda`、`mark_stage_done`、`stage_is_valid`。
-
-- [ ] **Step 1: 写路径隔离和完成标记失败测试**
-
-测试覆盖：相对 prefix 被拒绝；`resources/`、`tools/` 输出被拒绝；run-local `work/logs/results/reports/trash` 输出通过；已有 run ID 在非 resume 模式下被拒绝；完成标记只有在配置哈希和全部输出 SHA-256 一致时有效。
-
-Run:
-
-```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_common.sh
-```
-
-Expected: FAIL，因为 `scripts/lib/common.sh` 尚不存在。
-
-- [ ] **Step 2: 实现安全路径和 run 目录接口**
-
-核心接口必须采用以下行为：
-
-```bash
-assert_safe_output_path() {
-  local resolved
-  resolved="$(realpath -m "$1")"
-  case "${resolved}" in
-    "${RESOURCE_ROOT}"|"${RESOURCE_ROOT}/"*|"${TOOL_ROOT}"|"${TOOL_ROOT}/"*)
-      die "输出路径落入只读目录：${resolved}"
-      ;;
-  esac
-  case "${resolved}" in
-    "${PROJECT_ROOT}/work/"*|"${PROJECT_ROOT}/logs/"*|"${PROJECT_ROOT}/results/"*|"${PROJECT_ROOT}/reports/"*|"${PROJECT_ROOT}/trash/"*) ;;
-    *) die "输出路径不在允许目录：${resolved}" ;;
-  esac
-}
-
-run_conda() {
-  local prefix="$1"
-  shift
-  assert_absolute "${prefix}"
-  "${CONDA_EXE}" run --no-capture-output -p "${prefix}" "$@"
-}
-```
-
-`assert_process_output_path` 在 `assert_safe_output_path` 基础上只接受 `work/logs/results/trash`；所有五工具命令的输出参数必须先通过该检查。`assert_report_output_path` 只接受 `reports/$RUN_ID/`，postflight 检查其单文件大小不超过 10 MiB。
-
-`init_run_layout` 创建 `reference/fastp/star/stringtie/pasa_align/pasa_update/agat/validation/state`，并拒绝覆盖已有目录。`--resume` 只允许进入同一配置哈希的已有 run。
-
-- [ ] **Step 3: 实现非删除式失败隔离与阶段标记**
-
-`move_to_trash PATH REASON` 必须移动到 `trash/$RUN_ID/$REASON.<timestamp>.<basename>`；目标冲突时递增数字后缀。`mark_stage_done STAGE OUTPUT...` 写入配置哈希和每个输出 SHA-256；`stage_is_valid` 逐项复算，任一不一致返回失败。
-
-- [ ] **Step 4: 运行测试和静态禁令扫描**
-
-Run:
-
-```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_common.sh
-bash -n tss/tss_utr_reproduction_20260710/scripts/lib/common.sh
-```
-
-Expected: `[PASS] common isolation and state contracts`。
-
-- [ ] **Step 5: 提交**
-
-```bash
-git add tss/tss_utr_reproduction_20260710/scripts/lib/common.sh tss/tss_utr_reproduction_20260710/tests/test_common.sh
-git commit -m "feat(tss): 增加运行隔离与阶段状态管理"
-```
-
-### Task 3: 实现工具、输入和磁盘预检
-
-**Files:**
-- Create: `tss/tss_utr_reproduction_20260710/scripts/snapshot_inputs.sh`
-- Create: `tss/tss_utr_reproduction_20260710/scripts/check_fastq_pairs.pl`
-- Create: `tss/tss_utr_reproduction_20260710/scripts/preflight.sh`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_preflight.sh`
-
-**Interfaces:**
-- Consumes: 配置、样本表、原始输入、五个 conda prefix。
-- Produces: `work/$RUN_ID/reference/`、`reports/$RUN_ID/input_manifest.before.tsv`、`reports/$RUN_ID/tool_versions.tsv`、`state/preflight.done`。
-
-预检内部执行顺序固定为：参数与路径解析 → fastp 策略门禁 → 工具版本与磁盘 → MD5 与完整 FASTQ 配对扫描 → 参考副本与注释检查。blocked 状态必须在读取 53 GB FASTQ 前快速退出。
-
-- [ ] **Step 1: 写预检失败测试**
-
-覆盖缺失 FASTQ、错误 MD5、工具版本不匹配、磁盘低于阈值、FASTA/GFF 副本哈希不一致、`MODE=full` 且 fastp 状态 blocked 六种失败；任何失败都不能生成 `preflight.done`。
-
-- [ ] **Step 2: 实现输入快照**
-
-`snapshot_inputs.sh --run-id "$RUN_ID" --phase before|after` 输出固定列：
+`pegs_sources.sha256` must contain exactly:
 
 ```text
-kind	path	size_bytes	mtime_epoch	checksum_type	checksum
+be7a5c745ceb2f57de28b61eb1b9990070990550f30792dfdb34091879164806  pegs/rnaseq2gene.py
+a477bf8500f043b4bd26f5c9df3732835a9bfaf2db7d8f182d2c6091c5c806c3  pegs/add_utr.py
+283e92a035f062bdc886700f80dc4482b6751f5424d0638e366c3e6a14eaf8cd  pegs/config.py
+e720401f15015aa1d4dbc9fc08d7711a8ac2f357f038a382d004e0d6c38d614a  scripts/rename_pasa_gtf.py
 ```
 
-4 个受控资源使用 SHA-256；18 个 FASTQ 使用官方 MD5 文件中的值并实际执行 `md5sum -c`；18 个 MD5 文件自身使用 SHA-256。after 阶段必须与 before 逐行一致。
+`toolchain.expected.tsv` columns and rows:
 
-- [ ] **Step 3: 实现五工具固定入口检查**
-
-预检逐一执行：
-
-```bash
-run_conda "${FASTP_PREFIX}" fastp --version
-run_conda "${STAR_PREFIX}" STAR --version
-run_conda "${STRINGTIE_PREFIX}" stringtie --version
-run_conda "${PASA_PREFIX}" "${PASA_HOME}/Launch_PASA_pipeline.pl" --version
-run_conda "${AGAT_PREFIX}" agat_sp_keep_longest_isoform.pl --help
+```text
+component	expected_version	provider
+pegs	043a69d6ad272affda6efdc40990ad3140899c63	github
+python	3.11	conda-forge
+fastp	0.23.1	bioconda
+STAR	2.7.9a	bioconda
+stringtie	2.2.0	bioconda
+gffread	0.12.7	bioconda
+cd-hit	4.8.1	bioconda
+blast-legacy	2.2.26	bioconda
+pasa	2.5.2	bioconda
+minimap2	2.31	bioconda
+samtools	1.23.1	bioconda
+sqlite	3.53.3	conda-forge
+transdecoder	6.0.0	bioconda
+agat	0.8.0	bioconda
 ```
 
-版本必须精确匹配全局约束。另记录 PASA prefix 中 `gmap`、`blat`、`samtools`、`sqlite3` 的路径、包版本和二进制 SHA-256。
+- [ ] **Step 4: Update `pipeline.env` and pass tests**
 
-- [ ] **Step 4: 实现完整 FASTQ 配对检查**
-
-`check_fastq_pairs.pl` 使用 PASA prefix 已安装的 `IO::Uncompress::Gunzip` 同时流式读取 R1/R2，不生成解压文件。逐条验证四行 FASTQ 结构、read name 去除 `/1`、`/2` 和空格后缀后相等、sequence/quality 等长、R1/R2 record 数一致；输出每样本 pair 数、最短/最长 read length 和错误记录号到 `reports/$RUN_ID/fastq_inventory.tsv`。九个样本全部读取，不以头部抽样代替完整检查。
-
-- [ ] **Step 5: 实现磁盘、策略、参考副本和注释门禁**
-
-检查可用空间不少于 300 GB。`MODE=full|smoke` 时要求 `FASTP_POLICY_STATUS=approved`；blocked 状态返回固定退出码 42。通过后以 `cp --reflink=auto --preserve=timestamps` 创建 FASTA/GFF 副本并用 `cmp` 和 SHA-256 双重验证。
-
-在副本上运行 `agat_sp_statistics.pl --gff ... --gs ...`，要求原始注释 gene 数为 10,370；另外验证所有 GFF seqid 均存在于 FASTA、坐标不超 contig、gene/mRNA ID 唯一、Parent 可解析。所有 AGAT 和检查输出写入 `reports/$RUN_ID/input_annotation/`，原始 GFF 保持只读。
-
-- [ ] **Step 6: 验证当前 blocked 行为**
-
-Run:
+Preserve existing resource/sample/run keys, add the exact keys above, and keep the production policy blocked.
 
 ```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
+bash -n tss/tss_utr_reproduction_20260710/config/pipeline.env
+```
+
+Expected: `[PASS] config contracts` and no syntax output.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tss/tss_utr_reproduction_20260710/config tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
+git commit -m "config(tss): 切换为PEGS兼容工具链契约"
+```
+
+---
+
+### Task 2: Install and Lock the PEGS Supplemental Toolchain
+
+**Files:**
+- Create: `tss/tss_utr_reproduction_20260710/scripts/install_pegs_toolchain.sh`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/build_safe_seqclean.sh`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/verify_toolchain.sh`
+- Create: `tss/tss_utr_reproduction_20260710/config/toolchain.lock.tsv`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_toolchain_contract.sh`
+- Modify: `tss/.gitignore` only if any new tool/data path is not already ignored.
+
+**Interfaces:**
+- Consumes: Task 1 config, current five installed tools, network during installation.
+- Produces: pinned PEGS source, four independent prefixes/data roots, safe SeqClean scripts, actual binary/source lock.
+
+- [ ] **Step 1: Write the failing toolchain test**
+
+Test that installer text contains exact versions and never contains a deletion command; test that verification rejects a fake PEGS commit and a modified `rnaseq2gene.py`; test that all created tool paths fall under `tss/tools/` and are ignored by Git.
+
+```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_toolchain_contract.sh
+```
+
+Expected: FAIL because installer and verifier do not exist.
+
+- [ ] **Step 2: Implement no-overwrite installation**
+
+The installer must fail if a target prefix exists but does not pass verification. For absent paths, execute exact environment creation semantics:
+
+```bash
+conda create -y -p "$PEGS_PREFIX" -c conda-forge --strict-channel-priority python=3.11
+conda create -y -p "$GFFREAD_PREFIX" -c conda-forge -c bioconda --strict-channel-priority gffread=0.12.7
+conda create -y -p "$CDHIT_PREFIX" -c conda-forge -c bioconda --strict-channel-priority cd-hit=4.8.1
+conda create -y -p "$BLAST_LEGACY_PREFIX" -c conda-forge -c bioconda --strict-channel-priority blast-legacy=2.2.26
+git clone https://github.com/zxgsy520/pegs.git "$PEGS_SOURCE"
+git -C "$PEGS_SOURCE" switch --detach "$PEGS_COMMIT"
+```
+
+Download NCBI `UniVec` and `UniVec_Core` to unique temporary names under `$UNIVEC_DIR`, calculate SHA-256, and publish only when final names do not exist. Never replace an existing database snapshot. From `$UNIVEC_DIR`, build the legacy BLAST nucleotide indexes required by SeqClean:
+
+```bash
+run_conda "$BLAST_LEGACY_PREFIX" formatdb -p F -i "$UNIVEC_DIR/UniVec"
+run_conda "$BLAST_LEGACY_PREFIX" formatdb -p F -i "$UNIVEC_DIR/UniVec_Core"
+```
+
+Require `.nhr`, `.nin` and `.nsq` sidecars for both databases; do not rebuild an existing indexed snapshot.
+
+- [ ] **Step 3: Build safe SeqClean from locked PASA sources**
+
+Require these source hashes before transformation:
+
+```text
+0c00c7c3074690bd9c8d544b4c59234c789ea38ac19658dbb73104c94a4cee98  seqclean
+22e46caa69c2964984472beca7022a69f798469f65fed086c7cee02637540178  seqclean.psx
+```
+
+Create new safe files without modifying the PASA installation:
+
+```bash
+sed '75d;127d' "$PASA_HOME/bin/seqclean" > "$SEQCLEAN_SAFE_DIR/seqclean"
+sed '151d;213d;246d' "$PASA_HOME/bin/seqclean.psx" > "$SEQCLEAN_SAFE_DIR/seqclean.psx"
+chmod 0755 "$SEQCLEAN_SAFE_DIR/seqclean" "$SEQCLEAN_SAFE_DIR/seqclean.psx"
+```
+
+Verify the safe copies contain neither Perl file-unlink calls nor an external recursive-cleanup invocation. These removed lines only clean previous/log/intermediate files; all intermediates remain in unique attempts.
+
+- [ ] **Step 4: Implement actual lock generation**
+
+`verify_toolchain.sh --write-lock config/toolchain.lock.tsv` writes columns:
+
+```text
+component	version	entrypoint	sha256	source
+```
+
+It must include PEGS commit plus the four source hashes, Python, five main tools, gffread, CD-HIT, blast-legacy, safe SeqClean scripts, both UniVec FASTA files and all six legacy BLAST index sidecars, minimap2, samtools, SQLite and TransDecoder. Sort rows by component and write through an atomic no-overwrite helper.
+
+- [ ] **Step 5: Run real functional probes**
+
+```bash
+bash tss/tss_utr_reproduction_20260710/scripts/install_pegs_toolchain.sh
+bash tss/tss_utr_reproduction_20260710/scripts/verify_toolchain.sh --check-lock tss/tss_utr_reproduction_20260710/config/toolchain.lock.tsv
+conda run --no-capture-output -p "$PEGS_PREFIX" python "$PEGS_SOURCE/pegs/rnaseq2gene.py" --help
+conda run --no-capture-output -p "$PEGS_PREFIX" python "$PEGS_SOURCE/pegs/add_utr.py" --help
+```
+
+Expected: exact lock match and both PEGS help calls exit 0. Functional use of PEGS orchestration is not implied.
+
+- [ ] **Step 6: Run focused tests and commit tracked files**
+
+```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_toolchain_contract.sh
+git check-ignore tss/tools/pegs/source/pegs/add_utr.py
+git diff --check
+git add tss/.gitignore tss/tss_utr_reproduction_20260710/scripts/install_pegs_toolchain.sh tss/tss_utr_reproduction_20260710/scripts/build_safe_seqclean.sh tss/tss_utr_reproduction_20260710/scripts/verify_toolchain.sh tss/tss_utr_reproduction_20260710/config/toolchain.lock.tsv tss/tss_utr_reproduction_20260710/tests/test_toolchain_contract.sh
+git commit -m "build(tss): 锁定PEGS及补充依赖"
+```
+
+---
+
+### Task 3: Repair and Extend Preflight
+
+**Files:**
+- Modify: `tss/tss_utr_reproduction_20260710/scripts/lib/common.sh`
+- Modify: `tss/tss_utr_reproduction_20260710/scripts/preflight.sh`
+- Modify: `tss/tss_utr_reproduction_20260710/scripts/snapshot_inputs.sh`
+- Modify: `tss/tss_utr_reproduction_20260710/scripts/check_fastq_pairs.pl`
+- Modify: `tss/tss_utr_reproduction_20260710/tests/test_common.sh`
+- Modify: `tss/tss_utr_reproduction_20260710/tests/test_preflight.sh`
+
+**Interfaces:**
+- Consumes: Task 1 config, Task 2 lock, samples and immutable resources.
+- Produces: accepted `preflight.done` only after all input/tool/reference gates pass.
+
+- [ ] **Step 1: Add RED tests for the five review findings**
+
+Cover exact failures:
+
+1. `MIN_FREE_GB=299` is rejected before `df` result can pass; `300` is accepted when fake free space equals 300 GiB.
+2. wrong minimap2/samtools/SQLite/TransDecoder/PEGS version or hash is rejected.
+3. forced output-hash failure leaves no final marker.
+4. MD5 file beside another same-basename FASTQ cannot validate the samples.tsv path.
+5. plain text named `.gz`, truncated gzip trailer and CRC corruption are rejected.
+
+```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_common.sh
 bash tss/tss_utr_reproduction_20260710/tests/test_preflight.sh
-bash tss/tss_utr_reproduction_20260710/scripts/preflight.sh --run-id "preflight_block_test_$(date '+%Y%m%d_%H%M%S')" --mode full
-/opt/miniconda3/bin/conda run --no-capture-output -p /data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pasa/env perl -c tss/tss_utr_reproduction_20260710/scripts/check_fastq_pairs.pl
 ```
 
-Expected: 单元测试 PASS；真实 full 预检退出码 42，并明确打印 `fastp policy is blocked`，不启动 fastp。
+Expected: at least one new assertion fails on the current `f322fdc` implementation.
 
-- [ ] **Step 7: 提交**
+- [ ] **Step 2: Make stage markers failure-atomic**
+
+`mark_stage_done STAGE OUTPUT...` must:
+
+1. calculate config/tool/input/output hashes before opening the marker destination;
+2. write a unique run-local temporary marker;
+3. flush and close successfully;
+4. publish with `rename_noreplace`;
+5. leave no final marker on any failure.
+
+Extend `stage_is_complete` to require `toolchain_lock_sha256`.
+
+- [ ] **Step 3: Enforce the fixed 300 GiB floor and exact tool lock**
+
+Reject configured values below 300:
 
 ```bash
-git add tss/tss_utr_reproduction_20260710/scripts/preflight.sh tss/tss_utr_reproduction_20260710/scripts/snapshot_inputs.sh tss/tss_utr_reproduction_20260710/scripts/check_fastq_pairs.pl tss/tss_utr_reproduction_20260710/tests/test_preflight.sh
-git commit -m "feat(tss): 增加工具与原始输入预检"
+(( MIN_FREE_GB >= 300 )) || die "MIN_FREE_GB must be at least 300"
+required_kb=$((MIN_FREE_GB * 1024 * 1024))
 ```
 
-### Task 4: 实现 fastp 阶段和数据兼容性门禁
+Call `verify_toolchain.sh --check-lock` before large input scanning. Do not merely record package versions.
+
+- [ ] **Step 4: Verify actual FASTQ paths and strict gzip streams**
+
+Parse each `.md5` as one expected digest plus basename, require basename match, then calculate MD5 directly on the samples.tsv absolute FASTQ path. Do not invoke checksum verification from the checksum file directory.
+
+Open gzip streams with:
+
+```perl
+IO::Uncompress::Gunzip->new($path, Transparent => 0, Strict => 1, MultiStream => 1)
+```
+
+Check read errors and `close()` status for both mates after the final record.
+
+- [ ] **Step 5: Extend reference/PEGS preflight**
+
+Verify the PEGS commit and `pegs_sources.sha256`; verify UniVec and safe SeqClean hashes from tool lock; preserve existing 10,370-gene and GFF/FASTA coordinate checks. Blocked `smoke/full` must still exit 42 before run layout, tool invocation, MD5 or FASTQ scanning.
+
+- [ ] **Step 6: Run tests, real blocked probe, and re-review**
+
+```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_common.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_toolchain_contract.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_preflight.sh
+bash -n tss/tss_utr_reproduction_20260710/scripts/preflight.sh
+perl -c tss/tss_utr_reproduction_20260710/scripts/check_fastq_pairs.pl
+```
+
+Expected: all PASS; real blocked probe exits 42 and creates no run directories. Obtain an independent read-only review of `a1db0f4..HEAD`; resolve every High/Medium finding before completion.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests
+git commit -m "fix(tss): 收紧PEGS预检与输入完整性门禁"
+```
+
+---
+
+### Task 4: Implement PEGS-Compatible fastp with an Exact-Mode Gate
 
 **Files:**
 - Create: `tss/tss_utr_reproduction_20260710/scripts/check_fastp_json.pl`
@@ -371,232 +407,288 @@ git commit -m "feat(tss): 增加工具与原始输入预检"
 - Create: `tss/tss_utr_reproduction_20260710/tests/test_fastp_gate.sh`
 
 **Interfaces:**
-- Consumes: `samples.tsv`、已批准 fastp 策略、原始 FASTQ。
-- Produces: `work/$RUN_ID/fastp/$SAMPLE/`、`reports/$RUN_ID/fastp_summary.tsv`、`state/fastp.done`。
+- Consumes: approved fastp policy, samples.tsv and original FASTQ.
+- Produces: 9 sample directories, clean paired FASTQ, JSON/HTML, `fastp_summary.tsv`, `fastp.done`.
 
-- [ ] **Step 1: 写 JSON 门禁测试并确认失败**
+- [ ] **Step 1: Write JSON and command-contract RED tests**
 
-`fastp_zero.json` 模拟 100,000 reads 输入、0 reads 输出；`fastp_pass.json` 模拟 100,000 reads 输入、99,874 reads 输出。测试要求前者失败，后者输出 pass fraction `0.998740`。
+Require TSV columns:
 
-- [ ] **Step 2: 使用 JSON::PP 实现结构化解析器**
-
-解析器调用接口固定为：
-
-```bash
-run_conda "${PASA_PREFIX}" perl scripts/check_fastp_json.pl \
-  --json "$JSON" \
-  --sample "$SAMPLE" \
-  --min-pass-fraction "${FASTP_MIN_PASS_FRACTION}"
+```text
+sample	input_reads	output_reads	input_pairs	output_pairs	pass_fraction	q20_rate	q30_rate	gc_content	too_many_n_reads
 ```
 
-输出一行 TSV：`sample/input_reads/output_reads/input_pairs/output_pairs/pass_fraction/q20_rate/q30_rate/gc_content/too_many_n_reads`。当输出为 0、read 数为奇数或 pass fraction 小于 0.50 时返回非零。
+Reject zero output, odd read count, input/output pair mismatch and pass fraction below 0.50. Require `run_fastp.sh` to include `-n`, `-q`, `-f`, `-F`, `-t`, `-T`, JSON and HTML. Smoke mode may add only `--reads_to_process 50000`.
 
-- [ ] **Step 3: 实现每样本 fastp 命令**
-
-正式模式不得加入流程图外的过滤参数：
+- [ ] **Step 2: Confirm RED**
 
 ```bash
-run_conda "${FASTP_PREFIX}" fastp \
-  --in1 "$R1" \
-  --in2 "$R2" \
-  --out1 "$OUT_R1" \
-  --out2 "$OUT_R2" \
-  --json "$JSON" \
-  --html "$HTML" \
+bash tss/tss_utr_reproduction_20260710/tests/test_fastp_gate.sh
+```
+
+Expected: FAIL because parser/runner do not exist.
+
+- [ ] **Step 3: Implement the exact command**
+
+For each S1-S9:
+
+```bash
+run_conda "$FASTP_PREFIX" fastp \
+  --in1 "$R1" --in2 "$R2" \
+  --out1 "$ATTEMPT/clean_R1.fastq.gz" \
+  --out2 "$ATTEMPT/clean_R2.fastq.gz" \
   --thread "$THREADS" \
-  -n "${FASTP_MAX_N}" \
-  -q "${FASTP_QUAL}"
+  -n "$FASTP_MAX_N" -q "$FASTP_QUAL" \
+  -f "$FASTP_TRIM_FRONT" -F "$FASTP_TRIM_FRONT" \
+  -t "$FASTP_TRIM_TAIL" -T "$FASTP_TRIM_TAIL" \
+  --json "$ATTEMPT/fastp.json" \
+  --html "$ATTEMPT/fastp.html"
 ```
 
-smoke 模式只额外加入 `--reads_to_process 50000`。每个样本完成后要求两个输出非空、`gzip -t` 通过、JSON 门禁通过；任一样本失败立即停止，不跳过样本。
+Reject any call unless `FASTP_POLICY_STATUS=approved`, except `--company-exact-audit`, which is limited to 50,000 pairs and cannot publish `fastp.done`.
 
-- [ ] **Step 4: 增加明确的参数决策检查点**
+- [ ] **Step 4: Validate and publish outputs**
 
-保持以下初始状态并停止正式执行：
+Require both files nonempty, strict gzip integrity, equal pair counts, JSON gate pass and no pre-existing final sample output. Publish sample outputs only after all sample checks pass; publish stage marker after all nine summaries exist.
 
-```bash
-FASTP_POLICY_STATUS=blocked
-FASTP_MAX_N=0
-```
-
-只有用户明确批准后，实施者才能在独立提交中改为：
-
-```bash
-FASTP_POLICY_STATUS=approved
-FASTP_MAX_N=1
-```
-
-提交说明必须记录：9 个样本 R1 第 9 位系统性 `N`，以及 S1 50,000 对 reads 的 `-n 0`/`-n 1` 对照结果。
-
-- [ ] **Step 5: 运行测试并提交实现**
+- [ ] **Step 5: Test and commit**
 
 ```bash
 bash tss/tss_utr_reproduction_20260710/tests/test_fastp_gate.sh
 bash -n tss/tss_utr_reproduction_20260710/scripts/run_fastp.sh
+perl -c tss/tss_utr_reproduction_20260710/scripts/check_fastp_json.pl
 git add tss/tss_utr_reproduction_20260710/scripts/check_fastp_json.pl tss/tss_utr_reproduction_20260710/scripts/run_fastp.sh tss/tss_utr_reproduction_20260710/tests
-git commit -m "feat(tss): 增加fastp质控与非空门禁"
+git commit -m "feat(tss): 增加PEGS版fastp与非空门禁"
 ```
 
-### Task 5: 实现 STAR 索引、九样本比对与 BAM 门禁
+---
+
+### Task 5: Implement Reference Filtering and STAR
 
 **Files:**
+- Create: `tss/tss_utr_reproduction_20260710/scripts/filter_reference.pl`
 - Create: `tss/tss_utr_reproduction_20260710/scripts/run_star.sh`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/parse_star_logs.pl`
 - Create: `tss/tss_utr_reproduction_20260710/scripts/estimate_strandedness.pl`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_strandedness.sh`
-- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/strandedness.gff3`
-- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/strandedness.sam`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_star_stage.sh`
 
 **Interfaces:**
-- Consumes: 参考 FASTA 副本、9 对 fastp 输出。
-- Produces: `work/$RUN_ID/star/index/`、9 个坐标排序 BAM、bedGraph、STAR 日志、`reports/$RUN_ID/star_summary.tsv`、`reports/$RUN_ID/strandedness.tsv`。
+- Consumes: reference copy and 9 fastp sample outputs.
+- Produces: filtered reference, STAR index, 9 sorted BAM/bedGraph/log sets, STAR and strandedness summaries.
 
-- [ ] **Step 1: 写 STAR 命令和输出契约测试**
+- [ ] **Step 1: Write RED tests**
 
-测试要求脚本包含 `genomeSAindexNbases 11`、`SortedByCoordinate`、`bedGraph`、`intronMotif`、`readFilesCommand zcat`；禁止使用 `resources/S1.genome.fasta`；BAM 校验必须调用 PASA prefix 内的 samtools。
+Test FASTA fixture filtering at 1,999/2,000 bp; reject duplicate IDs and empty output. Require STAR index to use filtered run-local FASTA and mapping commands to contain `zcat`, `bedGraph`, `SortedByCoordinate` and `intronMotif`; reject resource paths and unapproved options.
 
-Run:
+- [ ] **Step 2: Implement deterministic PEGS 2 kb filtering**
 
-```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-```
+`filter_reference.pl --min-length 2000 INPUT OUTPUT REPORT` streams records, preserves header/sequence bytes for retained contigs and writes `seqid length retained`. For S1, require 86 retained, 0 removed and filtered SHA-256 equal to reference-copy SHA-256.
 
-Expected: FAIL，因为 STAR 脚本尚不存在。
+- [ ] **Step 3: Implement STAR index and per-sample mapping**
 
-- [ ] **Step 2: 实现共享索引**
+Index:
 
 ```bash
-run_conda "${STAR_PREFIX}" STAR \
+run_conda "$STAR_PREFIX" STAR \
   --runMode genomeGenerate \
-  --runThreadN "$THREADS" \
   --genomeDir "$RUN_ROOT/star/index" \
-  --genomeFastaFiles "$RUN_ROOT/reference/S1.genome.fasta" \
-  --genomeSAindexNbases "${STAR_GENOME_SA_INDEX_NBASES}"
+  --genomeFastaFiles "$RUN_ROOT/reference/S1.genome.filtered.fasta" \
+  --runThreadN "$THREADS"
 ```
 
-索引完成后要求 `Genome`、`SA`、`SAindex`、`genomeParameters.txt` 均非空，再写 `star_index.done`。
-
-- [ ] **Step 3: 实现九样本独立比对**
+Mapping:
 
 ```bash
-run_conda "${STAR_PREFIX}" STAR \
+run_conda "$STAR_PREFIX" STAR \
   --runThreadN "$THREADS" \
   --genomeDir "$RUN_ROOT/star/index" \
   --readFilesIn "$CLEAN_R1" "$CLEAN_R2" \
   --readFilesCommand zcat \
-  --outFileNamePrefix "$SAMPLE_DIR/${SAMPLE}." \
-  --outSAMtype BAM SortedByCoordinate \
   --outWigType bedGraph \
-  --outSAMstrandField intronMotif
+  --outSAMtype BAM SortedByCoordinate \
+  --outSAMstrandField intronMotif \
+  --outFileNamePrefix "$ATTEMPT/"
 ```
 
-每个 BAM 必须通过：
+- [ ] **Step 4: Add BAM and metric gates**
+
+Use PASA-prefix samtools for `quickcheck`, header contig match and mapped read count. Parse STAR `Log.final.out` into exact numeric columns. Estimate strandedness from up to 1,000,000 informative R1 alignments, report only; never alter StringTie flags.
+
+- [ ] **Step 5: Test and commit**
 
 ```bash
-run_conda "${PASA_PREFIX}" samtools quickcheck "$BAM"
-run_conda "${PASA_PREFIX}" samtools view -c "$BAM"
-```
-
-总 alignment 数必须大于 0。不得设置流程图未给出的错配、多重比对、两遍比对或剪接过滤参数。
-
-- [ ] **Step 4: 解析 STAR 指标**
-
-从每个 `Log.final.out` 结构化提取 input reads、uniquely mapped、multi-mapped、too many loci、too short、splice junction 和 mismatch rate。只对“输入为 0”或“无任何 alignment”设硬失败，不根据公司结果设置 mapping-rate 阈值。
-
-- [ ] **Step 5: 统计但不应用链特异性**
-
-`estimate_strandedness.pl` 解析运行目录 GFF 副本的 exon，排除同时被正负链注释覆盖的区域；从 `samtools view -f 64 -F 2308` 流式读取 primary mapped R1，解析 CIGAR reference blocks，最多统计 1,000,000 条落入单一链 exon 的 informative R1。输出 R1 与转录本同向/反向计数和比例：同向比例不低于 0.80 标记 `fr-secondstrand`，反向比例不低于 0.80 标记 `fr-firststrand`，否则标记 `unstranded_or_ambiguous`。该结果仅进入报告，不能自动添加 StringTie `--rf` 或 `--fr`。
-
-fixture 同时包含正链、负链、跨内含子 CIGAR 和正负链重叠区域；`test_strandedness.sh` 分别验证 same、opposite、ambiguous 计数及 0.80 判定边界。
-
-- [ ] **Step 6: 运行语法和命令测试并提交**
-
-```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_star_stage.sh
 bash -n tss/tss_utr_reproduction_20260710/scripts/run_star.sh
-/opt/miniconda3/bin/conda run --no-capture-output -p /data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pasa/env perl -c tss/tss_utr_reproduction_20260710/scripts/estimate_strandedness.pl
-bash tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-bash tss/tss_utr_reproduction_20260710/tests/test_strandedness.sh
-git add tss/tss_utr_reproduction_20260710/scripts/run_star.sh tss/tss_utr_reproduction_20260710/scripts/estimate_strandedness.pl tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh tss/tss_utr_reproduction_20260710/tests/test_strandedness.sh tss/tss_utr_reproduction_20260710/tests/fixtures/strandedness.gff3 tss/tss_utr_reproduction_20260710/tests/fixtures/strandedness.sam
-git commit -m "feat(tss): 增加STAR索引与九样本比对"
+perl -c tss/tss_utr_reproduction_20260710/scripts/filter_reference.pl
+perl -c tss/tss_utr_reproduction_20260710/scripts/parse_star_logs.pl
+perl -c tss/tss_utr_reproduction_20260710/scripts/estimate_strandedness.pl
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests/test_star_stage.sh
+git commit -m "feat(tss): 增加PEGS参考过滤与STAR比对"
 ```
 
-### Task 6: 实现单样本 StringTie 与九样本并集
+---
+
+### Task 6: Implement Guided Per-Sample StringTie and Strict Nine-Sample Merge
 
 **Files:**
+- Create: `tss/tss_utr_reproduction_20260710/scripts/validate_gtf.pl`
 - Create: `tss/tss_utr_reproduction_20260710/scripts/run_stringtie.sh`
-- Modify: `tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_stringtie_stage.sh`
 
 **Interfaces:**
-- Consumes: 9 个已校验 BAM、运行目录参考 GFF 副本。
-- Produces: `work/$RUN_ID/stringtie/samples/$SAMPLE.gtf`、`mergelist.txt`、`merged.gtf`、`reports/$RUN_ID/stringtie_summary.tsv`。
+- Consumes: 9 STAR BAM and run-local GFF guide.
+- Produces: 9 validated GTF, `merge.list`, `S1.merged.gtf`, `stringtie_summary.tsv`.
 
-- [ ] **Step 1: 扩展失败测试**
+- [ ] **Step 1: Write RED command and merge-list tests**
 
-测试要求：每样本必须单独调用 StringTie；guide 必须是 run-local GFF；不得出现 `--rf`、`--fr`、`-e`、`-t`；merge list 必须严格为 S1-S9 九行。
+Require nine separate StringTie invocations, each with `-G "$RUN_ROOT/reference/S1.genome.gff"`; forbid `-e`, `-t`, `--rf`, `--fr`; require S1-S9 exact order and exactly nine newline-terminated absolute GTF paths.
 
-- [ ] **Step 2: 实现单样本 guided assembly**
+- [ ] **Step 2: Implement single-sample assembly**
 
 ```bash
-run_conda "${STRINGTIE_PREFIX}" stringtie "$BAM" \
+run_conda "$STRINGTIE_PREFIX" stringtie "$BAM" \
   -G "$RUN_ROOT/reference/S1.genome.gff" \
-  -p "$THREADS" \
-  -o "$SAMPLE_GTF"
+  -o "$ATTEMPT/$SAMPLE.stringtie.gtf" \
+  -p "$THREADS"
 ```
 
-每个 GTF 要求非空且至少包含一个 `transcript` 行。记录 transcript、exon 数量和文件 SHA-256。
+`validate_gtf.pl` checks nine columns, transcript/exon presence, transcript_id/gene_id, reference seqid and coordinate bounds.
 
-- [ ] **Step 3: 实现固定顺序 merge**
+- [ ] **Step 3: Implement the union**
 
-先逐行验证 9 个 GTF 非空，再生成绝对路径 `mergelist.txt`：
+Generate the strict list from samples.tsv, not a glob. Then:
 
 ```bash
-run_conda "${STRINGTIE_PREFIX}" stringtie --merge \
-  -G "$RUN_ROOT/reference/S1.genome.gff" \
+run_conda "$STRINGTIE_PREFIX" stringtie --merge \
   -p "$THREADS" \
-  -o "$RUN_ROOT/stringtie/merged.gtf" \
-  "$RUN_ROOT/stringtie/mergelist.txt"
+  -o "$ATTEMPT/S1.merged.gtf" \
+  "$ATTEMPT/merge.list"
 ```
 
-要求 merged transcript 数大于 0，并报告九样本 transcript 总数、merged 数和去冗余比例。
+Validate merged transcript count greater than 0 and record per-sample/merged gene, transcript and exon counts.
 
-- [ ] **Step 4: 运行测试并提交**
+- [ ] **Step 4: Test and commit**
 
 ```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_stringtie_stage.sh
 bash -n tss/tss_utr_reproduction_20260710/scripts/run_stringtie.sh
-bash tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git add tss/tss_utr_reproduction_20260710/scripts/run_stringtie.sh tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git commit -m "feat(tss): 增加StringTie组装与九样本合并"
+perl -c tss/tss_utr_reproduction_20260710/scripts/validate_gtf.pl
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests/test_stringtie_stage.sh
+git commit -m "feat(tss): 增加引导式StringTie九样本并集"
 ```
 
-### Task 7: 生成 PASA 配置和转录本 FASTA
+---
+
+### Task 7: Implement PEGS Transcript Preparation
 
 **Files:**
-- Create: `tss/tss_utr_reproduction_20260710/config/alignAssembly.config.in`
-- Create: `tss/tss_utr_reproduction_20260710/config/annotCompare.config.in`
-- Create: `tss/tss_utr_reproduction_20260710/scripts/render_pasa_configs.sh`
-- Modify: `tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/check_fasta.pl`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/summarize_seqclean.pl`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/prepare_pegs_transcripts.sh`
+- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/transcripts.gtf`
+- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/transcripts.genome.fa`
+- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/vector.fa`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_transcript_prepare.sh`
 
 **Interfaces:**
-- Consumes: run ID、PASA SQLite 绝对路径、`merged.gtf`、参考 FASTA 副本。
-- Produces: 两份 run-local 配置、无注释行 GTF、`merged_transcripts.fasta`。
+- Consumes: merged GTF, filtered genome, PEGS source, gffread/CD-HIT/legacy BLAST/safe SeqClean/UniVec.
+- Produces: raw, deduplicated, renamed and clean FASTA; CD-HIT cluster; rename map/log; SeqClean report/metrics.
 
-- [ ] **Step 1: 写配置渲染测试**
+- [ ] **Step 1: Write RED end-to-end fixture test**
 
-测试用 run-local 假路径渲染配置，要求没有未替换 token，DATABASE 为绝对 SQLite 路径，参数与设计文档完全一致。
+Fixture must contain two duplicate transcripts, one unique transcript, one vector-contaminated terminal segment and one short/low-complexity case. Build a run-local legacy BLAST index for the vector fixture, then assert deterministic counts through each step and `transngs1..N` IDs. Assert all outputs remain in a unique attempt and no source/input file changes.
 
-- [ ] **Step 2: 写 alignment 配置模板**
+- [ ] **Step 2: Implement GTF-to-FASTA and CD-HIT**
+
+```bash
+run_conda "$GFFREAD_PREFIX" gffread \
+  -w "$ATTEMPT/S1.transcript.fasta" \
+  -g "$RUN_ROOT/reference/S1.genome.filtered.fasta" \
+  "$RUN_ROOT/stringtie/S1.merged.gtf"
+
+run_conda "$CDHIT_PREFIX" cd-hit-est \
+  -i "$ATTEMPT/S1.transcript.fasta" \
+  -o "$ATTEMPT/S1.unitranscript.fasta" \
+  -c 0.98 -d 0 -T "$THREADS" -M 64000
+```
+
+Record that `0.98` is the syntax correction for PEGS `0.98b`.
+
+- [ ] **Step 3: Use the pinned PEGS ID-renaming script**
+
+```bash
+run_conda "$PEGS_PREFIX" python \
+  "$PEGS_SOURCE/scripts/rename_id.py" \
+  "$ATTEMPT/S1.unitranscript.fasta" \
+  -p transngs \
+  > "$ATTEMPT/trans.rename.fasta" \
+  2> "$ATTEMPT/rename_id.log"
+```
+
+Parse the log into `rename_id_map.tsv`; require one-to-one rows and sequential IDs.
+
+- [ ] **Step 4: Run safe SeqClean with both NCBI databases**
+
+Run from `$ATTEMPT/seqclean/` with PATH ordered as safe scripts, PASA binaries, legacy BLAST, then inherited PATH:
+
+```bash
+PATH="$SEQCLEAN_SAFE_DIR:$PASA_HOME/bin:$BLAST_LEGACY_PREFIX/bin:$PATH" \
+  "$SEQCLEAN_SAFE_DIR/seqclean" \
+  "$ATTEMPT/trans.rename.fasta" \
+  -c "$THREADS" \
+  -v "$UNIVEC_DIR/UniVec_Core,$UNIVEC_DIR/UniVec"
+```
+
+Move no files during execution; publish the clean FASTA and report only after checks. Retain all SeqClean intermediates.
+
+- [ ] **Step 5: Add FASTA and report gates**
+
+`check_fasta.pl` validates unique IDs, `[ACGTNacgtn]+`, nonempty sequence and length distribution. `summarize_seqclean.pl` reports valid, trashed, trimmed and reason counts. Require clean IDs to be a subset of renamed IDs and at least one clean transcript.
+
+- [ ] **Step 6: Test and commit**
+
+```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_transcript_prepare.sh
+bash -n tss/tss_utr_reproduction_20260710/scripts/prepare_pegs_transcripts.sh
+perl -c tss/tss_utr_reproduction_20260710/scripts/check_fasta.pl
+perl -c tss/tss_utr_reproduction_20260710/scripts/summarize_seqclean.pl
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests
+git commit -m "feat(tss): 增加PEGS转录本去冗余与清洗"
+```
+
+---
+
+### Task 8: Render Exact PEGS/PASA Configurations
+
+**Files:**
+- Create: `tss/tss_utr_reproduction_20260710/config/pegs_alignAssembly.config.in`
+- Create: `tss/tss_utr_reproduction_20260710/config/pegs_annotCompare.config.in`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/render_pasa_configs.sh`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_pasa_configs.sh`
+
+**Interfaces:**
+- Consumes: absolute attempt SQLite path.
+- Produces: alignment and annotation config with no unresolved token.
+
+- [ ] **Step 1: Write RED rendering tests**
+
+Require absolute SQLite path, exact key/value set, no `<__...__>` or `@DATABASE@`, no GMAP/BLAT settings, no `PASA_ADMIN_EMAIL`/`PASA_ADMIN_DB`, and no explicit `MIN_FL_ORF_SIZE`, `TRUST_FL_STATUS` or `STOMP_HIGH_PERCENTAGE_OVERLAPPING_GENE`.
+
+- [ ] **Step 2: Create the alignment template**
 
 ```text
 DATABASE=@DATABASE@
-validate_alignments_in_db.dbi:--MIN_PERCENT_ALIGNED=90
-validate_alignments_in_db.dbi:--MIN_AVG_PER_ID=95
+validate_alignments_in_db.dbi:--MIN_PERCENT_ALIGNED=75
+validate_alignments_in_db.dbi:--MIN_AVG_PER_ID=85
+validate_alignments_in_db.dbi:--NUM_BP_PERFECT_SPLICE_BOUNDARY=0
 subcluster_builder.dbi:-m=50
 ```
 
-- [ ] **Step 3: 写 annotation compare 配置模板**
+- [ ] **Step 3: Create the annotation template**
 
 ```text
 DATABASE=@DATABASE@
+RUN_TRANS_DECODER=1
 cDNA_annotation_comparer.dbi:--MIN_PERCENT_OVERLAP=50
 cDNA_annotation_comparer.dbi:--MIN_PERCENT_PROT_CODING=40
 cDNA_annotation_comparer.dbi:--MIN_PERID_PROT_COMPARE=70
@@ -608,512 +700,450 @@ cDNA_annotation_comparer.dbi:--MAX_UTR_EXONS=2
 cDNA_annotation_comparer.dbi:--GENETIC_CODE=universal
 ```
 
-不写 `MIN_FL_ORF_SIZE`、`TRUST_FL_STATUS`、`STOMP_HIGH_PERCENTAGE_OVERLAPPING_GENE`，从而保持 PASA 2.5.2 代码默认。
+- [ ] **Step 4: Implement safe rendering, test and commit**
 
-- [ ] **Step 4: 实现转录本提取**
-
-先仅去除 GTF 注释行，避免 PASA helper 对 StringTie 头部产生无意义警告：
+Reject relative DB paths and existing destinations. Replace exactly one token and verify source template SHA before rendering.
 
 ```bash
-awk '$0 !~ /^#/' "$RUN_ROOT/stringtie/merged.gtf" > "$RUN_ROOT/pasa_align/merged.features.gtf"
-run_conda "${PASA_PREFIX}" \
-  "${PASA_HOME}/misc_utilities/cufflinks_gtf_genome_to_cdna_fasta.pl" \
-  "$RUN_ROOT/pasa_align/merged.features.gtf" \
-  "$RUN_ROOT/reference/S1.genome.fasta" \
-  > "$RUN_ROOT/pasa_align/merged_transcripts.fasta"
+bash tss/tss_utr_reproduction_20260710/tests/test_pasa_configs.sh
+bash -n tss/tss_utr_reproduction_20260710/scripts/render_pasa_configs.sh
+git add tss/tss_utr_reproduction_20260710/config/pegs_* tss/tss_utr_reproduction_20260710/scripts/render_pasa_configs.sh tss/tss_utr_reproduction_20260710/tests/test_pasa_configs.sh
+git commit -m "feat(tss): 固定PEGS版PASA配置"
 ```
 
-要求 GTF transcript 数与 FASTA `>` 条目数完全一致、条目 ID 唯一、序列非空。
+---
 
-- [ ] **Step 5: 运行测试并提交**
-
-```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git add tss/tss_utr_reproduction_20260710/config tss/tss_utr_reproduction_20260710/scripts/render_pasa_configs.sh tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git commit -m "feat(tss): 固定PASA配置与转录本提取"
-```
-
-### Task 8: 实现 PASA alignment assembly
+### Task 9: Implement PASA Alignment Assembly with minimap2
 
 **Files:**
+- Create: `tss/tss_utr_reproduction_20260710/scripts/check_pasa_db.pl`
 - Create: `tss/tss_utr_reproduction_20260710/scripts/run_pasa_align.sh`
-- Modify: `tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_pasa_align.sh`
 
 **Interfaces:**
-- Consumes: alignment config、参考 FASTA 副本、merged transcript FASTA。
-- Produces: `S1_alignment.sqlite`、GMAP/BLAT alignment、PASA assemblies GFF3/GTF/BED 和运行日志。
+- Consumes: renamed unclean FASTA, SeqClean FASTA, filtered genome and alignment config.
+- Produces: immutable alignment attempt with SQLite, assemblies and metrics.
 
-- [ ] **Step 1: 扩展 PASA 安全测试**
+- [ ] **Step 1: Write RED safety/command tests**
 
-测试要求：启动器使用完整 `$PASA_HOME` 路径；aligners 为 `gmap,blat`；top alignment 为 1；max intron 为 500000；不得出现数据库覆盖参数；当前工作目录必须是 `work/$RUN_ID/pasa_align/`。
+Require full PASA launcher path, `-C -R -T`, separate `-u`/`-t`, `--ALIGNERS minimap2`, no GMAP/BLAT, run-local genome and CWD, and no company GFF3. Reject an existing DB destination.
 
-- [ ] **Step 2: 实现新数据库与检查点恢复分支**
-
-数据库不存在时：
+- [ ] **Step 2: Implement first-attempt command**
 
 ```bash
-run_conda "${PASA_PREFIX}" "${PASA_HOME}/Launch_PASA_pipeline.pl" \
-  -c "$RUN_ROOT/pasa_align/alignAssembly.config" \
+run_conda "$PASA_PREFIX" "$PASA_HOME/Launch_PASA_pipeline.pl" \
+  -c "$ATTEMPT/pegs_alignAssembly.config" \
   -C -R \
-  -g "$RUN_ROOT/reference/S1.genome.fasta" \
-  -t "$RUN_ROOT/pasa_align/merged_transcripts.fasta" \
-  --ALIGNERS gmap,blat \
+  -g "$RUN_ROOT/reference/S1.genome.filtered.fasta" \
+  -T \
+  -u "$RUN_ROOT/transcript_prepare/trans.rename.fasta" \
+  -t "$RUN_ROOT/transcript_prepare/trans.rename.fasta.clean" \
   --CPU "$THREADS" \
-  -N "${PASA_TOP_ALIGNMENTS}" \
-  -I "${PASA_MAX_INTRON_LENGTH}"
+  --ALIGNERS minimap2
 ```
 
-数据库已存在且 stage 未完成时，保留同一工作目录和 checkpoint，仅去掉 `-C` 后重跑 `-R`。不得重建或覆盖已有数据库。
+Run with CWD `$ATTEMPT`. A retry creates a new attempt seeded only from immutable upstream inputs; it never modifies a prior attempt.
 
-- [ ] **Step 3: 实现 PASA 输出门禁**
+- [ ] **Step 3: Implement database and assembly gates**
 
-要求 SQLite 非空且至少包含 `cdna_info`、`alignment`、`align_link`、`clusters`、`asmbl_link` 五张表；`S1_alignment.sqlite.pasa_assemblies.gff3` 非空；GMAP 和 BLAT 均有有效 alignment 记录；有效 assembled transcript 数大于 0。
+`check_pasa_db.pl` calls run-local SQLite and requires `PRAGMA quick_check` result `ok`, tables `cdna_info`, `alignment`, `align_link`, `clusters`, `asmbl_link`, nonzero valid alignments and assemblies, and clean transcript IDs represented in DB or classified with an explicit failure reason.
 
-- [ ] **Step 4: 运行测试并提交**
+Require nonempty `*.pasa_assemblies.gff3` and `*.pasa_assemblies.gtf`; validate their seqids and coordinates.
+
+- [ ] **Step 4: Test and commit**
 
 ```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_pasa_align.sh
 bash -n tss/tss_utr_reproduction_20260710/scripts/run_pasa_align.sh
-bash tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git add tss/tss_utr_reproduction_20260710/scripts/run_pasa_align.sh tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git commit -m "feat(tss): 增加PASA转录本比对组装"
+perl -c tss/tss_utr_reproduction_20260710/scripts/check_pasa_db.pl
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests/test_pasa_align.sh
+git commit -m "feat(tss): 增加minimap2版PASA比对数据库"
 ```
 
-### Task 9: 实现 PASA annotation compare/update
+---
+
+### Task 10: Implement PASA Annotation Compare and UTR Update
 
 **Files:**
+- Create: `tss/tss_utr_reproduction_20260710/scripts/parse_pasa_updates.pl`
 - Create: `tss/tss_utr_reproduction_20260710/scripts/run_pasa_update.sh`
-- Modify: `tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_pasa_update.sh`
 
 **Interfaces:**
-- Consumes: alignment SQLite、annotation config 模板、运行目录原始 GFF/FASTA 副本。
-- Produces: 独立 update SQLite、PASA annotation compare 日志、唯一更新版 GFF3。
+- Consumes: accepted alignment SQLite, clean transcript FASTA, original GFF/genome copies, rendered configs.
+- Produces: independent update SQLite, unique updated GFF3 and event summary.
 
-- [ ] **Step 1: 写数据库分离测试**
+- [ ] **Step 1: Write RED isolation tests**
 
-测试要求 update 阶段先 reflink/copy alignment DB 到 `pasa_update/S1_update.sqlite`，annot config 只指向副本；alignment DB 的 SHA-256 在 update 前后必须一致；公司版 GFF3 不得出现在 PASA 命令中。
+Assert update DB path differs from alignment DB; alignment DB hash is unchanged; both configs point to update DB; old GFF is run-local; company GFF3 absent; only one `-A` run; output discovery is limited to files created by the current attempt.
 
-- [ ] **Step 2: 实现注释更新命令**
+- [ ] **Step 2: Seed the update attempt without overwrite**
+
+Use `cp --reflink=auto` to a new destination, then byte-compare and hash. Render both configs against the copied DB. Record source alignment DB hash before and after update.
+
+- [ ] **Step 3: Load the old annotation**
 
 ```bash
-run_conda "${PASA_PREFIX}" "${PASA_HOME}/Launch_PASA_pipeline.pl" \
-  -c "$RUN_ROOT/pasa_update/annotCompare.config" \
-  -A -L \
-  --annots "$RUN_ROOT/reference/S1.genome.gff" \
-  -g "$RUN_ROOT/reference/S1.genome.fasta" \
-  -t "$RUN_ROOT/pasa_align/merged_transcripts.fasta" \
+run_conda "$PASA_PREFIX" \
+  "$PASA_HOME/scripts/Load_Current_Gene_Annotations.dbi" \
+  -c "$ATTEMPT/pegs_alignAssembly.config" \
+  -g "$RUN_ROOT/reference/S1.genome.filtered.fasta" \
+  -P "$RUN_ROOT/reference/S1.genome.gff"
+```
+
+Require 10,370 loaded genes before update.
+
+- [ ] **Step 4: Run one annotation update**
+
+```bash
+run_conda "$PASA_PREFIX" "$PASA_HOME/Launch_PASA_pipeline.pl" \
   --CPU "$THREADS" \
-  --GENETIC_CODE universal
+  -c "$ATTEMPT/pegs_annotCompare.config" \
+  -A \
+  -g "$RUN_ROOT/reference/S1.genome.filtered.fasta" \
+  -t "$RUN_ROOT/transcript_prepare/trans.rename.fasta.clean"
 ```
 
-命令只执行一次 annotation compare/update。若失败，将整个 update attempt 移入 `trash/$RUN_ID/`，再从未修改的 alignment DB 建立新 attempt；不得在失败 DB 上强制覆盖。
+Find exactly one current-attempt `*.gene_structures_post_PASA_updates.*.gff3`; publish it as `S1.pasa.updated.gff3` only after structure validation.
 
-- [ ] **Step 3: 捕获动态 PASA 输出**
+- [ ] **Step 5: Parse update events**
 
-在命令前写 attempt 起始 marker，命令后查找本次新生成且唯一匹配 `S1_update.sqlite.gene_structures_post_PASA_updates.*.gff3` 的文件，复制为 `work/$RUN_ID/pasa_update/S1.pasa.updated.gff3`。要求 GFF3 非空、含 gene 和 mRNA、所有坐标位于参考 contig 范围内。
+Report unchanged, UTR extension, exon adjustment, CDS change, merge, split, novel and rejected events with original/new IDs. Require updated GFF3 gene/mRNA presence and all Parent references resolvable.
 
-- [ ] **Step 4: 运行测试并提交**
+- [ ] **Step 6: Test and commit**
 
 ```bash
+bash tss/tss_utr_reproduction_20260710/tests/test_pasa_update.sh
 bash -n tss/tss_utr_reproduction_20260710/scripts/run_pasa_update.sh
-bash tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git add tss/tss_utr_reproduction_20260710/scripts/run_pasa_update.sh tss/tss_utr_reproduction_20260710/tests/test_stage_commands.sh
-git commit -m "feat(tss): 增加PASA注释比较与更新"
+perl -c tss/tss_utr_reproduction_20260710/scripts/parse_pasa_updates.pl
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests/test_pasa_update.sh
+git commit -m "feat(tss): 增加PASA注释比较与UTR更新"
 ```
 
-### Task 10: 实现 AGAT 最终整理与结构化比较
+---
+
+### Task 11: Implement AGAT Finalization, Comparison and Candidate TSS Export
 
 **Files:**
 - Create: `tss/tss_utr_reproduction_20260710/scripts/run_agat_finalize.sh`
-- Create: `tss/tss_utr_reproduction_20260710/scripts/gff3_to_tables.awk`
-- Create: `tss/tss_utr_reproduction_20260710/scripts/compare_annotations.sh`
-- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/reference.fa`
-- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/original.gff3`
-- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/reproduced.gff3`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_gff3_comparison.sh`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/compare_annotations.pl`
+- Create: `tss/tss_utr_reproduction_20260710/scripts/export_candidate_tss.pl`
+- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/annotation_old.gff3`
+- Create: `tss/tss_utr_reproduction_20260710/tests/fixtures/annotation_new.gff3`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_finalize_compare.sh`
 
 **Interfaces:**
-- Consumes: PASA 更新版 GFF3、公司版只读 GFF3、参考 FASTA 副本。
-- Produces: `results/$RUN_ID/S1.genome_reproduced.gff3` 和 `reports/$RUN_ID/validation/` 下的统计、差异、候选 TSS 表。
+- Consumes: PASA updated GFF3, genome copy and company target at compare time.
+- Produces: final GFF3, structural comparison TSV/Markdown and candidate TSS/UTR TSV.
 
-- [ ] **Step 1: 写正负链候选 TSS 和结构差异测试**
+- [ ] **Step 1: Write RED structural tests**
 
-fixture 包含一个正链 mRNA 和一个负链 mRNA。测试断言正链 TSS 等于 start，负链 TSS 等于 end；UTR 类型、CDS phase、ID/Parent 和坐标差异分别进入正确 TSV；输入行顺序变化不影响比较结果。
+Fixtures cover positive/negative strand TSS, multi-exon UTR, attribute-order-only difference, feature-order-only difference, changed CDS, gene merge and 1-3 bp UTR. Require format-only differences not counted as structural mismatch.
 
-Run:
-
-```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_gff3_comparison.sh
-```
-
-Expected: FAIL，因为转换和比较脚本尚不存在。
-
-- [ ] **Step 2: 实现 longest isoform 和确定性标准化**
+- [ ] **Step 2: Implement AGAT longest-isoform and normalization**
 
 ```bash
-run_conda "${AGAT_PREFIX}" agat_sp_keep_longest_isoform.pl \
+run_conda "$AGAT_PREFIX" agat_sp_keep_longest_isoform.pl \
   --gff "$RUN_ROOT/pasa_update/S1.pasa.updated.gff3" \
-  --output "$RUN_ROOT/agat/S1.longest_isoform.gff3"
+  --output "$ATTEMPT/S1.longest.gff3"
 
-run_conda "${AGAT_PREFIX}" agat_convert_sp_gxf2gxf.pl \
-  --gff "$RUN_ROOT/agat/S1.longest_isoform.gff3" \
-  --gff_version_input 3 \
-  --gff_version_output 3 \
-  --no_check \
-  --output "$RUN_ROOT/agat/S1.normalized.gff3"
+run_conda "$AGAT_PREFIX" agat_convert_sp_gxf2gxf.pl \
+  --gff "$ATTEMPT/S1.longest.gff3" \
+  --output "$ATTEMPT/S1.normalized.gff3"
 ```
 
-第一条命令允许 AGAT 按默认规则修复关系并保留最长 isoform；第二条命令只做确定性 GFF3 标准化，不再次改变生物结构。输出通过后复制到 `results/$RUN_ID/S1.genome_reproduced.gff3`，若目标已存在则阻断。
+Validate structure and publish without overwrite to `results/$RUN_ID/S1.genome_reproduced.gff3`.
 
-- [ ] **Step 3: 使用 AGAT 官方比较工具**
+- [ ] **Step 3: Implement normalized structural comparison**
 
-```bash
-run_conda "${AGAT_PREFIX}" agat_sp_statistics.pl \
-  --gff "$REPRODUCED_GFF" \
-  --output "$VALIDATION_DIR/reproduced.statistics.txt"
+Parse GFF3 into normalized records keyed by feature type, seqid, strand, start/end, ID and Parent. Emit feature counts, ID overlap, coordinate exact match, boundary deltas, merge/split candidates, UTR lengths and short UTR counts. Keep raw line/attribute ordering in a separate format-difference section.
 
-run_conda "${AGAT_PREFIX}" agat_sp_sensitivity_specificity.pl \
-  --gff1 "${COMPANY_GFF}" \
-  --gff2 "$REPRODUCED_GFF" \
-  --output "$VALIDATION_DIR/sensitivity_specificity.txt"
+- [ ] **Step 4: Export candidate TSS**
 
-run_conda "${AGAT_PREFIX}" agat_sp_compare_two_annotations.pl \
-  --gff1 "${COMPANY_GFF}" \
-  --gff2 "$REPRODUCED_GFF" \
-  --output "$VALIDATION_DIR/gene_overlap_events.txt"
-
-run_conda "${AGAT_PREFIX}" agat_sp_compare_two_annotations.pl \
-  --gff1 "$RUN_ROOT/reference/S1.genome.gff" \
-  --gff2 "${COMPANY_GFF}" \
-  --output "$VALIDATION_DIR/original_to_company_events.txt"
-
-run_conda "${AGAT_PREFIX}" agat_sp_compare_two_annotations.pl \
-  --gff1 "$RUN_ROOT/reference/S1.genome.gff" \
-  --gff2 "$REPRODUCED_GFF" \
-  --output "$VALIDATION_DIR/original_to_reproduced_events.txt"
-```
-
-报告必须保留 split、fusion、1:1、仅公司版、仅复现版五类事件，不能只报告 UTR 数量。解析两份 original-to-updated 报告中的 fusion ID 集合，生成 `fusion_event_match.tsv`，明确公司版 3 个两基因合并事件中有多少被复现。
-
-- [ ] **Step 4: 生成稳定 feature 和候选 TSS 表**
-
-`gff3_to_tables.awk` 解析分号分隔属性，不假设 `ID` 或 `Parent` 的属性顺序，输出：
+For each mRNA, emit:
 
 ```text
-type	seqid	start	end	strand	phase	id	parent	tss
+transcript_id	gene_id	seqid	strand	candidate_tss	five_prime_utr_count	five_prime_utr_length	evidence_class
 ```
 
-非 mRNA 的 `tss` 留空；mRNA 按链计算。`compare_annotations.sh` 对规范化后 TSV 使用 `LC_ALL=C sort`、`join`、`comm` 和 awk 生成：
+Positive strand uses minimum mRNA coordinate; negative strand uses maximum. `evidence_class` is exactly `short_read_rnaseq_candidate`.
 
-- `feature_counts.tsv`
-- `id_coordinate_match.tsv`
-- `coordinate_set_metrics.tsv`
-- `utr_metrics.tsv`
-- `candidate_tss_by_shared_mrna.tsv`
-- `candidate_tss_distance_histogram.tsv`
-- `only_company.tsv`
-- `only_reproduced.tsv`
-- `cds_phase_mismatches.tsv`
-
-- [ ] **Step 5: 写结构硬校验**
-
-最终 GFF3 必须满足：首行 GFF3 声明；gene/mRNA ID 唯一；所有 Parent 可解析；start/end 为正整数且 start 不大于 end；seqid 存在于 FASTA；坐标不超 contig；CDS phase 为 0/1/2；gene、mRNA、exon、CDS 均大于 0。UTR 允许为 0，但必须在报告中明确标红。
-
-- [ ] **Step 6: 运行 fixture 测试并提交**
+- [ ] **Step 5: Test and commit**
 
 ```bash
-bash tss/tss_utr_reproduction_20260710/tests/test_gff3_comparison.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_finalize_compare.sh
 bash -n tss/tss_utr_reproduction_20260710/scripts/run_agat_finalize.sh
-bash -n tss/tss_utr_reproduction_20260710/scripts/compare_annotations.sh
+perl -c tss/tss_utr_reproduction_20260710/scripts/compare_annotations.pl
+perl -c tss/tss_utr_reproduction_20260710/scripts/export_candidate_tss.pl
 git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests
-git commit -m "feat(tss): 增加AGAT整理与注释结构比较"
+git commit -m "feat(tss): 增加AGAT定稿与候选TSS比较"
 ```
 
-### Task 11: 实现总驱动器、断点续跑和 nohup 启动器
+---
+
+### Task 12: Implement the Stage Driver and Postflight Audit
 
 **Files:**
+- Create: `tss/tss_utr_reproduction_20260710/scripts/postflight.sh`
 - Create: `tss/tss_utr_reproduction_20260710/scripts/run_pipeline.sh`
-- Create: `tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh`
-- Create: `tss/tss_utr_reproduction_20260710/tests/test_orchestrator.sh`
+- Create: `tss/tss_utr_reproduction_20260710/tests/test_driver.sh`
 - Modify: `tss/tss_utr_reproduction_20260710/README.md`
 
 **Interfaces:**
-- Consumes: 全部阶段脚本。
-- Produces: 严格阶段顺序、`--stop-after`、`--resume`、PID/driver 日志、run summary。
+- Consumes: all stage scripts and `--run-id/--mode/--threads/--resume/--stop-after`.
+- Produces: ordered execution, resume decisions, final manifest and run status.
 
-- [ ] **Step 1: 写 mocked orchestrator 测试**
+- [ ] **Step 1: Write RED driver tests**
 
-测试用 fake stage 脚本记录调用顺序，覆盖：新 run、`--stop-after fastp`、有效 resume、输出哈希改变后的拒绝 resume、前一阶段失败时下游不执行、已有结果不覆盖。
-
-- [ ] **Step 2: 实现固定阶段图**
-
-驱动器只允许以下顺序和阶段名：
+Use fake stage executables to verify exact order:
 
 ```text
-preflight -> fastp -> star -> stringtie -> pasa_align -> pasa_update -> agat -> compare -> postflight
+preflight fastp star stringtie transcript_prepare pasa_align pasa_update agat compare postflight
 ```
 
-CLI：
+Cover new run, stop-after every stage, valid resume, config/tool/input/output hash mismatch, failed prior stage, blocked fastp and existing final result.
+
+- [ ] **Step 2: Implement CLI and stage dispatch**
+
+CLI:
 
 ```text
-run_pipeline.sh --run-id ID --mode smoke|full --threads N [--resume] [--stop-after STAGE]
+run_pipeline.sh --run-id ID --mode audit|smoke|full --threads N [--resume] [--stop-after STAGE]
 ```
 
-配置文件 SHA-256、Git commit、命令参数在 preflight 时写入 `reports/$RUN_ID/run_manifest.tsv`。同一 run ID 变更配置后不得 resume，必须使用新 run ID。
+`audit` ends after preflight/tool checks. `smoke/full` require approved fastp. Driver sources only `pipeline.env`, validates run ID, and calls stage scripts by absolute project path.
 
-- [ ] **Step 3: 实现 postflight 原始文件保护检查**
+- [ ] **Step 3: Implement postflight**
 
-`postflight` 重新运行 `snapshot_inputs.sh --phase after` 并与 before manifest 做字节级比较；检查 `resources/` 顶层仍只有四个受控文件、原始数据目录仍只有 18 个 FASTQ 和 18 个 MD5、`S1.genome.fasta.fai` 不存在于 resources，并拒绝 reports 中任何超过 10 MiB 的文件。任何变化将 run 标为失败，不发布最终结果。
+Recompute original manifest and require byte equality with preflight manifest. Validate every marker hash, result path, tool lock and final GFF3. Write `reports/$RUN_ID/run_manifest.tsv` and `run_status.tsv`; publish success only after postflight.
 
-- [ ] **Step 4: 实现 nohup 启动器**
+- [ ] **Step 4: Update operator README**
 
-`launch_pipeline.sh` 先创建 `logs/$RUN_ID/`，拒绝已有活动 PID，然后执行：
+README must show source lock, stage commands, current blocked state, exact stop boundary, output locations, resume rules and the fact that PEGS original scripts are not run directly.
+
+- [ ] **Step 5: Test and commit**
 
 ```bash
-nohup bash "$PROJECT_ROOT/scripts/run_pipeline.sh" "$@" \
-  > "$PROJECT_ROOT/logs/$RUN_ID/driver.log" 2>&1 &
-printf '%s\n' "$!" > "$PROJECT_ROOT/logs/$RUN_ID/driver.pid"
+bash tss/tss_utr_reproduction_20260710/tests/test_driver.sh
+bash -n tss/tss_utr_reproduction_20260710/scripts/run_pipeline.sh
+bash -n tss/tss_utr_reproduction_20260710/scripts/postflight.sh
+git add tss/tss_utr_reproduction_20260710/scripts tss/tss_utr_reproduction_20260710/tests/test_driver.sh tss/tss_utr_reproduction_20260710/README.md
+git commit -m "feat(tss): 增加PEGS阶段驱动与运行审计"
 ```
 
-启动器打印 run ID、PID、日志路径和当前 Git commit。不得自动向后台会话注入不同的算法参数。
+---
 
-- [ ] **Step 5: 完成 README 运行手册**
-
-README 写明：参数批准流程、smoke/full 命令、分阶段 `--stop-after` 命令、状态文件位置、失败产物位置、恢复规则、最终结果路径和候选 TSS 解释边界。
-
-- [ ] **Step 6: 运行全部实现测试并提交**
-
-```bash
-for test_script in tss/tss_utr_reproduction_20260710/tests/test_*.sh; do
-  bash "$test_script"
-done
-git diff --check
-```
-
-Expected: 全部测试打印 `[PASS]`，差异检查无输出。
-
-Commit:
-
-```bash
-git add tss/tss_utr_reproduction_20260710/scripts/run_pipeline.sh tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh tss/tss_utr_reproduction_20260710/tests/test_orchestrator.sh tss/tss_utr_reproduction_20260710/README.md
-git commit -m "feat(tss): 增加阶段驱动与断点续跑"
-```
-
-### Task 12: 执行九样本 50,000 read-pair 烟雾测试
+### Task 13: Run Full Static Verification and Independent Review
 
 **Files:**
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/smoke_summary.md`
-- Modify: `tss/tss_utr_reproduction_20260710/config/pipeline.env`（仅在用户批准 fastp 参数后）
+- Modify only files required by validated findings.
+- Create: `tss/tss_utr_reproduction_20260710/reports/static_verification.md`
 
 **Interfaces:**
-- Consumes: 全部实现、用户批准的 fastp 策略、9 个样本各前 50,000 对 reads。
-- Produces: 九样本端到端 smoke run 和不修改原始文件的证据。
+- Consumes: Tasks 1-12 implementation.
+- Produces: reviewed implementation ready for the fastp decision gate.
 
-- [ ] **Step 1: 执行 fastp 决策门禁**
-
-若用户尚未明确批准，停止本任务并保留：
-
-```text
-FASTP_POLICY_STATUS=blocked
-FASTP_MAX_N=0
-```
-
-获得明确批准后才修改为 approved/1，运行配置测试并创建独立本地提交：
+- [ ] **Step 1: Run every focused test**
 
 ```bash
-git add tss/tss_utr_reproduction_20260710/config/pipeline.env tss/tss_utr_reproduction_20260710/README.md
-git commit -m "config(tss): 批准fastp允许单个N碱基"
+bash tss/tss_utr_reproduction_20260710/tests/test_config_contracts.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_toolchain_contract.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_common.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_preflight.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_fastp_gate.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_star_stage.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_stringtie_stage.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_transcript_prepare.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_pasa_configs.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_pasa_align.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_pasa_update.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_finalize_compare.sh
+bash tss/tss_utr_reproduction_20260710/tests/test_driver.sh
 ```
 
-- [ ] **Step 2: 启动九样本 smoke run**
+- [ ] **Step 2: Run syntax, ignore and source scans**
+
+Check every `.sh` with `bash -n`, every `.pl` with PASA-prefix Perl `-c`, no banned resource writes, no company target before compare, no old GMAP/BLAT route, and all representative process files ignored.
+
+- [ ] **Step 3: Run functional toolchain smoke**
+
+Use tiny fixtures to invoke fastp, STAR, StringTie, gffread, CD-HIT, PEGS rename script, safe SeqClean, PASA/minimap2 SQLite initialization and AGAT. Record command, exit code, versions, outputs and hashes in `static_verification.md`.
+
+- [ ] **Step 4: Obtain independent code review**
+
+Review the full implementation range against `design.md` with emphasis on data deletion, overwrite, PEGS fidelity, transcript ID continuity, database isolation and target leakage. Fix all High/Medium findings and repeat review until Approved.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-RUN_ID="smoke_$(date '+%Y%m%d_%H%M%S')_n1"
-bash tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh \
-  --run-id "$RUN_ID" \
+git add tss/tss_utr_reproduction_20260710
+git commit -m "test(tss): 完成PEGS复现流程静态验证"
+```
+
+**Stop:** Task 13 is the last task allowed without a new explicit fastp policy decision.
+
+---
+
+### Task 14: Execute the fastp Company-Exact Audit and Decision Gate
+
+**Files:**
+- Create under ignored paths: `work/<AUDIT_RUN_ID>/fastp_company_exact/`
+- Create: `tss/tss_utr_reproduction_20260710/reports/<AUDIT_RUN_ID>/fastp_decision.md`
+- Modify: `tss/tss_utr_reproduction_20260710/config/pipeline.env` only after explicit user approval.
+
+**Interfaces:**
+- Consumes: S1-S9 first 50,000 pairs and exact `-n 0 -q 20 -f/F/t/T 3`.
+- Produces: nine exact-mode JSON summaries and a decision document; optionally an approved config commit.
+
+- [ ] **Step 1: Run company-exact audit for all nine samples**
+
+```bash
+bash tss/tss_utr_reproduction_20260710/scripts/run_fastp.sh \
+  --run-id "$AUDIT_RUN_ID" \
   --mode smoke \
-  --threads 32
+  --threads 8 \
+  --company-exact-audit
 ```
 
-smoke 模式对 S1-S9 均使用 `--reads_to_process 50000`，不是只测 S1。
+This audit cannot publish a stage marker or feed STAR.
 
-- [ ] **Step 3: 验证 smoke 产物**
+- [ ] **Step 2: Write the decision report**
 
-必须满足：9 个 fastp 样本通过 0.50 门禁；9 个 BAM quickcheck 通过；9 个 StringTie GTF 非空；mergelist 恰有 9 行；merged GTF 与 transcript FASTA 条目数一致；PASA SQLite 和 updated GFF3 非空；AGAT final GFF3 通过结构校验；before/after 输入 manifest 完全一致。
+For each sample report input/output pairs, position-9 N fraction, Q20/Q30, too-many-N count and exact command. State whether all outputs are zero after PEGS trim=3.
 
-- [ ] **Step 4: 记录 smoke 结论并提交小型报告**
+- [ ] **Step 3: Stop for explicit approval**
 
-报告列出每个阶段命令、版本、退出码、运行时间、关键计数和失败警告。不得提交 `work/logs/results/trash` 中任何文件。
+Present only evidence and the minimal candidate `FASTP_MAX_N=1`. Do not edit production config until the user explicitly approves a value.
+
+- [ ] **Step 4: If approved, make one isolated config commit**
+
+Change only:
+
+```text
+FASTP_POLICY_STATUS=approved
+FASTP_MAX_N=1
+```
+
+Record approval text/time in `fastp_decision.md`, rerun config tests, then:
 
 ```bash
-git add "tss/tss_utr_reproduction_20260710/reports/$RUN_ID/smoke_summary.md"
-git commit -m "test(tss): 记录九样本端到端烟雾测试"
+git add tss/tss_utr_reproduction_20260710/config/pipeline.env tss/tss_utr_reproduction_20260710/reports
+git commit -m "config(tss): 批准PEGS数据兼容fastp策略"
 ```
 
-### Task 13: 分阶段执行九样本全量运行
+If approval is not given, the reproducibility conclusion is “company-exact pipeline is not executable on the supplied FASTQ,” and Tasks 15-16 do not run.
+
+---
+
+### Task 15: Execute the Nine-Sample Full Run with Stage Reviews
 
 **Files:**
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/fastp_review.md`
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/star_review.md`
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/stringtie_review.md`
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/pasa_review.md`
+- Create under ignored paths: `work/<FULL_RUN_ID>/`, `logs/<FULL_RUN_ID>/`, `results/<FULL_RUN_ID>/`, `trash/<FULL_RUN_ID>/`
+- Create tracked small reports under: `reports/<FULL_RUN_ID>/`
 
 **Interfaces:**
-- Consumes: 已通过 smoke 的同一 Git commit 和已批准配置。
-- Produces: 九样本全量中间结果及四个阶段审核点。
+- Consumes: approved policy and reviewed implementation.
+- Produces: complete final GFF3 and stage QC reports.
 
-- [ ] **Step 1: 创建不可变 full run ID 并只运行到 fastp**
-
-```bash
-RUN_ID="full_$(date '+%Y%m%d_%H%M%S')_n1"
-bash tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh \
-  --run-id "$RUN_ID" \
-  --mode full \
-  --threads 32 \
-  --stop-after fastp
-```
-
-审核 9 个样本的 input/output pairs、pass fraction、Q20/Q30、GC、adapter、too-many-N；任一样本失败不进入 STAR。
-
-- [ ] **Step 2: 恢复并只运行到 STAR**
+- [ ] **Step 1: Start and review fastp only**
 
 ```bash
-bash tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh \
-  --run-id "$RUN_ID" \
-  --mode full \
-  --threads 32 \
-  --resume \
-  --stop-after star
+nohup bash tss/tss_utr_reproduction_20260710/scripts/run_pipeline.sh \
+  --run-id "$FULL_RUN_ID" --mode full --threads 16 --stop-after fastp \
+  > "tss/tss_utr_reproduction_20260710/logs/$FULL_RUN_ID/driver.fastp.log" 2>&1 &
 ```
 
-审核 9 个 BAM、mapping 分类、splice junction、mismatch、bedGraph 和磁盘占用；不根据公司结果改变 STAR 参数。
+Record PID. Continue only when 9 outputs pass gzip/pair/pass-fraction gates and input manifest is unchanged.
 
-- [ ] **Step 3: 恢复并只运行到 StringTie merge**
+- [ ] **Step 2: Resume through STAR and review**
+
+Resume with `--stop-after star`. Review 9 BAM quickchecks, mapped counts, splice junctions, mismatch rates, bedGraph files, strandedness report and disk use.
+
+- [ ] **Step 3: Resume through StringTie and review**
+
+Resume with `--stop-after stringtie`. Review nine GTF, exact guide path, strict merge list, merged transcript/exon counts and coordinate validity.
+
+- [ ] **Step 4: Resume through transcript preparation and review**
+
+Resume with `--stop-after transcript_prepare`. Review raw/dedup/renamed/clean counts, CD-HIT clusters, one-to-one ID map, SeqClean reasons, UniVec hashes and clean transcript length distribution.
+
+- [ ] **Step 5: Resume through PASA alignment and review**
+
+Resume with `--stop-after pasa_align`. Review minimap2 command, 75/85 thresholds, SQLite quick check, transcript ID continuity, valid/failed alignments and assembly counts.
+
+- [ ] **Step 6: Finish update, AGAT, comparison and postflight**
+
+Resume without `--stop-after`. Require alignment DB hash unchanged, one update round, unique updated GFF3, final structure pass and before/after input manifest equality.
+
+- [ ] **Step 7: Record run completion commit**
+
+Track only small reports and manifests; verify generated GFF3 remains ignored.
 
 ```bash
-bash tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh \
-  --run-id "$RUN_ID" \
-  --mode full \
-  --threads 32 \
-  --resume \
-  --stop-after stringtie
+git add tss/tss_utr_reproduction_20260710/reports
+git commit -m "data(tss): 记录PEGS九样本复现运行结果"
 ```
 
-审核每样本 transcript 数、九样本总数、merged transcript 数和去冗余比例；确认合并来自 9 个独立 GTF。
+---
 
-- [ ] **Step 4: 恢复并只运行到 PASA alignment assembly**
-
-```bash
-bash tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh \
-  --run-id "$RUN_ID" \
-  --mode full \
-  --threads 32 \
-  --resume \
-  --stop-after pasa_align
-```
-
-审核 GMAP/BLAT alignment、有效/失败 transcript、PASA assembly 数、SQLite 完整性和 checkpoint 状态。
-
-- [ ] **Step 5: 完成 PASA update、AGAT、比较和 postflight**
-
-```bash
-bash tss/tss_utr_reproduction_20260710/scripts/launch_pipeline.sh \
-  --run-id "$RUN_ID" \
-  --mode full \
-  --threads 32 \
-  --resume
-```
-
-只有 PASA update、AGAT、compare 和 postflight 全部完成，run 才能标记为 success。
-
-### Task 14: 形成最终复现结论和交付报告
+### Task 16: Produce the Final Reproduction and Scientific Validation Report
 
 **Files:**
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/final_report.md`
-- Create: `tss/tss_utr_reproduction_20260710/reports/$RUN_ID/reproduction_verdict.tsv`
+- Create: `tss/tss_utr_reproduction_20260710/reports/<FULL_RUN_ID>/reproduction_report.md`
+- Create: `tss/tss_utr_reproduction_20260710/reports/<FULL_RUN_ID>/feature_counts.tsv`
+- Create: `tss/tss_utr_reproduction_20260710/reports/<FULL_RUN_ID>/coordinate_comparison.tsv`
+- Create: `tss/tss_utr_reproduction_20260710/reports/<FULL_RUN_ID>/candidate_tss.tsv`
+- Create: `tss/tss_utr_reproduction_20260710/reports/<FULL_RUN_ID>/utr_summary.tsv`
 - Modify: `tss/tss_utr_reproduction_20260710/README.md`
 
 **Interfaces:**
-- Consumes: `results/$RUN_ID/S1.genome_reproduced.gff3`、全部阶段报告、公司版基准。
-- Produces: 可追溯的复现判定，不通过调参追求预设一致。
+- Consumes: accepted full run and company target.
+- Produces: final audit conclusion with known/inferred/hypothesized labels.
 
-- [ ] **Step 1: 核对公司版已知基准**
+- [ ] **Step 1: Assemble provenance and stage QC**
 
-公司版应报告 gene 10,367、mRNA 10,367、exon 15,477、CDS 15,272、five_prime_UTR 3,051、three_prime_UTR 2,922。若重新统计不一致，先阻断并调查比较脚本，不能继续解释复现差异。
+Report input hashes, PEGS commit, tool lock, exact commands, fastp deviation, all stage counts, PASA event summary and AGAT changes.
 
-- [ ] **Step 2: 生成复现判定表**
+- [ ] **Step 2: Compare against the company baseline**
 
-`reproduction_verdict.tsv` 至少包含：
+Explicitly compare against 10,367 genes, 10,367 mRNAs, 15,477 exons, 15,272 CDS, 3,051 five-prime UTR and 2,922 three-prime UTR. Report exact feature-coordinate matches, boundary deltas, 2,972 known mRNA-boundary changes, 1,957 known CDS changes and the 3 known merge events without treating them as tuning targets.
 
-```text
-metric	company	reproduced	exact_or_rate	verdict
-```
+- [ ] **Step 3: State the scientific conclusion**
 
-指标覆盖 feature 数、gene/mRNA ID 集、同 ID 坐标精确率、exon/CDS/UTR 坐标集合、CDS phase、split/fusion、候选 TSS 精确率和距离分布。
+Separate:
 
-- [ ] **Step 3: 写最终报告**
+- reproduced candidate UTR annotations;
+- candidate TSS derived from mRNA boundaries;
+- differences caused by fastp compatibility, StringTie, transcript cleaning, PASA and AGAT;
+- uncertainty from the unknown historical PEGS commit and historical UniVec snapshot;
+- evidence that cannot be validated without 5'-end-specific experiments.
 
-报告按“输入与版本 → 各阶段 QC → PASA 更新事件 → AGAT 变化 → 公司版结构比较 → 候选 TSS/UTR 结论 → 未复现差异及来源”组织。逐项标注已知、推断、假设；候选 TSS 不能表述为实验验证 TSS。
+- [ ] **Step 4: Update README status and verify report links**
 
-- [ ] **Step 4: 应用严格结论措辞**
+README must point to final GFF3 location, report directory and current result status. All Markdown links must resolve; no ignored large file is staged.
 
-- 全部规范化结构一致：写“结构级精确复现”。
-- 主体一致但存在差异：写匹配率并列出差异来源。
-- 仅 UTR/TSS 数量接近：不得写“复现成功”。
-- fastp 参数偏差必须在 Methods 和限制中单列。
-
-- [ ] **Step 5: 最终验证和本地提交**
+- [ ] **Step 5: Final verification and commit**
 
 ```bash
-for test_script in tss/tss_utr_reproduction_20260710/tests/test_*.sh; do
-  bash "$test_script"
-done
-git check-ignore -v --no-index \
-  "tss/tss_utr_reproduction_20260710/work/$RUN_ID/example.bam" \
-  "tss/tss_utr_reproduction_20260710/logs/$RUN_ID/driver.log" \
-  "tss/tss_utr_reproduction_20260710/results/$RUN_ID/S1.genome_reproduced.gff3" \
-  "tss/tss_utr_reproduction_20260710/trash/$RUN_ID/failed.out"
+bash tss/tss_utr_reproduction_20260710/tests/test_driver.sh
 git diff --check
+git status --short
+git add tss/tss_utr_reproduction_20260710/README.md tss/tss_utr_reproduction_20260710/reports
+git commit -m "docs(tss): 完成PEGS复现与TSS候选验证报告"
 ```
 
-Expected: 全部测试 PASS，四类大文件路径均命中 `.gitignore`，差异检查无输出。
+## Final Acceptance Checklist
 
-```bash
-git add tss/tss_utr_reproduction_20260710/README.md "tss/tss_utr_reproduction_20260710/reports/$RUN_ID"
-git commit -m "docs(tss): 记录S1注释复现与结构验证结果"
-```
-
-## 5. 阶段门禁总表
-
-| 阶段 | 通过条件 | 失败处理 |
-| --- | --- | --- |
-| preflight | 版本、MD5、磁盘、策略、参考副本全部通过 | 停止；不创建下游任务 |
-| fastp | 9 样本输出非空、gzip 完整、pass fraction ≥ 0.50 | 停止；样本产物移入 trash |
-| STAR | 索引完整、9 BAM quickcheck、alignment > 0 | 停止；不运行 StringTie |
-| StringTie | 9 GTF 非空、mergelist 九行、merged transcript > 0 | 停止；不运行 PASA |
-| PASA align | DB 核心表存在、GMAP/BLAT 有效、assembly > 0 | 保留 checkpoint 后恢复 |
-| PASA update | 独立 DB 副本、唯一更新 GFF3、结构合法 | attempt 移入 trash，从 alignment DB 重建 |
-| AGAT | longest 和 normalized GFF3 非空、结构校验通过 | 停止；不发布 results |
-| compare | 公司基准复算正确、全部比较表生成 | 停止；修复比较逻辑，不调流程参数 |
-| postflight | before/after 输入 manifest 完全一致 | run 标记失败并阻止发布 |
-
-## 6. 预期交付物
-
-| 交付物 | Git 状态 |
-| --- | --- |
-| 配置、样本表、阶段脚本、测试、README | 跟踪 |
-| PASA 两份模板 | 跟踪 |
-| smoke/final 小型 Markdown 与 TSV 报告 | 跟踪 |
-| fastp FASTQ/HTML/JSON、STAR 索引/BAM/bedGraph | 忽略 |
-| StringTie GTF、PASA FASTA/SQLite/checkpoint/GFF3 | 忽略 |
-| AGAT 过程 GFF3、最终生成 GFF3 | 忽略 |
-| 失败 attempt 和历史 run 大文件 | `trash/` 中保存并忽略 |
-
-## 7. 完成定义
-
-1. 所有静态、fixture、orchestrator 测试通过。
-2. 九样本 smoke run 端到端通过，且原始输入 before/after manifest 一致。
-3. 九样本 full run 按四个审核点完成，无样本被静默跳过。
-4. 最终 GFF3 通过语法、层级、坐标和 CDS phase 校验。
-5. 复现版与公司版的 feature、ID、坐标、UTR、融合/拆分和候选 TSS 差异均可追溯。
-6. 报告明确记录 fastp 参数偏差，不把候选 TSS 写成实验验证 TSS。
-7. Git 仅包含代码、配置和小型报告，工作区不存在未忽略的大文件。
+- [ ] PEGS source commit and four source hashes match.
+- [ ] Five company tools and all PEGS supplemental dependencies pass real calls.
+- [ ] Task 3 independent review findings are all closed.
+- [ ] No original input or company target changes.
+- [ ] 9 samples are processed independently before the strict union.
+- [ ] CD-HIT/SeqClean counts and transcript ID mapping are complete.
+- [ ] PASA uses minimap2 and the 75/85/0/50 PEGS filters.
+- [ ] PASA update uses an independent DB and one annotation round.
+- [ ] Final AGAT GFF3 is structurally valid.
+- [ ] Every large/intermediate artifact is ignored.
+- [ ] Exact-mode fastp failure and any approved deviation are explicit.
+- [ ] Candidate TSS is not described as experimentally validated TSS.
+- [ ] Final result can be traced to source, config, input, tool and stage hashes.
