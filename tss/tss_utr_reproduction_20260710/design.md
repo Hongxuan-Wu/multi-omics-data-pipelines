@@ -13,6 +13,17 @@
 
 本项目不把普通 RNA-seq 推断的 mRNA 5' 端表述为实验验证的 TSS。最终只能输出候选 TSS，即链方向上的转录本 5' 端坐标。
 
+### 1.1 运行时审核结论（2026-07-10）
+
+| 审核项 | 结论 | 证据 |
+| --- | --- | --- |
+| 五个软件入口 | 通过 | fastp 0.23.1、STAR 2.7.9a、StringTie 2.2.0、PASA 2.5.2 和 AGAT 0.8.0 均以各自 conda prefix 成功调用 |
+| 下游功能链 | 通过 | 已完成真实 FASTQ 子集的 STAR 比对、StringTie 组装/合并、PASA SQLite 初始化与转录本提取、GMAP/BLAT 功能测试及 AGAT GFF3 处理 |
+| 原始文件隔离 | 通过 | 所有测试产物均位于被忽略的 `work/`；原始 FASTA、GFF、公司版 GFF3 和流程图的校验和未变化 |
+| fastp 流程参数 | **阻断** | 9 个样本各抽检 10,000 条 R1，所有样本第 9 位的 `N` 比例均为 100%；S1 前 50,000 对 reads 使用 `-n 0 -q 20` 后输出为 0 对 reads |
+
+五个软件本身均可正常调用，但流程图指定的 fastp `-n 0` 与当前数据不兼容，因此完整复现运行尚不具备启动条件。`-n 1 -q 20` 的审核分支在 S1 前 50,000 对 reads 中保留了 49,937 对，可作为最小兼容候选；它不是流程图原参数，必须在正式运行前由用户明确确认并记录为参数偏差，不能静默替换。
+
 ## 2. 已知输入与基准
 
 | 类型 | 路径或规模 | 状态 |
@@ -21,7 +32,7 @@
 | 原始注释 | `tss/resources/S1.genome.gff`，10,370 个 gene | 已纳入版本控制 |
 | 原始 RNA-seq | `tss/resources/裂殖壶菌原始数据-BYT2025041001/` | 9 个样本、18 个 BGZF FASTQ、约 53 GB |
 | 原始数据校验 | 每个 FASTQ 均有同名 `.md5` 文件 | 运行前逐一校验 |
-| 公司结果 | `tss/resources/S1.genome_new.gff3` | 只用于最终验证 |
+| 公司结果 | `tss/resources/S1.genome_new.gff3` | 只读基准，仅用于审核和最终验证 |
 | 流程图 | `tss/resources/tss注释流程.png` | 唯一公司流程说明 |
 
 公司结果的已知结构基准如下：
@@ -52,6 +63,25 @@
 | AGAT | 使用 `agat_sp_keep_longest_isoform.pl` 默认规则，每个基因保留最长 CDS 或最长拼接 exon 的 isoform |
 | 公司排序脚本 | 不复刻；使用确定性 GFF3 排序，比较时忽略行顺序和属性顺序 |
 
+### 3.1 五个工具的固定调用入口
+
+所有工具统一通过各自环境的**绝对 conda prefix** 调用。相对 prefix 会随阶段工作目录变化而解析到错误位置，因此脚本必须拒绝相对路径。
+
+```bash
+TOOL_ROOT=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools
+PASA_HOME="$TOOL_ROOT/pasa/env/opt/pasa-2.5.2"
+```
+
+| 工具 | 固定调用形式 |
+| --- | --- |
+| fastp | `conda run --no-capture-output -p "$TOOL_ROOT/fastp/env" fastp ...` |
+| STAR | `conda run --no-capture-output -p "$TOOL_ROOT/STAR/env" STAR ...` |
+| StringTie | `conda run --no-capture-output -p "$TOOL_ROOT/stringtie/env" stringtie ...` |
+| PASA | `conda run --no-capture-output -p "$TOOL_ROOT/pasa/env" "$PASA_HOME/Launch_PASA_pipeline.pl" ...` |
+| AGAT | `conda run --no-capture-output -p "$TOOL_ROOT/agat/env" agat_sp_keep_longest_isoform.pl ...` |
+
+PASA 环境的激活脚本会设置 `PASAHOME`，但不会将其加入 `PATH`，因此直接调用 `Launch_PASA_pipeline.pl` 会失败。启动器和 `misc_utilities/cufflinks_gtf_genome_to_cdna_fasta.pl` 必须使用 `$PASA_HOME` 下的完整路径；GMAP 和 BLAT 则通过 PASA conda prefix 调用。不能依赖交互式 shell 当前的 `PATH`、`PASAHOME` 或 base 环境。
+
 ## 4. 项目目录
 
 ```text
@@ -75,7 +105,7 @@ tss/tss_utr_reproduction_20260710/
 - 忽略 `work/`、`logs/` 和 `results/`，其中包含 FASTQ、STAR 索引、BAM、bedGraph、GTF、PASA SQLite 数据库、检查点和生成版 GFF3。
 - `tss/tools/` 和原始测序数据目录继续由 `tss/.gitignore` 屏蔽。
 
-实施阶段将在 `tss/.gitignore` 增加：
+`tss/.gitignore` 已增加：
 
 ```gitignore
 /tss_utr_reproduction_20260710/work/
@@ -86,7 +116,10 @@ tss/tss_utr_reproduction_20260710/
 ## 5. 数据流
 
 ```text
-9 对原始 FASTQ
+只读原始 FASTQ、参考 FASTA 和原始 GFF
+  -> MD5/SHA-256 输入校验
+  -> FASTA/GFF 复制或 reflink 到 work/<RUN_ID>/reference/
+运行目录内的参考副本 + 9 对只读原始 FASTQ
   -> 每样本 fastp
   -> 每样本 STAR SortedByCoordinate BAM + bedGraph
   -> 每样本 StringTie guided assembly
@@ -112,6 +145,8 @@ tss/tss_utr_reproduction_20260710/
 3. 检查 FASTA 序列 ID 与 GFF 第 1 列的一致性。
 4. 对原始 GFF3 检查 feature 数量、ID 唯一性、Parent 关系、坐标范围和 CDS phase。
 5. 记录输入文件大小、mtime、MD5/SHA-256 和工具版本。
+6. 将参考 FASTA 和 GFF 复制或 reflink 到 `work/<RUN_ID>/reference/`，再次校验副本与原件的 SHA-256 一致。
+7. 后续 STAR、StringTie 和 PASA 只使用运行目录内的参考副本；原始 FASTQ 只作为 fastp 的只读输入。
 
 任何 FASTQ 校验失败都会阻断后续运行，不通过跳过样本的方式继续。
 
@@ -125,9 +160,11 @@ tss/tss_utr_reproduction_20260710/
 
 其余过滤、接头处理、长度阈值和 polyG/polyX 行为使用 v0.23.1 默认值。每个样本保留 JSON 和 HTML 报告，汇总过滤前后 reads、bases、Q20、Q30、GC 和失败原因。
 
+审核发现该参数会因 R1 第 9 位的系统性 `N` 清空已测试数据。正式脚本必须增加非空门禁：任一样本输出 read pair 数为 0，或低于输入的预设最低比例时立即阻断，不能生成 STAR 任务。当前保留 `-n 0 -q 20` 仅用于忠实记录流程图；在用户确认改为 `-n 1` 或其他有依据的处理方案前，不启动九样本正式运行。
+
 ### 6.3 STAR
 
-使用 STAR v2.7.9a 构建一次共享索引。参考基因组约 40 Mb，`genomeSAindexNbases` 按 STAR 小基因组公式设置为 11；该值属于基因组规模适配，不属于经验调参。
+使用 STAR v2.7.9a 基于运行目录内的 FASTA 副本构建一次共享索引。参考基因组约 40 Mb，`genomeSAindexNbases` 按 STAR 小基因组公式设置为 11；该值属于基因组规模适配，不属于经验调参。
 
 每个样本独立比对，保留流程图明确参数：
 
@@ -143,20 +180,20 @@ tss/tss_utr_reproduction_20260710/
 每个样本使用 StringTie v2.2.0 对自己的 STAR BAM 进行有参组装：
 
 ```text
--G tss/resources/S1.genome.gff
+-G work/<RUN_ID>/reference/S1.genome.gff
 ```
 
 不添加 `--rf`、`--fr`、`-e` 或 `-t`。覆盖度、junction、isoform fraction、最小长度和端部 trimming 使用 v2.2.0 默认值。每个样本生成独立 GTF 和基础统计。
 
 ### 6.5 九样本合并
 
-将 9 个单样本 GTF 写入固定顺序的 `mergelist.txt`，按 S1 到 S9 顺序执行 `stringtie --merge`。合并阶段继续使用原始 GFF 作为 guide，其余 merge 阈值使用 v2.2.0 默认值。
+将 9 个单样本 GTF 写入固定顺序的 `mergelist.txt`，按 S1 到 S9 顺序执行 `stringtie --merge`。合并阶段继续使用运行目录内的原始 GFF 副本作为 guide，其余 merge 阈值使用 v2.2.0 默认值。
 
 该结果定义为九样本非冗余转录本并集，不等同于简单文本拼接，也不通过合并 BAM 后重新组装替代。
 
 ### 6.6 转录本 FASTA
 
-使用 PASA 2.5.2 自带的 `cufflinks_gtf_genome_to_cdna_fasta.pl` 从 `merged.gtf` 和 `S1.genome.fasta` 提取转录本 FASTA。该工具明确支持 Cufflinks/StringTie GTF，不增加新的外部软件。
+使用 PASA 2.5.2 自带的 `cufflinks_gtf_genome_to_cdna_fasta.pl` 从 `merged.gtf` 和 `work/<RUN_ID>/reference/S1.genome.fasta` 提取转录本 FASTA。该工具明确支持 Cufflinks/StringTie GTF，不增加新的外部软件。
 
 提取后检查：
 
@@ -170,7 +207,7 @@ tss/tss_utr_reproduction_20260710/
 PASA v2.5.2 使用 SQLite 数据库：
 
 ```text
-/data/p252701008/projects/multi-omics-data-pipelines/tss/tss_utr_reproduction_20260710/work/pasa/S1_pasa.sqlite
+/data/p252701008/projects/multi-omics-data-pipelines/tss/tss_utr_reproduction_20260710/work/<RUN_ID>/pasa/S1_pasa.sqlite
 ```
 
 alignment assembly 阶段使用 GMAP 和 BLAT。两者均随当前 PASA conda prefix 安装。PASA 要求显式指定至少一个 aligner，因此选择官方帮助示例中的 `gmap,blat` 组合。
@@ -185,6 +222,8 @@ alignment assembly 阶段使用 GMAP 和 BLAT。两者均随当前 PASA conda pr
 
 源码帮助文本仍写 100,000 bp，但实际变量初始化为 500,000 bp。本项目以运行代码为准，并在报告中记录该差异。
 
+PASA 会在参考 FASTA 同目录自动创建 `.fai`，并在当前工作目录生成 checkpoint、日志和数据库相关文件。因此 PASA 的参考输入和当前工作目录都必须位于 `work/<RUN_ID>/`，不能直接使用 `tss/resources/S1.genome.fasta` 作为运行参数。
+
 alignment 配置采用：
 
 | 配置项 | 值 |
@@ -195,7 +234,7 @@ alignment 配置采用：
 
 ### 6.8 PASA annotation compare/update
 
-首次更新时加载 `S1.genome.gff`，执行一次 annotation compare/update。`annotCompare.config` 显式写入 PASA 2.5.2 源码默认值：
+首次更新时加载运行目录副本 `work/<RUN_ID>/reference/S1.genome.gff`，执行一次 annotation compare/update。`annotCompare.config` 显式写入 PASA 2.5.2 源码默认值：
 
 | 参数 | 值 |
 | --- | ---: |
@@ -237,7 +276,19 @@ agat_sp_keep_longest_isoform.pl
 | PASA | 有效 alignment、更新/合并/拆分/拒绝事件及其原因 |
 | AGAT | 删除的 isoform 数、坐标修复、重复和 orphan 记录 |
 
-### 7.2 最终结构验证
+### 7.2 工具功能审核记录
+
+| 工具 | 审核范围 | 结果 |
+| --- | --- | --- |
+| fastp 0.23.1 | S1 前 50,000 对真实 reads | 程序正常退出；`-n 0` 清空数据，参数兼容性失败；仅审核用 `-n 1` 分支保留 49,937 对 |
+| STAR 2.7.9a | 完整约 39.9 Mb 参考索引及 49,937 对真实 reads 比对 | 通过；BAM 通过 `samtools quickcheck`，唯一比对率 81.44% |
+| StringTie 2.2.0 | 真实 BAM guided assembly 及单文件 merge 路径 | 通过；单样本子集得到 1,246 个 transcript，merge 正常完成 |
+| PASA 2.5.2 | SQLite schema、GTF 转 FASTA、GMAP 和 BLAT | 通过；10,538 个 merged transcript 均提取为 FASTA，GMAP/BLAT 均完成功能性比对 |
+| AGAT 0.8.0 | 对公司版 GFF3 的只读输入处理 | 通过；输出写入 `work/`，原件未修改 |
+
+以上结果证明软件安装与调用链可用，不代表九样本正式分析已经完成。BAM 完整性校验使用 PASA prefix 中作为依赖安装的 samtools，不将其计为主流程的第六个软件。审核数据和日志位于 `work/smoke_20260710_review1/`，由 `.gitignore` 屏蔽。
+
+### 7.3 最终结构验证
 
 最终比较前，将复现版和公司版 GFF3 规范化为与行顺序、属性顺序无关的 feature 表。比较内容包括：
 
@@ -251,25 +302,30 @@ agat_sp_keep_longest_isoform.pl
 8. 候选 TSS 坐标的精确匹配、距离分布和链一致性。
 9. 仅存在于复现版或公司版的结构差异清单。
 
-### 7.3 成功判据
+### 7.4 成功判据
 
 技术复现成功要求：
 
-1. 所有 9 个样本通过输入校验并完成全部阶段。
-2. 最终 GFF3 通过语法、ID、Parent、坐标和 CDS phase 校验。
-3. 每一步具有命令、版本、配置、日志和统计证据。
-4. 最终差异可逐 gene 追溯到 StringTie、PASA 或 AGAT 阶段。
+1. fastp 正式参数已明确确认并记录；所有 9 个样本的输出 FASTQ 非空且通过 read pair 数门禁。
+2. 所有 9 个样本通过输入校验并完成全部阶段。
+3. 最终 GFF3 通过语法、ID、Parent、坐标和 CDS phase 校验。
+4. 每一步具有命令、版本、配置、日志和统计证据。
+5. 最终差异可逐 gene 追溯到 StringTie、PASA 或 AGAT 阶段。
 
 与公司结果是否相同属于验证结果，而不是预设条件。只有规范化后的全部结构完全一致时，才表述为结构级精确复现；否则报告匹配率和差异原因，不通过调整官方默认参数追求目标文件。
 
 ## 8. 运行、恢复与文件保护
 
-1. 每次完整运行使用不可变 run ID，已有结果不覆盖。
-2. 长任务使用后台运行和独立日志，保存 PID、开始时间、结束时间和退出码。
-3. 各阶段成功后写入完成标记，下游只读取通过校验的上游产物。
-4. 失败重跑从最近有效检查点继续。
-5. 不删除任何文件；需要隔离的失败产物移动到项目 `trash/` 下按 run ID 分类保存。
-6. 运行前检查可用磁盘，运行过程中记录 FASTQ、BAM、索引和 PASA 数据库占用。
+1. `tss/resources/` 和 `tss/tools/` 定义为不可写输入区；脚本启动时解析真实路径，并拒绝任何落入这两个目录的输出路径。
+2. 每次完整运行使用不可变 run ID，全部可写路径限定为 `work/<RUN_ID>/`、`logs/<RUN_ID>/` 和 `results/<RUN_ID>/`，已有结果不覆盖。
+3. 每个阶段的当前工作目录必须位于 `work/<RUN_ID>/<STAGE>/`，不能在仓库根目录、`resources/` 或 `tools/` 中启动软件。
+4. FASTA/GFF 在运行开始时复制或 reflink 到 `work/<RUN_ID>/reference/`；STAR、StringTie 和 PASA 只读取该副本。
+5. 运行前后比较原始 FASTQ、FASTA、GFF、公司版 GFF3 和流程图的文件清单、大小、mtime 与校验和；任何变化都判定为文件保护失败。
+6. 长任务使用后台运行和独立日志，保存 PID、开始时间、结束时间和退出码。
+7. 各阶段成功后写入完成标记，下游只读取通过校验的上游产物。
+8. 失败重跑从最近有效检查点继续。
+9. 不删除任何文件；需要隔离的失败产物移动到项目 `trash/` 下按 run ID 分类保存。
+10. 运行前检查可用磁盘，运行过程中记录 FASTQ、BAM、索引和 PASA 数据库占用。
 
 ## 9. 交付物
 
