@@ -70,12 +70,17 @@ validate_config() {
 should_include_jgi_file() {
   local file_name="$1"
   case "${file_name}" in
-    *protein*.fa.gz|*proteins*.fa.gz|*cds*.fa.gz|*CDS*.fa.gz)
+    *protein*.fa.gz|*Protein*.fa.gz|*proteins*.fa.gz|*Proteins*.fa.gz|*cds*.fa.gz|*CDS*.fa.gz)
       [[ "${DOWNLOAD_PROTEIN_CDS_SEQUENCES}" == "1" ]]
       return
       ;;
+    *gff3.gz|*gff.gz|*cazy*|*CAZy*|*smurf*|*SMURF*|*annotation*|*Annotation*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
   esac
-  return 0
 }
 
 urlencode() {
@@ -130,7 +135,7 @@ load_frozen_manifest_if_present() {
     [[ -z "${extra:-}" ]] || die "冻结 manifest 行字段错误：列数超过 6，organism=${organism:-unknown}。"
     validate_jgi_manifest_record "冻结 manifest" "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
     if ! should_include_jgi_file "${file_name}"; then
-      printf 'frozen_manifest\tSKIPPED_SEQUENCE_BY_SWITCH\t%s\t%s\n' "${organism}" "${file_name}" >> "${DIFF_REPORT}"
+      printf 'frozen_manifest_filter\tSKIPPED_BY_PATTERN_OR_SEQUENCE_SWITCH\t%s\t%s\n' "${organism}" "${file_name}" >> "${DIFF_REPORT}"
       continue
     fi
     append_jgi_plan_record "${organism}" "${file_id}" "${file_name}" "${file_size}" "${md5}" "${download_url}"
@@ -182,16 +187,16 @@ build_download_plan() {
           printf 'api_file_list\tSKIPPED_BAD_FIELD_COUNT\t%s\n' "${file_line}" >> "${DIFF_REPORT}"
           continue
         }
+        if ! should_include_jgi_file "${file_name}"; then
+          printf 'api_file_filter\tSKIPPED_BY_PATTERN_OR_SEQUENCE_SWITCH\t%s\t%s\n' "${organism}" "${file_name}" >> "${DIFF_REPORT}"
+          continue
+        fi
         case "${file_name}" in
-          *gff3.gz|*gff.gz|*protein*.fa.gz|*proteins*.fa.gz|*cds*.fa.gz|*CDS*.fa.gz|*cazy*|*CAZy*|*smurf*|*SMURF*|*annotation*|*Annotation*)
+          *gff3.gz|*gff.gz|*protein*.fa.gz|*Protein*.fa.gz|*proteins*.fa.gz|*Proteins*.fa.gz|*cds*.fa.gz|*CDS*.fa.gz|*cazy*|*CAZy*|*smurf*|*SMURF*|*annotation*|*Annotation*)
             [[ "${file_status}" == "available" || "${file_status}" == "published" || "${file_status}" == "active" || "${file_status}" == "unknown" ]] || {
               printf 'api_file_status\tSKIPPED_%s\t%s\n' "${file_status}" "${file_name}" >> "${DIFF_REPORT}"
               continue
             }
-            if ! should_include_jgi_file "${file_name}"; then
-              printf 'api_file_list\tSKIPPED_SEQUENCE_BY_SWITCH\t%s\t%s\n' "${organism}" "${file_name}" >> "${DIFF_REPORT}"
-              continue
-            fi
             download_json="${TMP_DIR}/download_${file_id}.json"
             if ! curl -fsSL --retry 5 --retry-delay 10 -u "${JGI_USER}:${JGI_PASS}" \
               -H 'Content-Type: application/json' \
