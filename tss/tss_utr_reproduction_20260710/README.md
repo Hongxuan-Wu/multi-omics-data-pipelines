@@ -22,4 +22,4 @@ Formal execution is blocked: `FASTP_POLICY_STATUS=blocked` and `FASTP_MAX_N=0` i
 
 ## Outputs And Reference Constraint
 
-Pipeline outputs are confined to `work/`, `logs/`, and `results/`; failed artifacts are placed in `trash/`. The company GFF3 is read-only and must not be used for parameter tuning.
+Every run must use run-scoped directories: `work/$RUN_ID`, `logs/$RUN_ID`, `results/$RUN_ID`, and `trash/$RUN_ID`. `reports/$RUN_ID` may contain only small Markdown and TSV files; it must not contain large intermediate or result files. The company GFF3 is read-only and must not be used for parameter tuning.
