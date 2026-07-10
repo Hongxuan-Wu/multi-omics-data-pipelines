@@ -205,10 +205,73 @@ init_run_layout() {
     printf '%s\n' "${config_hash}" > "${RUN_CONFIG_HASH_FILE}"
 }
 
+rename_noreplace() {
+    local source_path="$1"
+    local destination="$2"
+    local perl_bin="${PASA_PREFIX}/bin/perl"
+    local status
+
+    [[ -x "${perl_bin}" ]] || {
+        die "PASA Perl 不可执行：${perl_bin}"
+        return 1
+    }
+
+    if "${perl_bin}" -MConfig -MErrno=EEXIST -e '
+use strict;
+use warnings;
+
+my ($source, $destination) = @ARGV;
+my $arch = $Config{archname} // q{};
+my $renameat2_number;
+
+if ($arch =~ /\Ax86_64-linux(?:-|$)/) {
+    $renameat2_number = 316;
+} elsif ($arch =~ /\Aaarch64-linux(?:-|$)/) {
+    $renameat2_number = 276;
+} else {
+    warn "unsupported Linux renameat2 architecture: $arch\n";
+    exit 2;
+}
+
+my $result = syscall($renameat2_number, -100, $source, -100, $destination, 1);
+exit 0 if $result == 0;
+
+my $errno = 0 + $!;
+my $error = "$!";
+exit 17 if $errno == EEXIST;
+warn "renameat2(RENAME_NOREPLACE) failed: errno=$errno: $error\n";
+exit 1;
+' -- "${source_path}" "${destination}"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    if (( status == 0 )); then
+        if [[ ! -e "${source_path}" && ! -L "${source_path}" && \
+            ( -e "${destination}" || -L "${destination}" ) ]]; then
+            return 0
+        fi
+        die "renameat2 成功后源和目标状态异常：${source_path} -> ${destination}"
+        return 1
+    fi
+
+    if (( status == 17 )); then
+        if [[ ( -e "${source_path}" || -L "${source_path}" ) && \
+            ( -e "${destination}" || -L "${destination}" ) ]]; then
+            return 17
+        fi
+        die "renameat2 EEXIST 后源和目标状态异常：${source_path} -> ${destination}"
+        return 1
+    fi
+
+    return "${status}"
+}
+
 move_to_trash() {
     local source_path="$1"
     local reason="$2"
-    local basename timestamp destination suffix=0
+    local basename timestamp destination status suffix=0
 
     require_run_id || return 1
     [[ -e "${source_path}" || -L "${source_path}" ]] || {
@@ -232,24 +295,18 @@ move_to_trash() {
         fi
         assert_process_output_path "${destination}" || return 1
 
-        if mv --no-copy --no-clobber --no-target-directory -- "${source_path}" "${destination}" 2>/dev/null; then
-            if [[ ! -e "${source_path}" && ! -L "${source_path}" && \
-                ( -e "${destination}" || -L "${destination}" ) ]]; then
-                printf '%s\n' "${destination}"
-                return 0
-            fi
-            if [[ -e "${source_path}" || -L "${source_path}" ]] && \
-                [[ -e "${destination}" || -L "${destination}" ]]; then
-                suffix=$((suffix + 1))
-                continue
-            fi
-        elif [[ -e "${source_path}" || -L "${source_path}" ]] && \
-            [[ -e "${destination}" || -L "${destination}" ]]; then
+        if rename_noreplace "${source_path}" "${destination}"; then
+            printf '%s\n' "${destination}"
+            return 0
+        else
+            status=$?
+        fi
+        if (( status == 17 )); then
             suffix=$((suffix + 1))
             continue
         fi
 
-        die "隔离移动后源和目标状态异常：${source_path} -> ${destination}"
+        die "隔离移动失败：${source_path} -> ${destination}"
         return 1
     done
 }

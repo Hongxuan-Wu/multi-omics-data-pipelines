@@ -60,6 +60,30 @@ for run_dir in reference fastp star stringtie pasa_align pasa_update agat valida
     [[ -d "${PROJECT_ROOT}/work/${RUN_ID}/${run_dir}" ]] || fail "missing run directory: ${run_dir}"
 done
 
+rename_probe_source="${PROJECT_ROOT}/work/${RUN_ID}/renameat2-probe.source"
+rename_probe_destination="${PROJECT_ROOT}/work/${RUN_ID}/renameat2-probe.destination"
+printf 'renameat2 probe content\n' > "${rename_probe_source}"
+rename_noreplace "${rename_probe_source}" "${rename_probe_destination}" || \
+    fail "configured PASA Perl must support renameat2(RENAME_NOREPLACE)"
+[[ ! -e "${rename_probe_source}" ]] || fail "renameat2 probe source still exists"
+[[ "$(<"${rename_probe_destination}")" == "renameat2 probe content" ]] || \
+    fail "renameat2 probe destination content changed"
+
+eexist_source="${PROJECT_ROOT}/work/${RUN_ID}/renameat2-eexist.source"
+eexist_destination="${PROJECT_ROOT}/work/${RUN_ID}/renameat2-eexist.destination"
+printf 'source must survive EEXIST\n' > "${eexist_source}"
+printf 'destination must survive EEXIST\n' > "${eexist_destination}"
+set +e
+rename_noreplace "${eexist_source}" "${eexist_destination}"
+eexist_status=$?
+set -e
+[[ "${eexist_status}" -eq 17 ]] || \
+    fail "renameat2 EEXIST must return status 17, got ${eexist_status}"
+[[ "$(<"${eexist_source}")" == "source must survive EEXIST" ]] || \
+    fail "renameat2 EEXIST changed the source"
+[[ "$(<"${eexist_destination}")" == "destination must survive EEXIST" ]] || \
+    fail "renameat2 EEXIST changed the destination"
+
 expect_failure "report path used as a process output" \
     assert_process_output_path "${PROJECT_ROOT}/reports/${RUN_ID}/report.tsv"
 assert_process_output_path "${PROJECT_ROOT}/work/${RUN_ID}/fastp/output.fastq.gz"
@@ -113,22 +137,13 @@ race_source="${PROJECT_ROOT}/work/${RUN_ID}/race-source.out"
 race_destination="${PROJECT_ROOT}/trash/${RUN_ID}/collision.${race_timestamp}.race-source.out"
 race_suffixed_destination="${PROJECT_ROOT}/trash/${RUN_ID}/collision.${race_timestamp}.1.race-source.out"
 printf 'source content\n' > "${race_source}"
-mv_race_injected=0
+printf 'existing destination content\n' > "${race_destination}"
 date() {
     if [[ "$#" -eq 2 && "$1" == "-u" && "$2" == "+%Y%m%dT%H%M%S%N" ]]; then
         printf '%s\n' "${race_timestamp}"
     else
         command date "$@"
     fi
-}
-mv() {
-    local destination="${!#}"
-
-    if [[ "${destination}" == "${race_destination}" && "${mv_race_injected}" == "0" ]]; then
-        printf 'existing destination content\n' > "${race_destination}"
-        mv_race_injected=1
-    fi
-    command mv "$@"
 }
 race_trash_path="$(move_to_trash "${race_source}" "collision")"
 [[ "${race_trash_path}" == "${race_suffixed_destination}" ]] || \
