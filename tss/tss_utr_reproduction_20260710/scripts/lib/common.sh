@@ -223,16 +223,35 @@ move_to_trash() {
 
     basename="$(basename -- "${source_path}")"
     timestamp="$(date -u '+%Y%m%dT%H%M%S%N')"
-    destination="${TRASH_ROOT}/${RUN_ID}/${reason}.${timestamp}.${basename}"
-    assert_process_output_path "${destination}" || return 1
     mkdir -p "${TRASH_ROOT}/${RUN_ID}"
-    while [[ -e "${destination}" || -L "${destination}" ]]; do
-        suffix=$((suffix + 1))
-        destination="${TRASH_ROOT}/${RUN_ID}/${reason}.${timestamp}.${suffix}.${basename}"
-    done
+    while :; do
+        if (( suffix == 0 )); then
+            destination="${TRASH_ROOT}/${RUN_ID}/${reason}.${timestamp}.${basename}"
+        else
+            destination="${TRASH_ROOT}/${RUN_ID}/${reason}.${timestamp}.${suffix}.${basename}"
+        fi
+        assert_process_output_path "${destination}" || return 1
 
-    mv -- "${source_path}" "${destination}"
-    printf '%s\n' "${destination}"
+        if mv --no-copy --no-clobber --no-target-directory -- "${source_path}" "${destination}" 2>/dev/null; then
+            if [[ ! -e "${source_path}" && ! -L "${source_path}" && \
+                ( -e "${destination}" || -L "${destination}" ) ]]; then
+                printf '%s\n' "${destination}"
+                return 0
+            fi
+            if [[ -e "${source_path}" || -L "${source_path}" ]] && \
+                [[ -e "${destination}" || -L "${destination}" ]]; then
+                suffix=$((suffix + 1))
+                continue
+            fi
+        elif [[ -e "${source_path}" || -L "${source_path}" ]] && \
+            [[ -e "${destination}" || -L "${destination}" ]]; then
+            suffix=$((suffix + 1))
+            continue
+        fi
+
+        die "隔离移动后源和目标状态异常：${source_path} -> ${destination}"
+        return 1
+    done
 }
 
 run_conda() {
