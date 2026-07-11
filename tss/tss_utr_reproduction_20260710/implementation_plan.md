@@ -1,10 +1,10 @@
-# PEGS-Compatible S1 TSS/UTR Reproduction Implementation Plan
+# 公司 PEGS S1 TSS/UTR 复现实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 以公司指定的 PEGS 固定提交补齐 transcript preparation 和 PASA alignment 数据，安全、可审计地从 9 份 RNA-seq 复现 `S1.genome_new.gff3` 的候选 UTR 注释过程。
+**Goal:** 适配公司的 PEGS 固定提交，安全、可审计地从 9 份 RNA-seq 复现 `S1.genome_new.gff3` 的候选 UTR 注释过程。
 
-**Architecture:** 不直接执行 PEGS 的服务器专用调度器，而实现一个 PEGS-compatible staged runner。公司流程图中的显式参数优先；PEGS `rnaseq2gene.py`/`add_utr.py` 提供缺失的数据变换、PASA 阈值和前后依赖；每个阶段只写不可变 run/attempt 目录，并在结构、哈希和工具版本门禁通过后原子发布完成标记。
+**Architecture:** PEGS 是公司的上游注释实现，本仓库不重写其生物信息算法。由于原调度器硬编码公司服务器路径并混入本次不需要的全基因预测分支，本仓库按 `rnaseq2gene.py`/`add_utr.py` 的固定命令和数据变换进行阶段化环境适配；每个阶段只写不可变 run/attempt 目录，并在结构、哈希和工具版本门禁通过后原子发布完成标记。
 
 **Tech Stack:** Bash 5、Perl 5、Python 3.11（独立 conda prefix）、fastp 0.23.1、STAR 2.7.9a、StringTie 2.2.0、gffread 0.12.7、CD-HIT 4.8.1、SeqClean（PASA 2.5.2 固定副本）、blast-legacy 2.2.26、PASA 2.5.2、minimap2 2.31、samtools 1.23.1、SQLite 3.53.3、AGAT 0.8.0、Git。
 
@@ -28,18 +28,15 @@
 
 ---
 
-## 0. Current Baseline and Supersession
+## 0. Current Implementation Baseline
 
 ### 0.1 已完成并保留
 
 | 范围 | 提交 | 状态 |
 | --- | --- | --- |
-| 旧设计与首次实施计划 | `ad54836` | 已归档，设计结论被 PEGS 新证据替代 |
 | 配置、样本表、ignore 契约 | `fbc9b68`、`749446d` | 保留，Task 1 扩展 |
 | run layout、状态与失败隔离 | `334d6e2`、`1c014b1`、`a1db0f4` | 保留，Task 3 修正 marker 原子性 |
 | 初版 preflight | `f322fdc` | 未通过独立审查，Task 3 修复后才算完成 |
-
-旧 `implementation_plan.md` 已移至 `archive/implementation_plan_pre_pegs_20260710.md`。旧 Task 4-14 不再执行，尤其废止 GMAP+BLAT alignment 和 90/95 PASA 过滤阈值。
 
 ### 0.2 Canonical File Map
 
@@ -48,7 +45,6 @@ tss/tss_utr_reproduction_20260710/
 ├── README.md
 ├── design.md
 ├── implementation_plan.md
-├── archive/
 ├── config/
 │   ├── pipeline.env
 │   ├── samples.tsv

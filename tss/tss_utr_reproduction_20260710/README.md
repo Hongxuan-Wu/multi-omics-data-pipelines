@@ -2,12 +2,10 @@
 
 ## 当前方案
 
-公司于 2026-07-10 指定使用 [zxgsy520/pegs](https://github.com/zxgsy520/pegs) 生成前期注释阶段的 transcript 和 PASA alignment 数据。现行方案固定 PEGS commit `043a69d6ad272affda6efdc40990ad3140899c63`，实现安全的 PEGS-compatible runner，不直接执行其中硬编码 `/Work/...` 路径的原始调度器。
+公司确认 [zxgsy520/pegs](https://github.com/zxgsy520/pegs) 是其实际使用的上游注释项目，负责生成 transcript、PASA alignment 数据和 UTR 更新输入。本目录不另造注释算法；现行方案固定 PEGS commit `043a69d6ad272affda6efdc40990ad3140899c63`，只增加本服务器所需的路径适配、输入隔离、版本锁和结果验证。
 
 - [现行设计](design.md)
 - [现行实施计划](implementation_plan.md)
-- [旧版设计归档](archive/design_pre_pegs_20260710.md)
-- [旧版实施计划归档](archive/implementation_plan_pre_pegs_20260710.md)
 
 主数据链：
 
@@ -38,7 +36,7 @@ FASTP_MAX_N=0
 
 9 个样本的 R1 第 9 位均为 100% `N`。公司与 PEGS 指定的 `-n 0` 会使审核子集输出 0 对 reads；未经用户明确批准，不得改为 `-n 1`，也不得启动九样本 STAR 及下游阶段。
 
-当前已完成配置/样本表、运行隔离和初版 preflight。初版 preflight 尚有 5 个独立审查问题待修复；旧计划 Task 4-14 已停止，由新版实施计划取代。
+当前已完成配置/样本表、运行隔离和初版 preflight。初版 preflight 尚有 5 个独立审查问题待修复；后续只按现行 PEGS 实施计划执行。
 
 ## 已安装主工具
 
@@ -50,7 +48,9 @@ FASTP_MAX_N=0
 | PASA | 2.5.2 | `/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/pasa/env` |
 | AGAT | 0.8.0 | `/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/agat/env` |
 
-新版计划还需锁定 PEGS，并安装 gffread 0.12.7、CD-HIT 4.8.1、blast-legacy 2.2.26 和 NCBI UniVec 快照。PASA prefix 已包含 minimap2 2.31、samtools 1.23.1、SQLite 3.53.3 和 TransDecoder 6.0.0。
+五个主工具均已通过对应 conda prefix 的真实入口检查。正式脚本统一使用 `run_conda "$PREFIX" ...`；不要直接执行 AGAT 的 Perl 脚本，否则会绕过 prefix 内的 Perl 模块。
+
+现行计划还需安装锁定的 PEGS、gffread 0.12.7、CD-HIT 4.8.1、blast-legacy 2.2.26 和 NCBI UniVec 快照。PASA prefix 已包含 minimap2 2.31、samtools 1.23.1、SQLite 3.53.3 和 TransDecoder 6.0.0。
 
 ## 当前测试
 

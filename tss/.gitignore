@@ -1,5 +1,8 @@
 /tools/
-/resources/裂殖壶菌原始数据-BYT2025041001/
+/trash/*
+!/trash/legacy_docs_20260711/
+!/trash/legacy_docs_20260711/**
+/resources/
 /tss_utr_reproduction_20260710/work/
 /tss_utr_reproduction_20260710/logs/
 /tss_utr_reproduction_20260710/results/

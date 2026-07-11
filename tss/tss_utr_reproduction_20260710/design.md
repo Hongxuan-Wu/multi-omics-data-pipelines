@@ -2,17 +2,12 @@
 
 ## 1. 结论与版本状态
 
-公司于 2026-07-10 明确指定使用 [zxgsy520/pegs](https://github.com/zxgsy520/pegs) 补齐前期注释阶段生成的 PASA 比对数据库和转录本数据。因此，现行复现目标不再是仅串联流程图中的五个软件，而是复现以下两段 PEGS 数据链：
+公司确认 [zxgsy520/pegs](https://github.com/zxgsy520/pegs) 是其实际使用的上游注释项目，负责前期 PASA 比对数据库、转录本数据和 UTR 更新。现行复现目标是适配并验证以下两段 PEGS 数据链：
 
 1. `pegs/rnaseq2gene.py` 中与 UTR 更新直接相关的前置链，生成去冗余、清洗后的转录本和 `pasa.sqlite`。
 2. `pegs/add_utr.py` 中的注释加载、PASA annotation compare/update 和 AGAT longest-isoform 后处理。
 
-旧版设计和实施计划已原样归档至：
-
-- `archive/design_pre_pegs_20260710.md`
-- `archive/implementation_plan_pre_pegs_20260710.md`
-
-旧版中“只缺 PASA config”“使用 GMAP+BLAT 即可重建前置数据库”的判断已废止。输入隔离、不可变 run ID、失败产物进入 `trash/`、完成标记和结构化验证等工程约束继续有效。
+本目录只保留现行 PEGS 设计和实施计划。输入隔离、不可变 run ID、失败产物进入 `trash/`、完成标记和结构化验证属于本服务器的工程适配，不改变 PEGS 的生物信息处理逻辑。
 
 ## 2. 目标与边界
 
@@ -47,7 +42,7 @@
 
 当参数或步骤冲突时，按以下顺序裁决：
 
-1. 公司提供的 `tss/resources/tss注释流程.png` 中明确写出的命令或参数。
+1. 公司提供的 `tss/tss注释流程.png` 中明确写出的命令或参数。
 2. 公司随后指定的 PEGS 固定提交中，与 `rnaseq2gene.py` 和 `add_utr.py` 直接相关的步骤。
 3. 对应固定软件版本的源码默认值。
 4. 本项目为保证不覆盖、不删除、可恢复而增加的工程包装；不得改变生物学算法输出。
@@ -90,7 +85,7 @@ PEGS 源码安装到 `tss/tools/pegs/source/`，但该目录由 `tss/.gitignore`
 
 ### 3.4 不直接运行 PEGS 原脚本的原因
 
-PEGS 是算法和参数来源，不作为未经修改的调度器直接执行，原因均可由固定提交复核：
+PEGS 是公司的上游实现来源，但其未经修改的服务器调度器不能直接在当前环境执行，原因均可由固定提交复核：
 
 1. 软件和数据库路径硬编码为作者服务器的 `/Work/...`。
 2. `rnaseq2gene.py`、`add_utr.py` 和 PEGS 调用的 SeqClean 含删除旧产物的命令，不符合本项目不可删除约束。
@@ -99,13 +94,13 @@ PEGS 是算法和参数来源，不作为未经修改的调度器直接执行，
 5. 直接运行会引入本次生成 UTR GFF 不需要的全基因组预测、蛋白数据库和 BUSCO 环节。
 6. 原脚本没有原始输入只读审计、完成标记原子发布、输出哈希和不可变 run ID。
 
-因此实现为“PEGS-compatible runner”：命令参数和数据变换与上述裁决一致，执行、隔离、审计和恢复由仓库自己的 Bash/Perl 包装负责。
+因此当前仓库只做 PEGS 环境适配：保留其命令参数和数据变换，执行路径、隔离、审计和恢复由本仓库的 Bash/Perl 包装负责。
 
 ### 3.5 可复现性不确定项
 
 | 层级 | 事项 | 处理 |
 | --- | --- | --- |
-| 已知 | 公司当前明确要求使用 PEGS | 以当前指定仓库为方案依据 |
+| 已知 | PEGS 是公司实际使用的上游注释项目 | 以该仓库固定提交为实现依据 |
 | 待验证 | 公司生成 `S1.genome_new.gff3` 时使用的历史 PEGS commit 未提供；现行 add-UTR 源码提交日期为 2026-07-08 | 锁定当前指定 commit，最终报告不得声称已证明历史代码完全相同 |
 | 已知 | 公司流程图要求 StringTie `-G`，当前 PEGS 源码未写 `-G` | 公司显式参数优先，并把冲突写入 provenance |
 | 推断 | `cd-hit-est -c 0.98b` 只能解释为 `0.98` 后的录入字符错误 | 修正为 `0.98`，单列为源码语法修正 |
@@ -121,7 +116,7 @@ PEGS 是算法和参数来源，不作为未经修改的调度器直接执行，
 | RNA-seq | `tss/resources/裂殖壶菌原始数据-BYT2025041001/` | 9 样本、18 个 BGZF FASTQ、约 53 GB |
 | FASTQ 校验 | 每个 FASTQ 的同目录 `.md5` | 运行前后均对实际样本路径计算并验证 MD5 |
 | 公司结果 | `tss/resources/S1.genome_new.gff3` | 只读；只用于最终比较 |
-| 公司流程图 | `tss/resources/tss注释流程.png` | 显式参数最高优先级 |
+| 公司流程图 | `tss/tss注释流程.png` | 显式参数最高优先级 |
 
 公司结果的结构基准：
 
@@ -171,6 +166,7 @@ PEGS 是算法和参数来源，不作为未经修改的调度器直接执行，
 
 - 所有 conda prefix 必须是绝对路径。
 - 不依赖 base 环境、交互式 `PATH` 或当前 `PASAHOME`。
+- 主工具和依赖统一通过 `run_conda "$PREFIX" ...` 调用，禁止绕过 prefix 直接执行 Perl/Python 脚本。
 - PASA 启动器固定使用 `$PASA_HOME/Launch_PASA_pipeline.pl` 的绝对路径。
 - PEGS Python 脚本通过 `conda run --no-capture-output -p "$PEGS_PREFIX" python ...` 调用。
 - SeqClean 使用 `build_safe_seqclean.sh` 从 PASA 2.5.2 固定副本生成无删除版；构建只跳过固定源码中 5 行文件清理逻辑，不改序列过滤算法。
@@ -183,9 +179,6 @@ tss/tss_utr_reproduction_20260710/
 ├── README.md
 ├── design.md
 ├── implementation_plan.md
-├── archive/
-│   ├── design_pre_pegs_20260710.md
-│   └── implementation_plan_pre_pegs_20260710.md
 ├── config/
 │   ├── pipeline.env
 │   ├── samples.tsv
@@ -470,8 +463,6 @@ preflight
 3. `.done` marker 必须失败原子。
 4. MD5 必须直接验证样本表指定的 FASTQ 绝对路径。
 5. gzip checker 必须启用严格 gzip/CRC 校验并检查 close 错误。
-
-旧 Task 4-14 全部由新版 `implementation_plan.md` 取代，不再按旧 GMAP+BLAT 路线继续。
 
 ## 11. 正式运行停止边界
 

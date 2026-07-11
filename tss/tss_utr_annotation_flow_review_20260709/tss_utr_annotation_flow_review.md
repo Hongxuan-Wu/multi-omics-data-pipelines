@@ -16,7 +16,7 @@
 
 ### 1.1 2026-07-10 PEGS 证据更新
 
-公司进一步说明：最终 UTR 更新依赖前期注释时生成的 PASA transcript alignment 数据，并指定使用 [zxgsy520/pegs](https://github.com/zxgsy520/pegs)。本项目将 PEGS commit `043a69d6ad272affda6efdc40990ad3140899c63` 固定为缺失步骤的来源。
+公司确认 [zxgsy520/pegs](https://github.com/zxgsy520/pegs) 是其实际使用的上游注释项目；最终 UTR 更新依赖该项目在前期注释时生成的 PASA transcript alignment 数据。本项目固定 PEGS commit `043a69d6ad272affda6efdc40990ad3140899c63` 进行环境适配与复现。
 
 该源码确认完整依赖链并非只有图中的五个命令：
 
@@ -42,10 +42,10 @@
 原图位置：
 
 ```text
-tss/resources/tss注释流程.png
+tss/tss注释流程.png
 ```
 
-![tss注释流程](../resources/tss注释流程.png)
+![tss注释流程](../tss注释流程.png)
 
 图中说明该分析方法已提供给销售，只在注释步骤做了调整；没有更多个性化代码和流程。最终 GFF 整理排序使用了公司自写软件，图中文字认为该步骤不影响结果；个性化评估收费 500，未提供更详细代码。
 

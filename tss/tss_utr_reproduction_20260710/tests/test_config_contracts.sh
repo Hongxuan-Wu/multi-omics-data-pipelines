@@ -25,7 +25,7 @@ CONDA_EXE=/opt/miniconda3/bin/conda
 REFERENCE_FASTA=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/S1.genome.fasta
 REFERENCE_GFF=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/S1.genome.gff
 COMPANY_GFF=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/S1.genome_new.gff3
-FLOW_IMAGE=/data/p252701008/projects/multi-omics-data-pipelines/tss/resources/tss注释流程.png
+FLOW_IMAGE=/data/p252701008/projects/multi-omics-data-pipelines/tss/tss注释流程.png
 FASTP_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/fastp/env
 STAR_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/STAR/env
 STRINGTIE_PREFIX=/data/p252701008/projects/multi-omics-data-pipelines/tss/tools/stringtie/env
@@ -105,7 +105,7 @@ for tracked_file in \
     tss/resources/S1.genome.fasta \
     tss/resources/S1.genome.gff \
     tss/resources/S1.genome_new.gff3 \
-    'tss/resources/tss注释流程.png'; do
+    'tss/tss注释流程.png'; do
     git -C "${REPO_ROOT}" ls-files --error-unmatch -- "${tracked_file}" >/dev/null || \
         fail "required reference is not Git tracked: ${tracked_file}"
 done
