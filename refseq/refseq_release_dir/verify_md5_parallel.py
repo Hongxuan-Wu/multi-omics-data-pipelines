@@ -11,9 +11,10 @@ download_refseq.sh 正常结束时已经执行官方 MD5 总校验。本脚本�
 迁移、审计或需要重复并行复核官方 MD5 的场景，不是日常下载完成后的必跑步骤。
 
 常用用法：
-    python3 verify_md5_parallel.py
-    python3 verify_md5_parallel.py --run-id 20260702T132418Z.1820503
-    MD5_WORKERS=16 python3 verify_md5_parallel.py --manifest /path/target_files_x.tsv
+    conda activate refseq_tools
+    python verify_md5_parallel.py
+    python verify_md5_parallel.py --run-id 20260702T132418Z.1820503
+    MD5_WORKERS=16 python verify_md5_parallel.py --manifest /path/target_files_x.tsv
 """
 from __future__ import annotations
 

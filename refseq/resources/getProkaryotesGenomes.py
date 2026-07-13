@@ -1,3 +1,14 @@
+"""历史研究脚本，不是当前 RefSeq 下载或数据库构建入口。
+
+该文件保留早期 KEGG/原核基因组实验流程和原始硬编码路径，仅供追溯。
+当前全量 RefSeq assembly 下载统一使用 genomes_dir/download_refseq_genomes_api.sh。
+"""
+
+import sys
+
+if __name__ == '__main__':
+    raise SystemExit("历史研究脚本没有受支持的命令行入口；当前 RefSeq 下载请使用 genomes_dir/download_refseq_genomes_api.sh。")
+
 import os
 import numpy as np
 import re
@@ -5,7 +16,6 @@ import re
 import gzip
 import pdb
 import time
-import sys
 MAX_INT=sys.maxsize
 
 from Bio import SeqIO
@@ -468,18 +478,3 @@ def countMinus():
         minus.append(int(m))
     # print(minus.sort())
     pdb.set_trace()
-    
-    
-if __name__ == '__main__':
-    # getClassificationList()  # 获取KEGG数据库中所有原核生物id、名称、分类 - 分类表：ProkaryotesClassificationList.csv - 8602
-    # getProkaryotesList()  # 根据分类表中id, 获取KEGG数据库中所有原核生物的length、taxonomy、assembly_accessions - 信息表Prokaryotes.csv - 8602
-    # getGenesLists()  # 根据信息表，获取KEGG数据库中所有原核生物对应所有基因的id、position - /hy-tmp/prokaryotes/genelists/*.csv - 8542
-    # getGenomesFolders()  # 根据原核生物assembly_accessions, 获取所有基因组压缩包
-    # getGenomes()  # 整理下载路径，获取所有基因组源文件 - /hy-tmp/prokaryotes/ncbi_dataset/fetch.txt - 8525
-    # splitGenomes()  # 切分 成功/未成功 下载的数据集列表 - genomes_downloaded.csv / genomes_error.csv - 8525 / 77
-    # getGenomesFilteredList()  # 根据genelists, 和genomes_downloaded.csv，过滤不存在对应关系的数据，得到最终列表 - genomes_filtered.csv - 8447
-    # cutGenes()  # 对所有genomes切片，获取gene和promoter，并过滤未成功切片的基因 - /hy-tmp/prokaryotes/genes/*.txt - 8447
-    # countNucleotides()  # 计算基因总数以及核苷酸总数
-    countMinus()
-    pass
-

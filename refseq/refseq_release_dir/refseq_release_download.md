@@ -1,18 +1,42 @@
 # RefSeq release 全量下载与校验
 
-> 修订日期：2026-07-04
+> 修订日期：2026-07-13
 > 运行目标：Ubuntu/Linux 服务器
-> 核心设计：远端目录镜像 + aria2 断点续传 + 官方 MD5/弱校验双轨完整性检查
+> 历史核心设计：远端目录镜像 + aria2 断点续传 + 官方 MD5/弱校验双轨完整性检查
+
+本文件归档已经验证过的 RefSeq **release FTP 镜像**历史流程。它与 `genomes_dir/download_refseq_genomes_api.sh` 生成的 assembly 级数据库相互独立：前者曾镜像 release 235 的 `complete/` 与辅助文件，后者按 accession 下载 genome、annotation 和 sequence report。不要混用两套 manifest、日志或完整性结论。
+
+截至 2026-07-13，当前服务器不存在脚本默认的 `/data3/p252701008/refseq_release` 和 `/data3/p252701008/refseq_release_runlogs`。因此本文件中的 release 235 数量和路径是历史运行记录，不代表本机现有数据库；当前可用 RefSeq 数据库以顶层 `refseq/readme.md` 记录的 genomes context 为准。
+
+同日，[NCBI RefSeq release 根目录](https://ftp.ncbi.nlm.nih.gov/refseq/release/) 已更新到 release 236，[release catalog](https://ftp.ncbi.nlm.nih.gov/refseq/release/release-catalog/) 也只在当前层提供 release 236 文件，而历史脚本固定使用 release 235 catalog。为防止把新 release 数据与旧 manifest 混合，`download_refseq.sh` 现已封存并在启动时直接退出；本文件不再提供可执行的 release 下载或续传入口。
 
 ---
+
+## 导航
+
+- [1. 文件清单](#1-文件清单)
+- [2. 下载范围](#2-下载范围)
+- [3. 完整性校验策略](#3-完整性校验策略)
+- [4. 历史服务器运行记录](#4-历史服务器运行记录)
+- [5. 验证](#5-验证)
+- [6. 历史异常处理](#6-历史异常处理)
+- [7. 文件安全策略](#7-文件安全策略)
+- [8. 归档版本关键点](#8-归档版本关键点)
 
 ## 1. 文件清单
 
 | 文件 | 用途 |
 |---|---|
-| `download_refseq.sh` | RefSeq release 下载主脚本；严格镜像远端目录结构，负责下载、续传、跳过已完整文件和下载后校验 |
+| `download_refseq.sh` | 已禁用的 release 235 历史主脚本；保留原实现供审计，不再作为可执行入口 |
 | `verify_refseq_truly_full.sh` | 可选综合复核脚本；读取 `RUN_ROOT/manifests` 和 `RUN_ROOT/plans`，执行 MD5、Content-Length + gzip/非空弱校验、文件统计和采样 |
 | `verify_md5_parallel.py` | 可选并行 MD5 复核脚本；只校验有官方 MD5 的 `target_files_<RUN_ID>.tsv`，不覆盖无官方 MD5 文件 |
+
+仓库级维护自检统一从项目根目录执行：
+
+```bash
+conda activate refseq_tools
+bash refseq/check_refseq.sh
+```
 
 ---
 
@@ -70,7 +94,7 @@ DOWNLOAD_TAXON_DIRS=1
 
 ### 2.4 文件类型边界
 
-当前 `download_refseq.sh` 对 `complete/` 和分类目录采用**远端 listing 全收集**策略：只要远端目录 listing 中出现文件，就写入下载计划；不再维护 `genomic/protein/rna/bna` 等后缀白名单。因此：
+历史 `download_refseq.sh` 对 `complete/` 和分类目录采用**远端 listing 全收集**策略：只要远端目录 listing 中出现文件，就写入下载计划；不再维护 `genomic/protein/rna/bna` 等后缀白名单。因此：
 
 | 类别 | 当前行为 |
 |---|---|
@@ -98,7 +122,7 @@ RefSeq release FTP **不提供** `genomic.gff3.gz`。D5 Track 3 结构注释若�
 
 ### 3.1 官方 MD5 的角色
 
-下载脚本始终先下载官方清单：
+历史下载脚本会先下载官方清单：
 
 ```bash
 release-catalog/release235.files.installed
@@ -115,7 +139,7 @@ release-catalog/release235.files.installed
 
 ### 3.2 本轮运行输出
 
-每次运行都会生成一个 `RUN_ID`，格式类似：
+历史上每次运行都会生成一个 `RUN_ID`，格式类似：
 
 ```text
 20260702T132418Z.1820503
@@ -169,7 +193,7 @@ manifest 注释头包含：
 
 ---
 
-## 4. 服务器使用方法
+## 4. 历史服务器运行记录
 
 ### 4.1 环境准备
 
@@ -180,15 +204,26 @@ sudo apt-get install -y aria2 curl gawk grep coreutils gzip tmux
 
 `ShellCheck` 只用于可选静态检查；未安装不影响下载脚本执行。下载脚本强制依赖的是 `curl`、`aria2c`、`awk`、`sort`、`md5sum`。
 
-磁盘空间：脚本默认 `MIN_DISK_GB=2000`，因此压缩文件下载目录至少需要预留 2000 GB；含解压和中间处理建议预留 6 TB。若确实要低于 2000 GB 运行，需要编辑 `download_refseq.sh` 顶部的 `MIN_DISK_GB`。
+并行 MD5 复核与仓库统一自检需要 Python 3。按本项目环境规范使用独立 Conda 环境，不在 base 或系统 Python 中运行：
+
+```bash
+conda create -n refseq_tools python=3.11
+conda activate refseq_tools
+```
+
+`verify_md5_parallel.py` 只依赖 Python 标准库，不需要额外安装包。`ncbi_datasets` 环境用于 genomes 下载 CLI，当前不包含 Python，不能用于运行本脚本。
+
+历史运行使用 `MIN_DISK_GB=2000`，当时要求压缩文件下载目录至少预留 2000 GB，含解压和中间处理建议预留 6 TB。该数值仅用于解释历史日志，不是当前运行配置。
 
 ```bash
 df -h /data
 ```
 
-### 4.2 修改下载路径
+### 4.2 历史冻结配置
 
-编辑 `download_refseq.sh` 顶部配置：
+以下值仅记录 release 235 历史运行配置。当前数据目录和 runlogs 已不在本机，且 NCBI 可变 release 根目录已经更新；不要通过修改这些常量重新启用脚本。
+
+历史配置：
 
 ```bash
 RELEASE="235"
@@ -197,19 +232,15 @@ LOCAL_ROOT="/data3/p252701008/refseq_release"
 RUN_ROOT="/data3/p252701008/refseq_release_runlogs"
 ```
 
-### 4.3 启动下载
+### 4.3 运行状态
 
-```bash
-chmod +x download_refseq.sh verify_refseq_truly_full.sh
+`download_refseq.sh` 是只读历史参考，直接运行会返回退出码 `2`，且不会创建目录、访问网络或启动 aria2。当前 assembly 数据库的下载、恢复和校验统一使用：
 
-tmux new -s refseq
-nohup bash ./download_refseq.sh 1>nohup_download.log 2>&1 &
-echo $! > download.pid
-
-tail -f nohup_download.log
+```text
+refseq/genomes_dir/download_refseq_genomes_api.sh
 ```
 
-推荐 aria2 初始参数。当前脚本顶部是直接赋值，调整参数需要编辑 `download_refseq.sh` 顶部配置；运行前在 shell 里临时设置同名环境变量不会覆盖这些值。
+以下 aria2 参数仅记录历史成功运行配置，不是当前运行建议：
 
 ```bash
 ARIA2_CONNECTIONS=4
@@ -231,16 +262,9 @@ ARIA2_SUMMARY_INTERVAL=120
 | 状态文件 | `${RUN_ROOT}/state_<RUN_ID>.tsv` |
 | aria2 日志 | `${RUN_ROOT}/logs/aria2_<group>_<RUN_ID>.log` |
 
-### 4.4 断点续传
+### 4.4 历史断点续传机制
 
-`aria2c --continue=true` 已启用。下载中断后直接重跑：
-
-```bash
-nohup bash ./download_refseq.sh 1>nohup_download_resume.log 2>&1 &
-echo $! > download_resume.pid
-```
-
-脚本会重新读取远端目录、重新生成本轮 manifest，并继续补齐未完成文件。已有完整文件会在写 aria2 输入前被跳过；未完成文件的 `.aria2` 续传状态会保留。
+历史实现启用了 `aria2c --continue=true`：重跑时重新读取远端目录并生成 manifest，已有完整文件在写 aria2 输入前跳过，未完成文件的 `.aria2` 状态继续使用。由于 release 235 运行目录已不在当前服务器，且远端根目录已变化，这一机制现在仅供代码审计，不能用于恢复历史下载。
 
 ---
 
@@ -248,16 +272,16 @@ echo $! > download_resume.pid
 
 ### 5.1 主下载脚本内置校验
 
-`download_refseq.sh` 默认已经在下载完成后执行两类校验：
+历史主脚本默认会在下载完成后执行两类校验：
 
 | 校验 | 默认开关 | 覆盖范围 |
 |---|---:|---|
 | 官方 MD5 强校验 | `VERIFY_MD5_AFTER_DOWNLOAD=1` | `target_files_<RUN_ID>.tsv` 中的文件 |
 | 无官方 MD5 弱校验 | `VERIFY_UNVERIFIED_AFTER_DOWNLOAD=1` | `unverified_files_<RUN_ID>.tsv` 中的文件 |
 
-因此正常跑完且退出码为 0 时，本轮目标集已经完成一次自动校验。下面两个脚本用于后续复核、补查或并行加速。
+因此，历史运行正常结束且退出码为 0 时，对应目标集已经完成一次自动校验。下面两个脚本仅用于已有历史数据和 manifest 的后续复核、补查或并行加速。
 
-实践结论：如果 `download_refseq.sh` 已正常结束，并且日志中同时出现以下两行，就不需要常规再跑两个复核脚本：
+历史实践结论：如果某次 `download_refseq.sh` 运行已正常结束，并且日志中同时出现以下两行，就不需要常规再跑两个复核脚本：
 
 ```text
 MD5 校验通过...
@@ -312,19 +336,20 @@ bash ./verify_refseq_truly_full.sh \
 ### 5.3 Python 并行 MD5 验证
 
 ```bash
-python3 ./verify_md5_parallel.py
+conda activate refseq_tools
+python ./verify_md5_parallel.py
 ```
 
 指定某次运行：
 
 ```bash
-python3 ./verify_md5_parallel.py --run-id 20260702T132418Z.1820503
+python ./verify_md5_parallel.py --run-id 20260702T132418Z.1820503
 ```
 
 直接指定 manifest：
 
 ```bash
-python3 ./verify_md5_parallel.py \
+python ./verify_md5_parallel.py \
   --manifest /data3/p252701008/refseq_release_runlogs/manifests/target_files_20260702T132418Z.1820503.tsv
 ```
 
@@ -333,12 +358,12 @@ python3 ./verify_md5_parallel.py \
 调整并行进程数：
 
 ```bash
-MD5_WORKERS=16 python3 ./verify_md5_parallel.py
+MD5_WORKERS=16 python ./verify_md5_parallel.py
 ```
 
 ---
 
-## 6. 异常处理
+## 6. 历史异常处理
 
 ### 6.1 下载阶段
 
@@ -359,9 +384,9 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 
 | 现象 | 判断 | 处理 |
 |---|---|---|
-| `HTTP/1.1 503 Service Unavailable` | 远端临时拒绝/过载/限流 | 降低 `ARIA2_MAX_CONCURRENT`，稍后重跑 |
+| `HTTP/1.1 503 Service Unavailable` | 远端临时拒绝/过载/限流 | 历史处理：降低 `ARIA2_MAX_CONCURRENT` 后重跑 |
 | aria2 控制台长期 `DL:0B` | 当前连接没有拿到有效数据 | 查看 `aria2_<group>_<RUN_ID>.log` 的 HTTP 状态 |
-| 大量 `.aria2` 文件 | 有未完成续传任务 | 正常现象；重跑脚本会继续续传 |
+| 大量 `.aria2` 文件 | 有未完成续传任务 | 历史行为：重跑脚本会继续续传 |
 
 ### 6.2 验证阶段
 
@@ -379,18 +404,20 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 
 ### 6.3 修复操作
 
-| 异常类型 | 修复方法 |
+以下是历史实现当时的修复机制，不是当前可执行命令。release 235 镜像和 runlogs 已不在本机，`download_refseq.sh` 也已封存；不要尝试用当前 release 根目录补写旧数据集。
+
+| 异常类型 | 历史修复机制 |
 |---|---|
-| MD5 不匹配 | 重跑 `download_refseq.sh`；脚本会识别异常文件并移入 `RUN_ROOT/trash` |
-| 目标文件缺失 | 直接重跑下载脚本补齐 |
-| gzip CRC 失败 | 重跑 `download_refseq.sh`；脚本会重新下载无法确认完整性的文件 |
-| 分组 `FAILED` | 降低并发或等待远端恢复后重跑下载脚本 |
+| MD5 不匹配 | 重跑时识别异常文件，移入 `RUN_ROOT/trash` 后重新下载 |
+| 目标文件缺失 | 重跑时由下载计划补齐 |
+| gzip CRC 失败 | 重跑时重新下载无法确认完整性的文件 |
+| 分组 `FAILED` | 降低并发或等待远端恢复后重跑 |
 
 ---
 
 ## 7. 文件安全策略
 
-- 脚本**不使用 `rm`、`rm -rf`** 等删除命令
+- 归档代码**不使用 `rm`、`rm -rf`** 等删除命令
 - 下载前识别出的异常本地旧文件不删除，只移入 `${RUN_ROOT}/trash/`
 - 主下载脚本的下载后校验发现问题时写入错误日志并返回非零退出码；复核脚本会生成详细报告。两者都不在下载后自动移动文件
 - `trash` 内文件名带异常原因、`RUN_ID` 和原相对路径，不会覆盖
@@ -399,11 +426,11 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 
 ---
 
-## 8. 当前版本关键点
+## 8. 归档版本关键点
 
-| 主题 | 当前实现 |
+| 主题 | 归档实现/状态 |
 |---|---|
-| 下载入口 | `download_refseq.sh` |
+| 下载入口 | 已封存；`download_refseq.sh` 直接退出 2 |
 | 本地镜像目录 | `LOCAL_ROOT=/data3/p252701008/refseq_release` |
 | 运行产物目录 | `RUN_ROOT=/data3/p252701008/refseq_release_runlogs` |
 | 下载范围 | `complete/` 和分类目录按远端 listing 全量收集，不按后缀过滤 |

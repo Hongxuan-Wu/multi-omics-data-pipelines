@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # NCBI RefSeq release downloader
+# 独立归档流程：默认配置固定对应历史 release 235，不是当前 genomes assembly 数据库入口。
 #
 # 目标：
 #   1. 将 https://ftp.ncbi.nlm.nih.gov/refseq/release/ 的目标数据镜像到
@@ -11,6 +12,9 @@
 #   5. 官方 MD5 用于下载前跳过、aria2 单文件校验和下载后复核。
 # =============================================================================
 set -euo pipefail
+
+printf '[FATAL] 该脚本已归档并禁止执行；当前 RefSeq 数据库请使用 genomes_dir/download_refseq_genomes_api.sh。\n' >&2
+exit 2
 
 # ==================== 用户配置 ====================
 # RELEASE：目标 RefSeq release 编号。

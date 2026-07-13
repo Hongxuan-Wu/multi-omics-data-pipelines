@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# NCBI RefSeq genomes downloader
+# NCBI RefSeq genomes downloader（历史备用脚本）
+#
+# 该脚本递归镜像 genomes/refseq FTP 树，不是当前 RefSeq assembly 数据库的生产入口。
+# 当前生产流程使用 download_refseq_genomes_api.sh；除非明确需要 FTP 原样镜像，否则不要运行本脚本。
 #
 # 目标：
 #   1. 将 https://ftp.ncbi.nlm.nih.gov/genomes/refseq/ 的全部内容镜像到

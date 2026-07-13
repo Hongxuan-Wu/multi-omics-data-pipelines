@@ -1,3 +1,14 @@
+"""历史研究脚本，不是当前 RefSeq 下载或数据库构建入口。
+
+该文件保留早期原核转录组预处理实验流程、工具路径和数据路径，仅供追溯。
+它没有稳定命令行接口，不应直接用于当前 RefSeq 数据库。
+"""
+
+import sys
+
+if __name__ == '__main__':
+    raise SystemExit("历史研究脚本没有受支持的命令行入口；当前 RefSeq 下载请使用 genomes_dir/download_refseq_genomes_api.sh。")
+
 import os
 import os.path as osp
 import pandas as pd
@@ -9,7 +20,6 @@ import re
 import shutil
 import pdb
 import transformers
-import sys
 MAX_INT=sys.maxsize
 
 from Bio import SeqIO
@@ -375,7 +385,11 @@ def getCounts():
             run_command(f"samtools index {tmp_dir}/aligned_reads.sorted.bam")
             # run_command(f"htseq-count -f bam -r pos -s reverse -t gene -i gene_id -m union {tmp_dir}/aligned_reads.sorted.bam {gtf_file} > {output_dir}/{sra_id}.txt")
             run_command(f"featureCounts -T 32 -Q 10 -O -a {gtf_file} -o {output_dir}/{sra_id}_featureCounts.txt -p -B -C -t gene -g gene_id {tmp_dir}/aligned_reads.sorted.bam")
-        run_command(f"rm -rf {tmp_dir}/*")
+        # 保留比对中间产物，避免历史流程清理时直接丢失文件。
+        trash_dir = osp.join(save_path, 'trash', 'alignment_tmp', f'{sra_id}_{time.time_ns()}')
+        os.makedirs(trash_dir, exist_ok=True)
+        for tmp_name in os.listdir(tmp_dir):
+            shutil.move(osp.join(tmp_dir, tmp_name), osp.join(trash_dir, tmp_name))
         print(str(i+1), taxon, sra_id, 'done.', flush=True)
 
 def getTPMs():
@@ -1568,38 +1582,3 @@ def components_tokens_train_test_split():
 
             print(f"Processed: {filename} ({n_samples} samples -> {len(train_indices)} train, {len(test_indices)} test)", flush=True)
     print("Split completed!", flush=True)
-
-
-if __name__ == '__main__':
-    # getAccessions()
-    
-    # prefetch()
-    # split10folders()
-    # fasterq_dump()
-    
-    # get_FNA_GTF_Folders()
-    # select_FNA_GTF_Links()
-    # fetch_FNS_GTF_datasets()
-    
-    # getCounts()
-    # getTPMs()
-    # cutGeneFromGTFs()
-    # getGeneTPMs()
-    # tpm_gene_txt()
-    # getTokens_prokaryotes()
-    # tpm_gene_npz()
-    
-    # gtfs_to_ptts()
-    # get_tss()
-    # filter_tss()
-    # save_transcript_alignment_rate()
-    # select_from_assigned_alignment_rate()
-    # select_tpm_gene()
-    
-    # tpm_tss_components()
-    # tpm_tss_components_txt()
-    
-    # get_complete_components_tokens()
-    # get_split_components_tokens()
-    # components_tokens_train_test_split()
-    pass

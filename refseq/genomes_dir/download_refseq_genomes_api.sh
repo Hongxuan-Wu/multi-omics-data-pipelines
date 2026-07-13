@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # NCBI RefSeq genomes downloader by NCBI Datasets CLI
+# 当前 RefSeq assembly 全量下载的唯一生产入口；已完成快照的默认参数由维护契约测试锁定。
 #
 # 目标：
 #   1. 使用 assembly_summary_refseq.txt 作为唯一 accession 清单来源，避免递归扫描 FTP 目录。
