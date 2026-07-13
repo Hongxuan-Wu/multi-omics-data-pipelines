@@ -6,11 +6,11 @@
 |---|---|
 | 调研日期 | 2026-07-13 |
 | 当前官方版本 | UniProt Release `2026_02`，发布日期 2026-06-10 |
-| 当前下载脚本版本 | `download_uniprot_uniref50.sh` 固定下载归档版本 `2026_01` |
+| 当前下载脚本版本 | `download_uniprot_uniref50.sh` 使用经过审核的 `2026_02` 静态 manifest |
 | 存储单位 | 十进制 GB，`1 GB = 10^9 bytes` |
 | 存储口径 | 官方压缩下载文件大小，不含解压、索引、训练缓存和文件系统冗余 |
 
-调研快照与下载脚本版本不同不是错误：本文件记录当前数据资源和建模决策；下载脚本锁定已归档的 `2026_01`，用于保证下载入口和校验结果可复现。
+脚本 URL 使用官方 `current_release`，但不跟随版本静默漂移。下载前会检查所选 `RELEASE.metalink` 仍为 `2026_02`；版本或字节数变化时立即停止，要求重新生成并审核清单。
 
 ## 2. 核心结论
 
@@ -29,6 +29,19 @@
 2. 通过去冗余、污染过滤和质量控制降低无效重复。
 3. 不把自动注释噪声当作高可信监督标签。
 4. 使用 Swiss-Prot 承担监督与验证，使用 UniRef 承担广覆盖表征学习。
+
+本项目最终下载合同为 25 个文件、618,535,806,550 bytes：
+
+| 需求 | 纳入的数据 |
+|---|---|
+| 全量序列比对 | Swiss-Prot FASTA、varsplic FASTA、TrEMBL FASTA |
+| 可区分 reviewed/unreviewed | Swiss-Prot 与 TrEMBL 保持为独立文件 |
+| 完整条目注释 | Swiss-Prot DAT、TrEMBL DAT |
+| 统一建模 | UniRef50、UniRef90、UniRef100 FASTA |
+| 多组学和标识符对齐 | `idmapping.dat.gz`、`sec_ac.txt`、Reference Proteomes |
+| 可追溯下载 | 每个目录对应的 README、STATS（如有）和 `RELEASE.metalink` |
+
+UniParc、GOA、RDF、Pan Proteomes、Proteomes REST 和其他派生目录仍可作为后续研究对象，但不属于当前下载合同。
 
 ## 3. UniProt 数据资源体系
 
@@ -193,16 +206,16 @@ UniProtKB complete 仍然重要，但更适合作为后续注释检索、长尾�
 | 优先级 | 数据集 | 建议格式 | 建模角色 | 进入下一阶段的条件 |
 |---:|---|---|---|---|
 | P0 | UniRef50 | FASTA | 第一阶段统一序列表征核心 | 完成序列 QC、去异常、分片和基础预训练 |
-| P0 | Swiss-Prot | FASTA + DAT/XML | 高可信监督、验证和功能注释 | 建立证据等级、任务标签和同源隔离评测 |
+| P0 | Swiss-Prot | FASTA + varsplic FASTA + DAT | 高可信监督、验证、功能注释和序列比对 | 建立证据等级、任务标签和同源隔离评测 |
 | P1 | UniRef90 | FASTA | 增加近缘变体和细粒度序列知识 | UniRef50 训练收敛且需要扩展容量 |
-| P1 | Reference Proteomes | 按任务选择 FASTA/CDS/映射文件 | 物种平衡、系统发育和跨物种评测 | 建立物种采样与 proteome-level split |
-| P2 | UniProtKB complete 或 TrEMBL | FASTA；需要注释时加 DAT/XML | 长尾覆盖、注释检索、弱监督 | 建立冗余控制和标签置信度策略 |
-| P2 | Pan Proteomes | FASTA + matrix + stats | 菌株和种内 core/accessory 变异建模 | 需要微生物种内多样性任务 |
-| P3 | UniRef100 | FASTA/XML | 更细粒度检索和近重复序列研究 | 明确需要 100% 层级映射或检索 |
-| P3 | UniParc active | FASTA | 最大当前序列覆盖和缺失序列补充 | 有足够存储并建立来源过滤规则 |
-| P4 | UniParc all | XML | 历史、失活序列和完整来源审计 | 仅在归档、溯源或历史研究时下载 |
+| P1 | ID mapping + secondary accession | DAT/TXT | UniProt 与基因、转录本、蛋白组及其他数据库标识符对齐 | 建立目标组学的字段解析与一对多关系规则 |
+| P1 | Reference Proteomes | 官方完整 tar + STATS | 物种平衡、系统发育、组装上下文和跨物种评测 | 建立物种采样与 proteome-level split |
+| P2 | TrEMBL | FASTA + DAT | 全量比对、长尾覆盖、注释检索和受控弱监督 | 建立冗余控制和标签置信度策略 |
+| P2 | UniRef100 | FASTA | 100% 聚类层级、细粒度检索和近重复序列研究 | 明确需要精确层级映射或检索 |
 
 P0 中的 UniRef50 和 Swiss-Prot 不是互相替代，而是分别承担“广覆盖表征学习”和“高可信监督/验证”。
+
+这是数据科学价值顺序，不是要求同时下载。磁盘或带宽受限时，按 `UniRef50 -> Swiss-Prot -> UniRef90 -> ID mapping -> Reference Proteomes -> TrEMBL -> UniRef100` 推进。
 
 ## 7. 推荐的数据分层
 
@@ -211,19 +224,19 @@ Layer 1: sequence_core
 `-- UniRef50 FASTA
 
 Layer 2: trusted_annotation
-`-- Swiss-Prot FASTA + DAT/XML
+`-- Swiss-Prot FASTA + varsplic FASTA + DAT
 
 Layer 3: coverage_expansion
 |-- UniRef90 FASTA
-|-- Reference Proteomes
-`-- Pan Proteomes, when modeling strain-level diversity
+`-- Reference Proteomes
 
 Layer 4: long_tail_and_retrieval
-|-- TrEMBL or UniProtKB complete
+|-- TrEMBL FASTA + DAT
 `-- UniRef100
 
-Layer 5: sequence_archive
-`-- UniParc active/all
+Layer 5: cross_omics_alignment
+|-- idmapping.dat.gz
+`-- sec_ac.txt
 ```
 
 训练和评测数据应保留以下字段：
@@ -240,19 +253,21 @@ Layer 5: sequence_archive
 
 当前目录中的 `download_uniprot_uniref50.sh`：
 
-- 固定使用归档版本 `2026_01`。
-- 下载完整 UniRef 归档包、release note 和 `RELEASE.metalink`。
-- 默认保留 UniRef50 序列归档下载，并在校验后提取 UniRef50 文件。
-- 支持官方 MD5、弱校验 manifest、远端 listing 差异报告和异常文件移入 `trash`。
-- 目前仍是 UniRef50 专用入口，没有实现本文全部数据库和格式的统一参数化选择。
+- release 与静态 manifest 固定为 `2026_02`。
+- 无参数默认选择 UniRef50 的 README、metalink 和 FASTA。
+- `--dataset` 支持 7 个 manifest 数据组、`swissprot`/`trembl` 子集视图，以及 `uniprotkb`、`uniref`、`multiomics` 预设；`--all` 选择全部 25 个文件。
+- `--plan-only` 离线生成可审阅计划，不访问网络。
+- 下载前检查远端 metalink 版本和字节数，避免 `current_release` 静默漂移。
+- 静态文件按官方 MD5 强校验，metalink 按大小和 release version 校验。
+- 支持 aria2 断点续传、已验证文件跳过、manifest 快照、运行报告和异常文件移入 `trash`。
 
-因此，本文描述的是完整的数据资源和建模方案；现有脚本只实现其中的 UniRef50 固定版本下载流程。
+机器可读合同见 `download_file_manifest_2026_02.tsv`，逐文件人工清单见 `download_file_manifest_2026_02.md`。
 
 ## 9. 已知差异与更正
 
 1. Reference Proteomes FTP `README/STATS` 包含 36,466 个 proteome 目录；当前 Proteomes REST facet 标记 36,465 个 reference proteome。容量规划使用 FTP 的 36,466，API 查询过滤使用 REST 的 36,465，不推断这一条差异的具体原因。
 2. Reference Proteomes 的 additional/isoform-variant 序列总数按当前 `STATS` 汇总为 8,978,977。此前调研中的 139,095 不能作为该资源的总 additional 序列数，应废弃。
-3. `current_release` 会随 UniProt 发布更新。用于可复现下载时，应继续使用固定归档版本和对应 `RELEASE.metalink`。
+3. `current_release` 会随 UniProt 发布更新。当前脚本通过静态 manifest、MD5 和下载前版本断言锁定 `2026_02`；待官方归档入口可用后，可在不改变文件合同的前提下切换为归档 URL。
 
 ## 10. 官方来源
 

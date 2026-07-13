@@ -1,85 +1,129 @@
 # UniProt 2026_02 下载文件清单
 
-## 1. 完整路径文件
+## 1. 最终合同
 
-所有逐文件路径位于：
-
-- `download_file_manifest_2026_02.tsv`
-
-TSV 每行对应一个下载目标，字段为：
-
-| 字段 | 含义 |
+| 项 | 值 |
 |---|---|
-| `scope` | `required` 必须下载；`conditional` 仅在需要离线 UniParc 来源/历史审计时下载 |
-| `tier` | 下载阶段，`P0` 至 `P4` |
-| `dataset` | 数据资源名称 |
-| `release` | 目标 UniProt release |
-| `remote_url` | 官方下载 URL 或分页 API 入口 |
-| `relative_path` | 建议的本地相对路径 |
-| `bytes` | 官方文件大小；API 生成目标为空 |
-| `md5` | 官方 MD5；manifest、MD5 sidecar 和 API 生成目标为空 |
-| `source_kind` | 文件来源类型 |
-| `notes` | 版本、分页或条件性说明 |
+| UniProt release | `2026_02` |
+| 官方根目录 | `https://ftp.uniprot.org/pub/databases/uniprot/current_release/` |
+| 下载目标数 | 25 |
+| 官方压缩体积 | 618,535,806,550 bytes（618.536 GB；576.056 GiB） |
+| 机器可读清单 | `download_file_manifest_2026_02.tsv` |
+| 默认下载 | `uniref50`，共 3 个文件 |
 
-## 2. 数量与容量
+| 数据组 | 文件数 | 压缩字节 | 用途 |
+|---|---:|---:|---|
+| `uniprotkb_complete` | 7 | 159,416,607,496 | Swiss-Prot/TrEMBL 序列与 DAT 注释 |
+| `uniprotkb_accessions` | 2 | 49,569,006 | secondary accession 到当前 accession 的映射 |
+| `uniref50` | 3 | 8,770,271,941 | 统一建模核心 |
+| `uniref90` | 3 | 32,059,063,697 | 更细粒度扩展 |
+| `uniref100` | 3 | 63,101,633,497 | 100% 层级代表序列 |
+| `idmapping` | 3 | 14,058,085,387 | 跨数据库、多组学 ID 对齐 |
+| `reference_proteomes` | 4 | 341,080,575,526 | 参考蛋白组、物种和组装上下文 |
 
-| 范围 | 目标数 | 已知压缩体量 |
-|---|---:|---:|
-| 必需下载 | 13,323 | 1,034.012 GB，另加 Proteomes REST JSON 快照 |
-| 条件性 UniParc XML | 201 | 675.809 GB |
-| 合计 | 13,524 | 1,709.821 GB，另加 Proteomes REST JSON 快照 |
+下载器还提供两个不改变 manifest 的子集视图：`swissprot` 为 5 项（3 个 Swiss-Prot 正文加共享 README/metalink，801,331,647 bytes）；`trembl` 为 4 项（2 个 TrEMBL 正文加共享 README/metalink，158,615,287,888 bytes）。
 
-必需目标包含：
+## 2. 逐文件清单
 
-| 数据集 | 文件数 |
-|---|---:|
-| UniProtKB complete FASTA/DAT/metadata | 10 |
-| UniProtKB complete docs | 104 |
-| UniRef50 / 90 / 100 | 7 / 7 / 6 |
-| ID mapping | 3 |
-| Reference Proteomes | 4 |
-| Pan Proteomes | 12,789 |
-| Proteomes REST 快照 | 1 个分页生成目标 |
-| Genome annotation tracks | 73 |
-| Proteomics mapping | 50 |
-| Variants | 38 |
-| UniProt-GOA all | 7 |
-| Semantic RDF | 20 |
-| UniParc metadata + active FASTA | 204 |
+以下路径均相对于官方根目录。
+
+### 2.1 UniProtKB 全量序列与注释
+
+1. `knowledgebase/complete/README`
+2. `knowledgebase/complete/RELEASE.metalink`
+3. `knowledgebase/complete/uniprot_sprot.fasta.gz`
+4. `knowledgebase/complete/uniprot_sprot_varsplic.fasta.gz`
+5. `knowledgebase/complete/uniprot_trembl.fasta.gz`
+6. `knowledgebase/complete/uniprot_sprot.dat.gz`
+7. `knowledgebase/complete/uniprot_trembl.dat.gz`
+8. `knowledgebase/complete/docs/RELEASE.metalink`
+9. `knowledgebase/complete/docs/sec_ac.txt`
+
+### 2.2 统一建模数据
+
+10. `uniref/uniref50/README`
+11. `uniref/uniref50/RELEASE.metalink`
+12. `uniref/uniref50/uniref50.fasta.gz`
+13. `uniref/uniref90/README`
+14. `uniref/uniref90/RELEASE.metalink`
+15. `uniref/uniref90/uniref90.fasta.gz`
+16. `uniref/uniref100/README`
+17. `uniref/uniref100/RELEASE.metalink`
+18. `uniref/uniref100/uniref100.fasta.gz`
+
+### 2.3 多组学对齐数据
+
+19. `knowledgebase/idmapping/README`
+20. `knowledgebase/idmapping/RELEASE.metalink`
+21. `knowledgebase/idmapping/idmapping.dat.gz`
+22. `knowledgebase/reference_proteomes/README`
+23. `knowledgebase/reference_proteomes/RELEASE.metalink`
+24. `knowledgebase/reference_proteomes/STATS`
+25. `knowledgebase/reference_proteomes/Reference_Proteomes_2026_02.tar.gz`
 
 ## 3. 重要边界
 
-1. Pan Proteomes 包含 3,195 个物种目录；每个目录列出 `RELEASE.metalink`、FASTA、matrix 和 stats 四个文件，另有 9 个顶层文件。
-2. `genome_annotation_tracks` 顶层仍列出小鼠、大鼠和酵母目录，但这些目录在 `2026_02` 中为空；当前 73 个实际文件均来自人类轨道及顶层 metadata。
-3. Proteomes REST 是分页 API，不是单个静态远端文件。下载器必须跟随 `Link` header 合并所有页面，并记录查询和时间戳。
-4. `current_release` URL 会在下一次发布时漂移。执行下载时必须断言 metalink version 为 `2026_02` 并校验清单中的 MD5；版本不匹配时应立即停止。
-5. 清单未重复加入 UniProtKB XML、`idmapping_selected`、GOA GCRP、taxonomic divisions 或整库 RDF entry shards，因为它们分别是所选 DAT、全量 idmapping、GOA all、complete 或 XML/DAT 数据的替代格式/子集/分区副本。
-6. `conditional` 的 UniParc XML 仅用于离线查询 UniParc-only 或历史序列的完整来源关系；普通序列比对使用必需层中的 UniParc active FASTA。
+1. 25 个目标全部为 `required`；没有条件项、API 生成项或目录递归抓取项。
+2. `uniprot_sprot.*` 与 `uniprot_trembl.*` 分开保存，因此既构成 UniProtKB complete，又能区分 reviewed 与 unreviewed。
+3. DAT 文件承担完整条目注释；本方案不重复下载同内容的 XML。
+4. `idmapping.dat.gz` 提供全量交叉引用；`sec_ac.txt` 补充历史/secondary accession 解析。
+5. Reference Proteomes tar 包已覆盖该 release 的参考蛋白组分发内容，README、STATS 和 metalink 作为解释与校验元数据单独保留。
+6. UniParc、GOA、RDF、Pan Proteomes、Proteomes REST、genome annotation tracks、variants 和 proteomics mapping 不在本合同内。
+7. `current_release` 会在下一版发布时漂移。实际下载前必须检查所有所选 `RELEASE.metalink` 的 `<version>` 仍为 `2026_02`；不一致时停止。
+8. 618.536 GB 仅为压缩文件体积，不含解压、索引、训练分片和冗余空间。
 
-## 4. 筛选路径
+## 4. TSV 字段
 
-列出全部必需官方 URL：
+| 字段 | 含义 |
+|---|---|
+| `scope` | 本合同固定为 `required` |
+| `tier` | `P0` 核心数据；`P1` 映射与参考蛋白组 |
+| `dataset` | 下载器可选择的数据组 |
+| `release` | 固定为 `2026_02` |
+| `remote_url` | 官方 HTTPS URL |
+| `relative_path` | `LOCAL_ROOT` 下的安全相对路径 |
+| `bytes` | 官方 metalink 中的字节数 |
+| `md5` | 静态文件的官方 MD5；`RELEASE.metalink` 留空 |
+| `source_kind` | `static_file` 或 `release_manifest` |
+| `notes` | 校验来源或预期版本 |
+
+## 5. 查询与执行
+
+列出全部官方 URL：
 
 ```bash
-awk -F '\t' '!/^#/ && $1 == "required" {print $5}' download_file_manifest_2026_02.tsv
+awk -F '\t' '!/^#/ && $1 != "scope" {print $5}' download_file_manifest_2026_02.tsv
 ```
 
-列出条件性 UniParc XML URL：
+查看可选数据组：
 
 ```bash
-awk -F '\t' '!/^#/ && $1 == "conditional" {print $5}' download_file_manifest_2026_02.tsv
+./download_uniprot_uniref50.sh --list-datasets
 ```
 
-列出必需本地相对路径：
+分别规划 Swiss-Prot 与 TrEMBL：
 
 ```bash
-awk -F '\t' '!/^#/ && $1 == "required" {print $6}' download_file_manifest_2026_02.tsv
+./download_uniprot_uniref50.sh --dataset swissprot --plan-only
+./download_uniprot_uniref50.sh --dataset trembl --plan-only
 ```
 
-## 5. 重新生成
+默认生成 UniRef50 计划，不访问网络：
+
+```bash
+./download_uniprot_uniref50.sh --plan-only
+```
+
+生成全量 25 文件计划：
+
+```bash
+./download_uniprot_uniref50.sh --all --plan-only
+```
+
+## 6. 重新生成
 
 ```bash
 ./generate_download_file_manifest.sh
 ```
 
-生成器只读取官方目录、HTTP headers 和 `RELEASE.metalink`，不下载数据库正文。它会检查 release、文件数、字段格式和 URL 唯一性。
+生成器只读取 7 个官方 `RELEASE.metalink`，不下载数据库正文。它会断言 release、逐数据组文件数、总文件数、字段格式、MD5 和 URL 唯一性；生成结果必须继续满足 25 文件与 618,535,806,550 bytes 的合同。
