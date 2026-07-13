@@ -37,6 +37,8 @@ gencode="${ROOT_DIR}/gencode/download_gencode.sh"
 rnacentral="${ROOT_DIR}/rnacentral/download_rnacentral.sh"
 ucsc="${ROOT_DIR}/ucsc/download_ucsc.sh"
 uniprot="${ROOT_DIR}/uniprot_uniref50/download_uniprot_uniref50.sh"
+uniprot_manifest_generator="${ROOT_DIR}/uniprot_uniref50/generate_download_file_manifest.sh"
+uniprot_manifest="${ROOT_DIR}/uniprot_uniref50/download_file_manifest_2026_02.tsv"
 phytozome="${ROOT_DIR}/phytozome/download_phytozome.sh"
 mycocosm="${ROOT_DIR}/mycocosm/download_mycocosm.sh"
 veupathdb="${ROOT_DIR}/veupathdb/download_veupathdb.sh"
@@ -87,6 +89,24 @@ assert_contains "${ucsc}" 'should_include_target_record'
 assert_contains "${uniprot}" 'DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE="\$\{DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE:-1\}"'
 assert_contains "${uniprot}" 'FULL_SEQUENCE_MIN_DISK_GB='
 assert_contains "${uniprot}" 'should_include_target_record'
+assert_executable "${uniprot_manifest_generator}"
+bash -n "${uniprot_manifest_generator}"
+assert_contains "${uniprot_manifest_generator}" 'expected_count=3195'
+assert_contains "${uniprot_manifest_generator}" '\[pan_proteomes\]=12789'
+[[ -s "${uniprot_manifest}" ]] || fail "UniProt 2026_02 file manifest is missing"
+assert_contains "${uniprot_manifest}" 'uniprot_sprot\.fasta\.gz'
+assert_contains "${uniprot_manifest}" 'uniprot_trembl\.fasta\.gz'
+assert_contains "${uniprot_manifest}" 'uniref50\.xml\.gz'
+assert_contains "${uniprot_manifest}" 'uniref90\.xml\.gz'
+assert_contains "${uniprot_manifest}" 'uniref100\.xml\.gz'
+[[ "$(awk -F '\t' '$1 == "required" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 13323 ]] || \
+  fail "UniProt required manifest count is not 13323"
+[[ "$(awk -F '\t' '$1 == "conditional" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 201 ]] || \
+  fail "UniProt conditional manifest count is not 201"
+[[ "$(awk -F '\t' '$3 == "pan_proteomes" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 12789 ]] || \
+  fail "UniProt Pan Proteomes manifest count is not 12789"
+[[ "$(awk -F '\t' '!/^#/ && $1 != "scope" {seen[$5]++} END {duplicates=0; for (url in seen) if (seen[url] > 1) duplicates++; print duplicates}' "${uniprot_manifest}")" -eq 0 ]] || \
+  fail "UniProt manifest contains duplicate URLs"
 
 assert_contains "${phytozome}" 'DOWNLOAD_PROTEIN_CDS_SEQUENCES="\$\{DOWNLOAD_PROTEIN_CDS_SEQUENCES:-0\}"'
 assert_contains "${phytozome}" 'should_include_jgi_file'
