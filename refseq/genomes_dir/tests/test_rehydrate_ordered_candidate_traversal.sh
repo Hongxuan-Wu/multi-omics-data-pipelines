@@ -108,9 +108,17 @@ esac
 
 while IFS=$'\t' read -r _url _checksum target _rest; do
   [[ -n "${target}" ]] || continue
-  out="${directory}/ncbi_dataset/${target}.gz"
+  if [[ "${target}" == *.jsonl ]]; then
+    out="${directory}/ncbi_dataset/${target}"
+  else
+    out="${directory}/ncbi_dataset/${target}.gz"
+  fi
   mkdir -p "$(dirname "${out}")"
-  printf 'gzip-placeholder\n' | gzip -c > "${out}"
+  if [[ "${out}" == *.gz ]]; then
+    printf 'gzip-placeholder\n' | gzip -c > "${out}"
+  else
+    printf '{}\n' > "${out}"
+  fi
 done < "${directory}/ncbi_dataset/fetch.txt"
 EOF
 chmod +x "${bin_dir}/datasets"

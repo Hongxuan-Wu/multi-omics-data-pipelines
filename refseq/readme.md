@@ -197,7 +197,7 @@ nohup log dir:     /data/p252701008/datasets/refseq_genomes_runlogs/logs
 /dataN/p252701008/refseq_genomes/contexts/<context>/rehydrate_refseq_dataset/ncbi_dataset/data
 ```
 
-其中 `/dataN` 是上述候选盘之一。默认 `REHYDRATE_GZIP=1`，因此真实文件通常以 `.gz` 结尾；context 名称也会带 `gzip`，避免和未压缩下载结果混写。
+其中 `/dataN` 是上述候选盘之一。默认 `REHYDRATE_GZIP=1`，因此序列和注释文件通常以 `.gz` 结尾；`sequence_report.jsonl` 等 JSONL 元数据保持未压缩格式。context 名称也会带 `gzip`，避免和未压缩下载结果混写。
 
 ### 7.1 环境与 API key
 
@@ -313,12 +313,37 @@ done
 - `--no-progressbar` 只关闭 `datasets` 终端进度条，不影响下载速度、并发数或下载内容。
 - 后台运行时保留 `--no-progressbar`，避免 nohup 日志被进度条控制字符污染。
 - `REHYDRATE_LIST_BEFORE_DOWNLOAD=1` 会保留下载前预检，但只记录 `--list` 行数摘要，不保存数百万行完整清单。
-- `REHYDRATE_GZIP=1` 会把真实数据按 gzip 压缩格式落盘，目标校验会检查 `.gz` 文件存在且执行 `gzip -t`。
+- `REHYDRATE_GZIP=1` 会把序列和注释文件按 gzip 压缩格式落盘，目标校验会检查 `.gz` 文件存在且执行 `gzip -t`；`sequence_report.jsonl` 等 JSONL 元数据保持未压缩格式，只检查存在性和非空。
 - gzip 模式下官方 `fetch.txt` 的 MD5 通常不再直接对应压缩后的本地文件，脚本会跳过直接 MD5 计算，保留目标存在性、文件类别和 gzip 完整性校验。
 - 进度看主日志里的 `rehydrate progress` 行，或手动看文件数和数据目录体积。
 - 修改 `REHYDRATE_MAX_WORKERS`、`NCBI_API_KEY` 后，已经运行中的进程不会自动继承，需要停止后重新启动。
 - `rehydrate` 会按 `STORAGE_DISK_CANDIDATES` 的顺序遍历候选盘。`REHYDRATE_MAX_RETRIES=3` 表示每个空间达标候选盘内最多重试 3 次，不限制候选盘遍历数量。
 - 停止下载时，先停止 `datasets rehydrate` 子进程，再停止外层 `download_refseq_genomes_api.sh rehydrate` 进程。
+
+### 7.5 已知的 NCBI suppressed accession
+
+2026-07-13 全量复检确认 `GCF_036905835.1` 已被 NCBI 标记为 `suppressed`，原因是提交者要求移除该记录。NCBI 当前返回的关联状态时间为 `2026-07-08T12:12:07.134Z`（北京时间 2026-07-08 20:12:07）。
+
+本地 `assembly_summary_refseq.txt` 快照中原本存在该 accession，且当时仍记录为：
+
+```text
+version_status=latest
+ftp_path=https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/036/905/835/GCF_036905835.1_ASM3690583v1/
+excluded_from_refseq=na
+asm_not_live_date=na
+```
+
+因此该 accession 进入 manifest 不是本地筛选错误，而是 NCBI 状态在快照生成后或各系统状态同步期间发生了变化。当前 7 个无法获取的目标全部属于该 accession：
+
+- `sequence_report.jsonl` 返回空内容。
+- genome、CDS、protein、GBFF、GFF3 和 GTF 共 6 个数据目标返回永久 `404 Not Found`。
+
+本次快照的最终存在性结果为 `3,711,941 / 3,711,948` 个目标存在且非空；唯一异常 accession 即 `GCF_036905835.1`。下游调用时必须遵守以下规则：
+
+- 不要将 `GCF_036905835.1` 当作完整可用的 RefSeq assembly；组装级数据库、矩阵和统计分母应排除该 accession，或明确标记为 `remote_unavailable` / `suppressed`。
+- 对这 7 个目标重复运行 `rehydrate` 或切换数据盘无法解决；其他 accession 的缺失仍应视为真实完整性错误。
+- 脚本目前保留严格行为：`verify` 会报告这 7 个目标并返回非 0，不会静默把官方不可用数据当作校验通过。
+- 下次建立新快照时，先刷新官方 `assembly_summary_refseq.txt`，再用新的 context 重建 manifest、shard 和 fetch，避免混用旧链接。
 
 ## 8. 后续需要补齐
 

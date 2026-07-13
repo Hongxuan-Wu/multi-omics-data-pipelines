@@ -42,7 +42,7 @@ printf 'https://example.org/genome\t0\tdata/GCF_000001.1/GCF_000001.1_genomic.fn
 printf 'https://example.org/report\t0\tdata/GCF_000001.1/sequence_report.jsonl\n' >> "${merged_ncbi_dir}/fetch.txt"
 
 printf 'this is not gzip data\n' > "${rehydrate_data_dir}/GCF_000001.1_genomic.fna.gz"
-printf '{}\n' | gzip -c > "${rehydrate_data_dir}/sequence_report.jsonl.gz"
+printf '{}\n' > "${rehydrate_data_dir}/sequence_report.jsonl"
 
 if NCBI_API_KEY='test-secret-key' bash "${script_under_test}" verify > "${test_root}/verify.log" 2>&1; then
   printf 'expected verify to fail on corrupt gzip file\n' >&2

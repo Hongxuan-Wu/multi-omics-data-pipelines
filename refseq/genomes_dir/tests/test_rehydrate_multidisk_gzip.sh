@@ -95,9 +95,17 @@ fi
 
 while IFS=$'\t' read -r _url _checksum target _rest; do
   [[ -n "${target}" ]] || continue
-  out="${directory}/ncbi_dataset/${target}.gz"
+  if [[ "${target}" == *.jsonl ]]; then
+    out="${directory}/ncbi_dataset/${target}"
+  else
+    out="${directory}/ncbi_dataset/${target}.gz"
+  fi
   mkdir -p "$(dirname "${out}")"
-  printf 'gzip-placeholder\n' | gzip -c > "${out}"
+  if [[ "${out}" == *.gz ]]; then
+    printf 'gzip-placeholder\n' | gzip -c > "${out}"
+  else
+    printf '{}\n' > "${out}"
+  fi
 done < "${directory}/ncbi_dataset/fetch.txt"
 EOF
 chmod +x "${bin_dir}/datasets"
@@ -125,8 +133,8 @@ expected_data_dir="${fake_data2}/${owner_dir}/refseq_genomes/contexts/${context_
   printf 'expected gzip genome file on second storage disk: %s\n' "${expected_data_dir}" >&2
   exit 1
 }
-[[ -s "${expected_data_dir}/sequence_report.jsonl.gz" ]] || {
-  printf 'expected gzip report file on second storage disk: %s\n' "${expected_data_dir}" >&2
+[[ -s "${expected_data_dir}/sequence_report.jsonl" ]] || {
+  printf 'expected uncompressed JSONL report file on second storage disk: %s\n' "${expected_data_dir}" >&2
   exit 1
 }
 

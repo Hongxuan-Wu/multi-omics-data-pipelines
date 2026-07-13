@@ -162,7 +162,7 @@ RETRY_SLEEP_SECONDS=30
 REHYDRATE_MAX_WORKERS=30
 # REHYDRATE_LIST_BEFORE_DOWNLOAD：1=下载前先执行 datasets rehydrate --list 做预检。
 REHYDRATE_LIST_BEFORE_DOWNLOAD=1
-# REHYDRATE_GZIP：1=执行 datasets rehydrate --gzip，下载落盘为 gzip 压缩文件。
+# REHYDRATE_GZIP：1=执行 datasets rehydrate --gzip；序列/注释文件压缩，JSONL 元数据保持原格式。
 REHYDRATE_GZIP=1
 # REHYDRATE_PROGRESS_INTERVAL_SECONDS：rehydrate 下载中每隔多少秒向主日志输出一次文件数和目录大小；0=关闭。
 REHYDRATE_PROGRESS_INTERVAL_SECONDS=60
@@ -958,14 +958,14 @@ rehydrate_data_dir_for_root() {
 # expected_rehydrate_target：把 fetch target 转换为 rehydrate 后实际落盘 target。
 expected_rehydrate_target() {
   local target="$1"
-  if [[ "${REHYDRATE_GZIP}" == "1" && ! "${target}" =~ \.gz$ ]]; then
+  if [[ "${REHYDRATE_GZIP}" == "1" && ! "${target}" =~ \.gz$ && ! "${target}" =~ \.jsonl$ ]]; then
     printf '%s.gz' "${target}"
   else
     printf '%s' "${target}"
   fi
 }
 
-# collect_existing_rehydrate_targets：收集所有候选盘中已存在的 rehydrate 目标相对路径。
+# collect_existing_rehydrate_targets：收集所有候选盘中已存在且非空的 rehydrate 目标相对路径。
 # 参数：
 #   $1 / out_file：输出路径，内容形如 data/GCF_xxx/file.fna.gz。
 collect_existing_rehydrate_targets() {
@@ -978,13 +978,43 @@ collect_existing_rehydrate_targets() {
   for data_root_candidate in "${DATA_ROOT_CANDIDATES[@]}"; do
     data_dir="$(rehydrate_data_dir_for_root "${data_root_candidate}")"
     if [[ -d "${data_dir}" ]]; then
-      find "${data_dir}" -type f -printf 'data/%P\n' >> "${out_file}.partial.${RUN_ID}"
+      find "${data_dir}" -type f -size +0c -printf 'data/%P\n' >> "${out_file}.partial.${RUN_ID}"
     fi
   done
   if [[ -d "${legacy_data_dir}" ]]; then
-    find "${legacy_data_dir}" -type f -printf 'data/%P\n' >> "${out_file}.partial.${RUN_ID}"
+    find "${legacy_data_dir}" -type f -size +0c -printf 'data/%P\n' >> "${out_file}.partial.${RUN_ID}"
   fi
   sort -u "${out_file}.partial.${RUN_ID}" > "${out_file}"
+}
+
+# quarantine_empty_rehydrate_files_for_root：在下载前隔离当前候选盘上的零字节占位文件。
+# datasets rehydrate 只按路径是否存在决定是否跳过，不会覆盖已存在的空文件。
+# 参数：
+#   $1 / data_root：本次 rehydrate 要写入的候选数据根目录。
+quarantine_empty_rehydrate_files_for_root() {
+  local data_root="$1"
+  local data_dir
+  local quarantine_root
+  local empty_file
+  local relative_path
+  local destination
+  local moved=0
+
+  data_dir="$(rehydrate_data_dir_for_root "${data_root}")"
+  [[ -d "${data_dir}" ]] || return 0
+  quarantine_root="${TRASH_DIR}/empty_rehydrate_targets.${RUN_ID}.$(safe_name "${data_root}")"
+
+  while IFS= read -r -d '' empty_file; do
+    relative_path="${empty_file#"${data_dir}/"}"
+    destination="${quarantine_root}/${relative_path}"
+    mkdir -p "${destination%/*}"
+    mv -- "${empty_file}" "${destination}"
+    moved=$((moved + 1))
+  done < <(find "${data_dir}" -type f -size 0c -print0)
+
+  if [[ "${moved}" -gt 0 ]]; then
+    log "已将当前候选盘的 ${moved} 个零字节 rehydrate 占位文件移入 trash：${quarantine_root}"
+  fi
 }
 
 # build_remaining_fetch_for_root：为指定候选盘生成仅包含未完成目标的 fetch.txt。
@@ -1017,7 +1047,7 @@ build_remaining_fetch_for_root() {
       target = $3
       sub(/\r$/, "", target)
       expected = target
-      if (gzip_mode == "1" && expected !~ /\.gz$/) {
+      if (gzip_mode == "1" && expected !~ /\.gz$/ && expected !~ /\.jsonl$/) {
         expected = expected ".gz"
       }
       if (!(expected in existing)) {
@@ -2707,6 +2737,7 @@ rehydrate_merged_package() {
     selected_package_dir="$(rehydrate_package_dir_for_root "${selected_data_root}")"
     selected_data_dir="${selected_package_dir}/ncbi_dataset/data"
     remaining_count_file="${STATUS_DIR}/rehydrate_remaining_${RUN_ID}.candidate${candidate_index}.count"
+    quarantine_empty_rehydrate_files_for_root "${selected_data_root}"
     build_remaining_fetch_for_root "${selected_data_root}" "${remaining_count_file}"
     remaining_count="$(awk 'NR == 1 {print $1}' "${remaining_count_file}")"
 
@@ -2729,6 +2760,7 @@ rehydrate_merged_package() {
     retry_attempt=1
     while [[ "${retry_attempt}" -le "${REHYDRATE_MAX_RETRIES}" ]]; do
       remaining_count_file="${STATUS_DIR}/rehydrate_remaining_${RUN_ID}.candidate${candidate_index}.retry${retry_attempt}.count"
+      quarantine_empty_rehydrate_files_for_root "${selected_data_root}"
       build_remaining_fetch_for_root "${selected_data_root}" "${remaining_count_file}"
       remaining_count="$(awk 'NR == 1 {print $1}' "${remaining_count_file}")"
 
@@ -2750,7 +2782,7 @@ rehydrate_merged_package() {
       rehydrate_log="${log_file}.candidate${candidate_index}.retry${retry_attempt}"
       log "开始 rehydrate：candidate=${candidate_index}/${candidate_count}; retry=${retry_attempt}/${REHYDRATE_MAX_RETRIES}; data_root=${selected_data_root}; avail_gb=${selected_avail_gb}; remaining_targets=${remaining_count}; package=${selected_package_dir}"
       log "命令：${DATASETS_BIN} rehydrate --directory ${selected_package_dir} --max-workers ${REHYDRATE_MAX_WORKERS} --no-progressbar$([[ "${REHYDRATE_GZIP}" == "1" ]] && printf ' --gzip' || true)"
-      if run_logged_command_with_retries_and_progress "datasets rehydrate" 1 "${RETRY_SLEEP_SECONDS}" "${rehydrate_log}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${remaining_count}" "${selected_data_dir}" "${STORAGE_MIN_FREE_GB}" "${cmd[@]}"; then
+      if run_logged_command_with_retries_and_progress "datasets rehydrate" 1 "${RETRY_SLEEP_SECONDS}" "${rehydrate_log}" "${REHYDRATE_PROGRESS_INTERVAL_SECONDS}" "${target_count}" "${selected_data_dir}" "${STORAGE_MIN_FREE_GB}" "${cmd[@]}"; then
         cat "${rehydrate_log}" > "${log_file}" || true
         write_state "rehydrate" "DONE" "log=${log_file};data_root=${selected_data_root};gzip=${REHYDRATE_GZIP}"
         log "统一 rehydrate 完成。日志：${log_file}；最终数据根目录之一：${selected_data_root}"
@@ -3018,6 +3050,12 @@ verify_fetch_targets() {
   local target
   # local_file：target 映射到 MERGED_PACKAGE_DIR 下的本地绝对路径。
   local local_file
+  # existing_targets_file：所有候选盘上已存在的非空目标索引，避免逐目标跨盘扫描。
+  local existing_targets_file="${STATUS_DIR}/verify_existing_rehydrate_targets_${RUN_ID}.tsv"
+  # missing_partial：本次比对生成的缺失清单临时文件。
+  local missing_partial="${MISSING_TARGETS_FILE}.partial.${RUN_ID}"
+  # previewed：已输出到错误日志的缺失目标数。
+  local previewed=0
 
   write_fetch_targets
 
@@ -3029,23 +3067,47 @@ verify_fetch_targets() {
   }
 
   move_to_trash "${MISSING_TARGETS_FILE}" "old_missing_targets_before_rebuild"
-  : > "${MISSING_TARGETS_FILE}"
-  while IFS= read -r target; do
-    [[ -n "${target}" ]] || continue
-    checked=$((checked + 1))
-    if local_file="$(find_rehydrate_target_file "${target}")"; then
-      :
-    else
-      local_file="NOT_FOUND:$(expected_rehydrate_target "${target}")"
-    fi
-    if [[ ! -s "${local_file}" ]]; then
-      printf '%s\t%s\n' "${target}" "${local_file}" >> "${MISSING_TARGETS_FILE}"
-      missing=$((missing + 1))
-      if [[ "${missing}" -le "${MAX_VERIFY_MISSING_PREVIEW}" ]]; then
-        errlog "缺失或空文件：${local_file}"
-      fi
-    fi
-  done < "${FETCH_TARGETS_FILE}"
+  log "开始汇总候选盘上的非空 rehydrate 目标，用于全量存在性校验。"
+  collect_existing_rehydrate_targets "${existing_targets_file}"
+  if ! awk -F '\t' -v gzip_mode="${REHYDRATE_GZIP}" -v existing_file="${existing_targets_file}" '
+    BEGIN {
+      while ((getline line < existing_file) > 0) {
+        existing[line] = 1
+      }
+      close(existing_file)
+    }
+    {
+      target = $1
+      sub(/\r$/, "", target)
+      if (target == "") {
+        next
+      }
+      expected = target
+      if (gzip_mode == "1" && expected !~ /\.gz$/ && expected !~ /\.jsonl$/) {
+        expected = expected ".gz"
+      }
+      if (!(expected in existing)) {
+        print target "\tNOT_FOUND:" expected
+      }
+    }
+  ' "${FETCH_TARGETS_FILE}" > "${missing_partial}"; then
+    : > "${existing_targets_file}"
+    write_state "verify_targets" "FAILED_COMPARE" "${missing_partial}"
+    die "fetch 目标文件集合比对失败：${FETCH_TARGETS_FILE}"
+  fi
+  : > "${existing_targets_file}"
+  mv -- "${missing_partial}" "${MISSING_TARGETS_FILE}"
+
+  checked="$(count_lines "${FETCH_TARGETS_FILE}")"
+  missing="$(count_lines "${MISSING_TARGETS_FILE}")"
+  if [[ "${missing}" -gt 0 ]]; then
+    while IFS=$'\t' read -r target local_file; do
+      [[ -n "${target}" ]] || continue
+      errlog "缺失或空文件：${local_file}"
+      previewed=$((previewed + 1))
+      [[ "${previewed}" -lt "${MAX_VERIFY_MISSING_PREVIEW}" ]] || break
+    done < "${MISSING_TARGETS_FILE}"
+  fi
 
   if [[ "${checked}" -eq 0 ]]; then
     write_state "verify_targets" "FAILED_EMPTY" "${FETCH_TARGETS_FILE}"
@@ -3061,21 +3123,23 @@ verify_fetch_targets() {
   log "fetch 目标文件校验通过：${checked} 个文件均存在且非空。"
 }
 
-# verify_gzip_integrity：gzip 模式下对所有 rehydrate 目标执行 gzip -t。
+# verify_gzip_integrity：gzip 模式下对压缩 rehydrate 目标执行 gzip -t。
 # 参数：
 #   无。
 # 输入：
 #   FETCH_TARGETS_FILE；每个 target 通过 find_rehydrate_target_file 映射到实际 .gz 文件。
 # 输出：
-#   GZIP_STATUS_FILE，记录 OK/MISSING/NOT_GZIP/FAILED 状态。
+#   GZIP_STATUS_FILE，记录 OK/SKIPPED_NON_GZIP/MISSING/FAILED 状态。
 # 行为：
 #   REHYDRATE_GZIP=0 时跳过，并把旧状态文件移入 TRASH_DIR。
 # 失败行为：
-#   任一 gzip 文件缺失、不是 .gz 后缀或 gzip -t 失败时调用 die。
+#   任一预期 gzip 文件缺失或 gzip -t 失败时调用 die；JSONL 元数据不执行 gzip -t。
 verify_gzip_integrity() {
   local target
   local local_file
+  local expected_target
   local checked=0
+  local skipped_non_gzip=0
   local failed=0
   local gzip_log="${LOG_DIR}/gzip_integrity_${RUN_ID}.log"
 
@@ -3093,16 +3157,17 @@ verify_gzip_integrity() {
 
   while IFS= read -r target; do
     [[ -n "${target}" ]] || continue
+    expected_target="$(expected_rehydrate_target "${target}")"
     if local_file="$(find_rehydrate_target_file "${target}")"; then
       :
     else
-      printf '%s\t%s\t%s\n' "${target}" "MISSING" "$(expected_rehydrate_target "${target}")" >> "${GZIP_STATUS_FILE}"
+      printf '%s\t%s\t%s\n' "${target}" "MISSING" "${expected_target}" >> "${GZIP_STATUS_FILE}"
       failed=$((failed + 1))
       continue
     fi
-    if [[ "${local_file}" != *.gz ]]; then
-      printf '%s\t%s\t%s\n' "${target}" "NOT_GZIP" "${local_file}" >> "${GZIP_STATUS_FILE}"
-      failed=$((failed + 1))
+    if [[ "${expected_target}" != *.gz ]]; then
+      printf '%s\t%s\t%s\n' "${target}" "SKIPPED_NON_GZIP" "${local_file}" >> "${GZIP_STATUS_FILE}"
+      skipped_non_gzip=$((skipped_non_gzip + 1))
       continue
     fi
     if gzip -t "${local_file}" >> "${gzip_log}" 2>&1; then
@@ -3117,7 +3182,7 @@ verify_gzip_integrity() {
     fi
   done < "${FETCH_TARGETS_FILE}"
 
-  if [[ "${checked}" -eq 0 && "${failed}" -eq 0 ]]; then
+  if [[ "${checked}" -eq 0 && "${skipped_non_gzip}" -eq 0 && "${failed}" -eq 0 ]]; then
     write_state "verify_gzip" "FAILED_EMPTY" "${FETCH_TARGETS_FILE}"
     die "gzip 完整性校验没有检查到任何目标。请检查 fetch target 清单：${FETCH_TARGETS_FILE}"
   fi
@@ -3127,8 +3192,8 @@ verify_gzip_integrity() {
     die "gzip 完整性校验失败：通过 ${checked} 个，失败/缺失 ${failed} 个。详情：${GZIP_STATUS_FILE}；gzip stderr：${gzip_log}。请重跑 rehydrate。"
   fi
 
-  write_state "verify_gzip" "DONE" "${checked}"
-  log "gzip 完整性校验通过：${checked} 个 gzip 文件。"
+  write_state "verify_gzip" "DONE" "gzip=${checked};skipped_non_gzip=${skipped_non_gzip}"
+  log "gzip 完整性校验通过：${checked} 个 gzip 文件；跳过 ${skipped_non_gzip} 个非 gzip 元数据文件。"
 }
 
 # verify_fetch_md5：按 fetch.txt 第二列执行可选 MD5 校验。
