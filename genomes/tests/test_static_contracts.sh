@@ -122,8 +122,8 @@ for script in "${ROOT_DIR}"/*/download_*.sh "${common}"; do
 done
 
 for script in "${ROOT_DIR}"/*/download_*.sh; do
-  assert_contains "${script}" '^LOCAL_ROOT="\$\{LOCAL_ROOT:-'
-  assert_contains "${script}" '^RUN_ROOT="\$\{RUN_ROOT:-'
+  assert_contains "${script}" '^LOCAL_ROOT="\$\{LOCAL_ROOT:-/data2/p252701008/'
+  assert_contains "${script}" '^RUN_ROOT="\$\{RUN_ROOT:-/data/p252701008/datasets/'
   assert_contains "${script}" '^MIN_DISK_GB="\$\{MIN_DISK_GB:-'
 done
 

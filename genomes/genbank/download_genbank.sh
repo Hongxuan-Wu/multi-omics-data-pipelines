@@ -21,8 +21,8 @@ RELEASE="NCBI_GenBank_assembly_summary_freeze_2026-07-07"
 BASE_URL="https://ftp.ncbi.nlm.nih.gov/genomes/genbank"
 ASSEMBLY_SUMMARY_URL="${BASE_URL}/assembly_summary_genbank.txt"
 ASSEMBLY_SUMMARY_README_URL="${BASE_URL}/README_assembly_summary.txt"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/genbank}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/genbank_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/genbank}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/genbank_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 REFRESH_MANIFEST=0
 

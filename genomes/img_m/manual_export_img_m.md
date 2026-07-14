@@ -18,7 +18,7 @@ IMG/M 不写自动下载脚本。IMG/M 有公开 metadata API（例如 `genomesM
 2. 在 IMG/M 中按研究需要筛选 MAG / environmental microbial datasets。
 3. 将目标 dataset 加入 cart。
 4. 在 cart/export 页面选择功能注释表、pathway、COG/KO/Pfam/CAZy 等字段。
-5. 导出 TSV/CSV 后保存到服务器目录，例如 `/data3/p252701008/genomes/img_m/manual_exports/`。
+5. 导出 TSV/CSV 后保存到服务器目录，例如 `/data2/p252701008/genomes/img_m/manual_exports/`。
 6. 同步保存 cart 导出时的筛选条件、dataset id 列表、导出时间和 data policy 确认记录。
 
 ## 4. 必须保留的 metadata

@@ -11,6 +11,8 @@
 | 压缩总字节 | 618,535,806,550 bytes |
 | 默认选择 | `uniref50`，3 个文件 |
 | 全合同选择 | `--all` |
+| 默认 payload 根目录 | `/data2/p252701008/genomes/uniprot_2026_02` |
+| 默认运行证据根目录 | `/data/p252701008/datasets/uniprot_2026_02_runlogs` |
 
 `--all` 仅表示当前批准清单中的 25 个目标，不表示 UniProt 官方站点的全部产品。UniParc、GOA、XML、RDF、Pan Proteomes、Proteomes REST 导出和其他未列入清单的文件均不在本合同内。
 

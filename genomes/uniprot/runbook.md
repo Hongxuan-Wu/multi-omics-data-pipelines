@@ -1,5 +1,12 @@
 # UniProt 下载运行手册
 
+默认存储布局：
+
+| 内容 | 默认根目录 |
+|---|---|
+| 数据正文（payload） | `/data2/p252701008/genomes/uniprot_2026_02` |
+| 日志、计划、状态、报告、tmp、trash | `/data/p252701008/datasets/uniprot_2026_02_runlogs` |
+
 ## 1. 前置检查
 
 ```bash
@@ -17,16 +24,16 @@ bash test_operational_contract.sh
 
 ```bash
 bash download_uniprot.sh --plan-only \
-  --local-root /data3/p252701008/genomes/uniprot_2026_02 \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs
+  --local-root /data2/p252701008/genomes/uniprot_2026_02 \
+  --run-root /data/p252701008/datasets/uniprot_2026_02_runlogs
 ```
 
 全部批准目标：
 
 ```bash
 bash download_uniprot.sh --all --plan-only \
-  --local-root /data3/p252701008/genomes/uniprot_2026_02 \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs
+  --local-root /data2/p252701008/genomes/uniprot_2026_02 \
+  --run-root /data/p252701008/datasets/uniprot_2026_02_runlogs
 ```
 
 审阅 `RUN_ROOT/plans/download_plan_*.tsv` 的数据组、相对路径、目标路径、文件数和总字节。`--all` 是 25 文件合同，不是 UniProt 官方全部产品。
@@ -34,14 +41,18 @@ bash download_uniprot.sh --all --plan-only \
 ## 3. 后台启动
 
 ```bash
+RUN_ROOT=/data/p252701008/datasets/uniprot_2026_02_runlogs
+RUN_TAG="$(date -u '+%Y%m%dT%H%M%SZ')"
+mkdir -p "${RUN_ROOT}/nohup"
+
 nohup bash download_uniprot.sh --all \
-  --local-root /data3/p252701008/genomes/uniprot_2026_02 \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs \
+  --local-root /data2/p252701008/genomes/uniprot_2026_02 \
+  --run-root "${RUN_ROOT}" \
   --download-attempts 3 \
   --retry-wait 60 \
   --progress-interval 120 \
-  1>uniprot_2026_02.nohup.log 2>&1 &
-printf '%s\n' "$!" > uniprot_2026_02.pid
+  1>"${RUN_ROOT}/nohup/uniprot_2026_02_${RUN_TAG}.log" 2>&1 &
+printf '%s\n' "$!" > "${RUN_ROOT}/uniprot_2026_02.pid"
 ```
 
 同一 `LOCAL_ROOT` 同时只能有一个下载进程。锁冲突返回 `30`，不会启动第二份 aria2。
@@ -50,13 +61,13 @@ printf '%s\n' "$!" > uniprot_2026_02.pid
 
 ```bash
 bash download_uniprot.sh --status \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs
+  --run-root /data/p252701008/datasets/uniprot_2026_02_runlogs
 
 bash download_uniprot.sh --summary \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs
+  --run-root /data/p252701008/datasets/uniprot_2026_02_runlogs
 
-tail -n 100 /data3/p252701008/genomes/uniprot_2026_02_runlogs/logs/download_*.log
-tail -n 100 /data3/p252701008/genomes/uniprot_2026_02_runlogs/logs/error_*.log
+tail -n 100 /data/p252701008/datasets/uniprot_2026_02_runlogs/logs/download_*.log
+tail -n 100 /data/p252701008/datasets/uniprot_2026_02_runlogs/logs/error_*.log
 ```
 
 进度快照包含目标/完成/partial 文件数、目标/已落盘字节、运行时长、10/30/60 分钟速度和 ETA。进度中的“完成”仅指大小已到位且无 sidecar；终态仍以 MD5/release 强校验为准。
@@ -65,8 +76,8 @@ tail -n 100 /data3/p252701008/genomes/uniprot_2026_02_runlogs/logs/error_*.log
 
 ```bash
 bash download_uniprot.sh --all --verify-only \
-  --local-root /data3/p252701008/genomes/uniprot_2026_02 \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs
+  --local-root /data2/p252701008/genomes/uniprot_2026_02 \
+  --run-root /data/p252701008/datasets/uniprot_2026_02_runlogs
 ```
 
 结果为 `0` 表示全部通过；`20` 表示需要修复。该模式不会移动 payload，也不会创建不存在的 payload 根目录。报告位于 `manifests/verification_*.tsv`，修复清单位于 `plans/repair_plan_*.tsv`。
@@ -76,10 +87,15 @@ bash download_uniprot.sh --all --verify-only \
 使用与原运行相同的 release、数据选择和两个根目录重新执行即可：
 
 ```bash
+RUN_ROOT=/data/p252701008/datasets/uniprot_2026_02_runlogs
+RUN_TAG="$(date -u '+%Y%m%dT%H%M%SZ')"
+mkdir -p "${RUN_ROOT}/nohup"
+
 nohup bash download_uniprot.sh --all \
-  --local-root /data3/p252701008/genomes/uniprot_2026_02 \
-  --run-root /data3/p252701008/genomes/uniprot_2026_02_runlogs \
-  1>uniprot_2026_02.resume.log 2>&1 &
+  --local-root /data2/p252701008/genomes/uniprot_2026_02 \
+  --run-root "${RUN_ROOT}" \
+  1>"${RUN_ROOT}/nohup/uniprot_2026_02_resume_${RUN_TAG}.log" 2>&1 &
+printf '%s\n' "$!" > "${RUN_ROOT}/uniprot_2026_02.pid"
 ```
 
 脚本会跳过通过校验的文件、续传带 `.aria2` 的 partial，并重下被隔离的无效文件。不要手工移动或修改 `.aria2` sidecar。
@@ -87,7 +103,7 @@ nohup bash download_uniprot.sh --all \
 ## 7. 受控停止
 
 ```bash
-kill -TERM "$(cat uniprot_2026_02.pid)"
+kill -TERM "$(cat /data/p252701008/datasets/uniprot_2026_02_runlogs/uniprot_2026_02.pid)"
 ```
 
 预期退出码为 `143`，状态为 `INTERRUPTED`。脚本会停止监控和 aria2 子进程，保留 payload、partial、sidecar 与日志。再次执行同一命令即可恢复。

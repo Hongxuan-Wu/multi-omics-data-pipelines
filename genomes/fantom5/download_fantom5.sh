@@ -15,8 +15,8 @@ common_require_version "1.0"
 
 DB_NAME="fantom5"
 RELEASE="FANTOM5_phase1.3_phase2.0"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/fantom5_phase1.3_phase2.0}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/fantom5_phase1.3_phase2.0_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/fantom5_phase1.3_phase2.0}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/fantom5_phase1.3_phase2.0_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4

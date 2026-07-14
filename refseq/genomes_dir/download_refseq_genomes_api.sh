@@ -49,8 +49,8 @@ RESOLVED_ASSEMBLY_SUMMARY_FILE=""
 #   如果必须复用旧 context 且来源表暂时不可读，请显式设置 PIPELINE_CONTEXT_OVERRIDE。
 REQUIRE_RESOLVED_CONTEXT_TOKEN=1
 
-# STORAGE_DISK_CANDIDATES：真实数据存储盘候选列表，按顺序选择；默认首选 /data1。
-STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
+# STORAGE_DISK_CANDIDATES：真实数据存储盘候选列表，按顺序选择；默认首选 /data2。
+STORAGE_DISK_CANDIDATES=(/data2 /data1 /data4 /data5 /data3)
 # STORAGE_OWNER_DIR：每个候选盘下的数据归属目录；不存在时脚本会尝试创建。
 STORAGE_OWNER_DIR="p252701008"
 # STORAGE_DATA_SUBDIR：每个候选盘下的 RefSeq genomes 数据目录名。
@@ -60,7 +60,7 @@ STORAGE_RUNLOG_SUBDIR="refseq_genomes_runlogs"
 # STORAGE_MIN_FREE_GB：rehydrate 运行盘最低剩余空间；低于该值时切换到下一个候选盘。
 STORAGE_MIN_FREE_GB=200
 
-# DATA_ROOT：默认数据根目录，派生自首个候选盘 /data1。
+# DATA_ROOT：默认数据根目录，派生自首个候选盘 /data2。
 DATA_ROOT="${STORAGE_DISK_CANDIDATES[0]}/${STORAGE_OWNER_DIR}/${STORAGE_DATA_SUBDIR}"
 
 # RUN_BASE_ROOT：运行日志、manifest、shard、状态表的固定根目录。

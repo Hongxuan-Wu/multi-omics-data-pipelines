@@ -18,8 +18,8 @@ common_require_version "1.0"
 # ==================== 用户配置 ====================
 DB_NAME="roadmap"
 RELEASE="Roadmap_Epigenomics_2015_metadata_chromhmm_coreMarks_subset"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/roadmap}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/roadmap_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/roadmap}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/roadmap_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4

@@ -243,7 +243,7 @@ manifest/shard -> dehydrated links -> unpack -> merge fetch.txt -> rehydrate -> 
 关键运行目录：
 
 ```text
-default data root: /data1/p252701008/refseq_genomes
+default data root: /data2/p252701008/refseq_genomes
 run root:          /data/p252701008/datasets/refseq_genomes_runlogs
 nohup log dir:     /data/p252701008/datasets/refseq_genomes_runlogs/logs
 ```
@@ -252,13 +252,15 @@ nohup log dir:     /data/p252701008/datasets/refseq_genomes_runlogs/logs
 
 | 顺序 | 数据根目录 |
 |------|------------|
-| 1 | `/data1/p252701008/refseq_genomes` |
-| 2 | `/data2/p252701008/refseq_genomes` |
+| 1 | `/data2/p252701008/refseq_genomes` |
+| 2 | `/data1/p252701008/refseq_genomes` |
 | 3 | `/data4/p252701008/refseq_genomes` |
 | 4 | `/data5/p252701008/refseq_genomes` |
 | 5 | `/data3/p252701008/refseq_genomes` |
 
 脚本会尝试创建每个候选盘下的 `p252701008/refseq_genomes`。`rehydrate` 阶段按候选顺序选择剩余空间不低于 200 GB 的盘；运行中若当前盘低于 200 GB，会停止当前 `datasets rehydrate`，重算未完成目标后切到下一个可用候选盘继续。
+
+默认盘调整只影响后续新写入；已完成 context 仍保留在 `/data1/p252701008/refseq_genomes`，脚本会继续扫描该候选盘，不迁移既有数据。
 
 当前统一 `fetch.txt` 路径：
 
@@ -372,7 +374,7 @@ PIPELINE_CONTEXT_OVERRIDE='refseq_RefSeq_include_all_gzip_refseq_shards_size_500
 当前脚本默认：
 
 ```text
-STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)
+STORAGE_DISK_CANDIDATES=(/data2 /data1 /data4 /data5 /data3)
 STORAGE_MIN_FREE_GB=200
 SHARD_SIZE=5000
 INCLUDE_FILES=all

@@ -18,8 +18,8 @@ common_require_version "1.0"
 # ==================== 用户配置 ====================
 DB_NAME="gtdb"
 RELEASE="R232_232.0"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/gtdb_r232}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/gtdb_r232_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/gtdb_r232}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/gtdb_r232_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4

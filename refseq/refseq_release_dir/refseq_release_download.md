@@ -6,7 +6,7 @@
 
 本文件归档已经验证过的 RefSeq **release FTP 镜像**历史流程。它与 `genomes_dir/download_refseq_genomes_api.sh` 生成的 assembly 级数据库相互独立：前者曾镜像 release 235 的 `complete/` 与辅助文件，后者按 accession 下载 genome、annotation 和 sequence report。不要混用两套 manifest、日志或完整性结论。
 
-截至 2026-07-13，当前服务器不存在脚本默认的 `/data3/p252701008/refseq_release` 和 `/data3/p252701008/refseq_release_runlogs`。因此本文件中的 release 235 数量和路径是历史运行记录，不代表本机现有数据库；当前可用 RefSeq 数据库以顶层 `refseq/readme.md` 记录的 genomes context 为准。
+截至 2026-07-13，服务器不存在历史运行使用的 `/data3/p252701008/refseq_release` 和 `/data3/p252701008/refseq_release_runlogs`。2026-07-14 起，归档脚本和复核脚本的目录默认值统一改为 `/data2`，但下载脚本仍会在启动时直接退出。本文件中明确标为历史运行记录的 `/data3` 路径不代表当前默认值或本机现有数据库；当前可用 RefSeq 数据库以顶层 `refseq/readme.md` 记录的 genomes context 为准。
 
 同日，[NCBI RefSeq release 根目录](https://ftp.ncbi.nlm.nih.gov/refseq/release/) 已更新到 release 236，[release catalog](https://ftp.ncbi.nlm.nih.gov/refseq/release/release-catalog/) 也只在当前层提供 release 236 文件，而历史脚本固定使用 release 235 catalog。为防止把新 release 数据与旧 manifest 混合，`download_refseq.sh` 现已封存并在启动时直接退出；本文件不再提供可执行的 release 下载或续传入口。
 
@@ -44,19 +44,19 @@ bash refseq/check_refseq.sh
 
 ### 2.1 本地目录结构
 
-`LOCAL_ROOT=/data3/p252701008/refseq_release` 对应远端
+`LOCAL_ROOT=/data2/p252701008/refseq_release` 对应远端
 `https://ftp.ncbi.nlm.nih.gov/refseq/release/`。脚本写入文件时保留远端相对路径，例如：
 
 | 远端路径 | 本地路径 |
 |---|---|
-| `complete/complete.1.genomic.gbff.gz` | `/data3/p252701008/refseq_release/complete/complete.1.genomic.gbff.gz` |
-| `release-catalog/RefSeq-release235.catalog.gz` | `/data3/p252701008/refseq_release/release-catalog/RefSeq-release235.catalog.gz` |
-| `release-statistics/*.txt` | `/data3/p252701008/refseq_release/release-statistics/*.txt` |
+| `complete/complete.1.genomic.gbff.gz` | `/data2/p252701008/refseq_release/complete/complete.1.genomic.gbff.gz` |
+| `release-catalog/RefSeq-release235.catalog.gz` | `/data2/p252701008/refseq_release/release-catalog/RefSeq-release235.catalog.gz` |
+| `release-statistics/*.txt` | `/data2/p252701008/refseq_release/release-statistics/*.txt` |
 
 运行日志、下载计划、manifest 不放在 `LOCAL_ROOT`，统一放在：
 
 ```bash
-RUN_ROOT="/data3/p252701008/refseq_release_runlogs"
+RUN_ROOT="/data2/p252701008/refseq_release_runlogs"
 ```
 
 ### 2.2 三类下载开关
@@ -305,8 +305,8 @@ bash ./verify_refseq_truly_full.sh
 
 ```bash
 bash ./verify_refseq_truly_full.sh \
-  /data3/p252701008/refseq_release \
-  /data3/p252701008/refseq_release_runlogs \
+  /data2/p252701008/refseq_release \
+  /data2/p252701008/refseq_release_runlogs \
   20260702T132418Z.1820503
 ```
 
@@ -350,7 +350,7 @@ python ./verify_md5_parallel.py --run-id 20260702T132418Z.1820503
 
 ```bash
 python ./verify_md5_parallel.py \
-  --manifest /data3/p252701008/refseq_release_runlogs/manifests/target_files_20260702T132418Z.1820503.tsv
+  --manifest /data2/p252701008/refseq_release_runlogs/manifests/target_files_20260702T132418Z.1820503.tsv
 ```
 
 注意：Python 并行脚本只是官方 MD5 的可选重复复核。`download_refseq.sh` 正常结束时已经做过官方 MD5 总校验；该脚本不覆盖 `unverified_files_<RUN_ID>.tsv`。无官方 MD5 文件需要独立复核时，用 Shell 综合验证脚本执行 `Content-Length + gzip/非空弱校验`。
@@ -431,8 +431,8 @@ aria2c 退出码映射表以 `download_refseq.sh` 中 `report_aria_failure()` �
 | 主题 | 归档实现/状态 |
 |---|---|
 | 下载入口 | 已封存；`download_refseq.sh` 直接退出 2 |
-| 本地镜像目录 | `LOCAL_ROOT=/data3/p252701008/refseq_release` |
-| 运行产物目录 | `RUN_ROOT=/data3/p252701008/refseq_release_runlogs` |
+| 本地镜像目录 | `LOCAL_ROOT=/data2/p252701008/refseq_release` |
+| 运行产物目录 | `RUN_ROOT=/data2/p252701008/refseq_release_runlogs` |
 | 下载范围 | `complete/` 和分类目录按远端 listing 全量收集，不按后缀过滤 |
 | 辅助信息 | 下载核心 release catalog、官方 MD5 清单和 `release-statistics/` 顶层文件；跳过 `archive/` |
 | 大 catalog 下载 | `RefSeq-release235.catalog.gz` 走 aria2 |

@@ -53,3 +53,9 @@
 **决定：** 不删除日志、partial、sidecar、修复计划或 trash 内容。
 
 **原因：** 中断恢复和故障审计依赖这些文件。空间清理由操作者在确认后按项目 trash 规范另行处理。
+
+## D010：payload 与运行证据分盘
+
+**决定：** UniProt payload 默认写入 `/data2/p252701008/genomes/uniprot_2026_02`，日志、计划、状态、报告、tmp 和 trash 默认写入 `/data/p252701008/datasets/uniprot_2026_02_runlogs`。
+
+**原因：** `/data2` 作为大容量正文盘，`/data` 作为控制与运行证据盘；两者分离可以避免大文件下载与日志、状态更新争用同一存储路径，并明确排除 `/data3`。

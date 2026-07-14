@@ -7,6 +7,8 @@
 | Release | `2026_02` |
 | 官方入口 | `https://ftp.uniprot.org/pub/databases/uniprot/current_release/` |
 | 合同 | `download_file_manifest_2026_02.tsv` 中固定的 25 个目标 |
+| 默认数据目录 | `/data2/p252701008/genomes/uniprot_2026_02` |
+| 默认运行目录 | `/data/p252701008/datasets/uniprot_2026_02_runlogs` |
 | 全量比对库 | Swiss-Prot 与 TrEMBL 的 FASTA 分开下载，二者共同构成 UniProtKB complete |
 | 注释 | Swiss-Prot 与 TrEMBL DAT；另带 README 和 `RELEASE.metalink` |
 | 统一建模 | UniRef50、UniRef90、UniRef100 FASTA |
@@ -65,8 +67,8 @@
 
 ```bash
 DOWNLOAD_DATASETS=uniref50,uniref90 \
-LOCAL_ROOT=/data3/p252701008/genomes/uniprot_2026_02 \
-RUN_ROOT=/data3/p252701008/genomes/uniprot_2026_02_runlogs \
+LOCAL_ROOT=/data2/p252701008/genomes/uniprot_2026_02 \
+RUN_ROOT=/data/p252701008/datasets/uniprot_2026_02_runlogs \
 nohup bash download_uniprot.sh \
   1>uniprot_2026_02.log 2>&1 &
 ```

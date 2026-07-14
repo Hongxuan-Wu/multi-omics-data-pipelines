@@ -14,7 +14,7 @@
 - Do not modify `genomes/common/common.sh` or change its API.
 - Keep all committed changes under `genomes/uniprot/`.
 - Do not change the UniProt 2026_02 approved 25-file manifest or its SHA-256 contract.
-- Do not start a real UniProt download or write to `/data3` during validation.
+- Do not start a real UniProt download or write to production data/run roots during validation.
 - Never delete artifacts; invalid data and partial control artifacts are moved to `trash`.
 - Preserve no-argument behavior: select UniRef50 and run the complete download workflow.
 - Preserve `--plan-only` as a network-free action.

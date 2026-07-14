@@ -5,7 +5,7 @@
 #
 # 目标：
 #   1. 将 https://ftp.ncbi.nlm.nih.gov/refseq/release/ 的目标数据镜像到
-#      /data3/p252701008/refseq_release，并保持远端目录结构。
+#      /data2/p252701008/refseq_release，并保持远端目录结构。
 #   2. 用 3 个 0/1 开关分别控制 complete、物种分类目录、辅助信息下载。
 #   3. complete 与物种分类目录按远端目录 listing 全量下载，不按后缀过滤。
 #   4. RefSeq-release*.catalog.gz 使用 aria2c 下载。
@@ -22,7 +22,7 @@ RELEASE="235"
 # BASE_URL：NCBI RefSeq release 远端根 URL；所有下载 URL 都由它拼接得到。
 BASE_URL="https://ftp.ncbi.nlm.nih.gov/refseq/release"
 # LOCAL_ROOT：本地镜像根目录，目录结构严格对应 BASE_URL 下的相对路径。
-LOCAL_ROOT="/data3/p252701008/refseq_release"
+LOCAL_ROOT="/data2/p252701008/refseq_release"
 
 # 三类下载开关：1=下载，0=不下载。
 # DOWNLOAD_COMPLETE：是否下载 complete/ 目录。
@@ -60,7 +60,7 @@ MIN_DISK_GB=2000
 
 # 运行日志与清单不放入 LOCAL_ROOT，避免污染 RefSeq release 镜像目录。
 # RUN_ROOT：运行日志、下载计划、manifest、临时文件的根目录。
-RUN_ROOT="/data3/p252701008/refseq_release_runlogs"
+RUN_ROOT="/data2/p252701008/refseq_release_runlogs"
 # TRASH_DIR：异常本地文件的隔离目录；脚本不删除文件，只移动到这里。
 TRASH_DIR="${RUN_ROOT}/trash"
 

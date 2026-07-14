@@ -17,8 +17,8 @@ DB_NAME="ensembl"
 ENSEMBL_RELEASE="116"
 ENSEMBL_GENOMES_RELEASE="63"
 RELEASE="Ensembl_${ENSEMBL_RELEASE}_EnsemblGenomes_${ENSEMBL_GENOMES_RELEASE}"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/ensembl}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/ensembl_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/ensembl}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/ensembl_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4

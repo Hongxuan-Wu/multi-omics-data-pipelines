@@ -4,8 +4,8 @@
 #
 # 用法：
 #   bash verify_refseq_truly_full.sh
-#   bash verify_refseq_truly_full.sh /data3/p252701008/refseq_release /data3/p252701008/refseq_release_runlogs
-#   bash verify_refseq_truly_full.sh /data3/p252701008/refseq_release /data3/p252701008/refseq_release_runlogs 20260702T132418Z.1820503
+#   bash verify_refseq_truly_full.sh /data2/p252701008/refseq_release /data2/p252701008/refseq_release_runlogs
+#   bash verify_refseq_truly_full.sh /data2/p252701008/refseq_release /data2/p252701008/refseq_release_runlogs 20260702T132418Z.1820503
 #
 # 前提：先运行 download_refseq.sh，生成 RUN_ROOT/manifests/target_files_<RUN_ID>.tsv。
 #
@@ -21,9 +21,9 @@
 set -euo pipefail
 
 # LOCAL_ROOT：本地 RefSeq 镜像根目录；结构应严格对应 NCBI refseq/release。
-LOCAL_ROOT="${1:-/data3/p252701008/refseq_release}"
+LOCAL_ROOT="${1:-/data2/p252701008/refseq_release}"
 # RUN_ROOT：download_refseq.sh 保存运行日志、manifest、计划文件的位置。
-RUN_ROOT="${2:-/data3/p252701008/refseq_release_runlogs}"
+RUN_ROOT="${2:-/data2/p252701008/refseq_release_runlogs}"
 # RUN_ID：可选；为空时自动选择最新 target_files_<RUN_ID>.tsv。
 RUN_ID="${3:-${RUN_ID:-}}"
 

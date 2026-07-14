@@ -28,9 +28,9 @@ from typing import Iterable
 
 
 # DEFAULT_LOCAL_ROOT：download_refseq.sh 默认本地镜像根目录。
-DEFAULT_LOCAL_ROOT = Path("/data3/p252701008/refseq_release")
+DEFAULT_LOCAL_ROOT = Path("/data2/p252701008/refseq_release")
 # DEFAULT_RUN_ROOT：download_refseq.sh 默认运行日志与 manifest 根目录。
-DEFAULT_RUN_ROOT = Path("/data3/p252701008/refseq_release_runlogs")
+DEFAULT_RUN_ROOT = Path("/data2/p252701008/refseq_release_runlogs")
 # CHUNK_SIZE：每次读取 1 MiB，避免一次性把大文件读进内存。
 CHUNK_SIZE = 1 << 20
 # MD5_RE：官方 MD5 字段必须是 32 位十六进制字符串。
@@ -224,7 +224,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "local_root_pos",
         nargs="?",
-        help="本地 RefSeq 镜像根目录；默认读取 manifest header 或 /data3/p252701008/refseq_release。",
+        help="本地 RefSeq 镜像根目录；默认读取 manifest header 或 /data2/p252701008/refseq_release。",
     )
     parser.add_argument("--local-root", help="本地 RefSeq 镜像根目录，优先级高于位置参数。")
     parser.add_argument("--run-root", default=str(DEFAULT_RUN_ROOT), help="download_refseq.sh 的 RUN_ROOT。")

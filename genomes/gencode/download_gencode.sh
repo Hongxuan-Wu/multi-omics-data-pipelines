@@ -18,8 +18,8 @@ common_require_version "1.0"
 # ==================== 用户配置 ====================
 DB_NAME="gencode"
 RELEASE="Human_v50_Mouse_M39"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/gencode_v50_m39}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/gencode_v50_m39_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/gencode_v50_m39}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/gencode_v50_m39_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4

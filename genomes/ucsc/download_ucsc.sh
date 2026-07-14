@@ -19,8 +19,8 @@ common_require_version "1.0"
 DB_NAME="ucsc"
 RELEASE="hg38_mm39_static_targets_2026-07-07_live_md5_audit"
 FREEZE_POLICY="static_target_urls_frozen_2026-07-07_with_live_official_md5_audit"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/ucsc_hg38_mm39}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/ucsc_hg38_mm39_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/ucsc_hg38_mm39}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/ucsc_hg38_mm39_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4

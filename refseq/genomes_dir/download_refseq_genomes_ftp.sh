@@ -7,7 +7,7 @@
 #
 # 目标：
 #   1. 将 https://ftp.ncbi.nlm.nih.gov/genomes/refseq/ 的全部内容镜像到
-#      /data3/p252701008/refseq_genomes，并保持远端目录结构。
+#      /data2/p252701008/refseq_genomes，并保持远端目录结构。
 #   2. 先递归解析远端目录 listing，生成完整下载计划，再交给 aria2c 下载。
 #   3. 默认先下载每个 assembly 目录内的 md5checksums.txt，再用官方 MD5 做
 #      aria2 单文件校验、下载前跳过和下载后复核。
@@ -20,7 +20,7 @@ set -euo pipefail
 # BASE_URL：NCBI RefSeq genomes 远端根 URL；所有下载 URL 都由它拼接得到。
 BASE_URL="https://ftp.ncbi.nlm.nih.gov/genomes/refseq"
 # LOCAL_ROOT：本地镜像根目录，目录结构严格对应 BASE_URL 下的相对路径。
-LOCAL_ROOT="/data3/p252701008/refseq_genomes"
+LOCAL_ROOT="/data2/p252701008/refseq_genomes"
 
 # 下载范围开关：1=下载，0=不下载。
 # DOWNLOAD_ROOT_FILES：是否下载 BASE_URL 根目录下的 README、assembly_summary 等顶层文件。
@@ -63,7 +63,7 @@ MIN_DISK_GB=2000
 
 # 运行日志与清单不放入 LOCAL_ROOT，避免污染 RefSeq genomes 镜像目录。
 # RUN_ROOT：运行日志、下载计划、manifest、临时文件的根目录。
-RUN_ROOT="/data3/p252701008/refseq_genomes_runlogs"
+RUN_ROOT="/data2/p252701008/refseq_genomes_runlogs"
 # TRASH_DIR：异常本地文件的隔离目录；脚本不删除文件，只移动到这里。
 TRASH_DIR="${RUN_ROOT}/trash"
 

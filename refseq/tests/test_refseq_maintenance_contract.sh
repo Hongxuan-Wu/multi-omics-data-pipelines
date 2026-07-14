@@ -7,6 +7,9 @@ api_script="${refseq_root}/genomes_dir/download_refseq_genomes_api.sh"
 ftp_script="${refseq_root}/genomes_dir/download_refseq_genomes_ftp.sh"
 readme="${refseq_root}/readme.md"
 release_doc="${refseq_root}/refseq_release_dir/refseq_release_download.md"
+release_script="${refseq_root}/refseq_release_dir/download_refseq.sh"
+release_verifier="${refseq_root}/refseq_release_dir/verify_refseq_truly_full.sh"
+release_python_verifier="${refseq_root}/refseq_release_dir/verify_md5_parallel.py"
 refseq_gitignore="${refseq_root}/.gitignore"
 
 fail() {
@@ -30,9 +33,12 @@ require_file "${api_script}"
 require_file "${ftp_script}"
 require_file "${readme}"
 require_file "${release_doc}"
+require_file "${release_script}"
+require_file "${release_verifier}"
+require_file "${release_python_verifier}"
 require_file "${refseq_gitignore}"
 
-require_text "${api_script}" 'STORAGE_DISK_CANDIDATES=(/data1 /data2 /data4 /data5 /data3)'
+require_text "${api_script}" 'STORAGE_DISK_CANDIDATES=(/data2 /data1 /data4 /data5 /data3)'
 require_text "${api_script}" 'STORAGE_MIN_FREE_GB=200'
 require_text "${api_script}" 'SHARD_SIZE=5000'
 require_text "${api_script}" 'INCLUDE_FILES="all"'
@@ -41,6 +47,15 @@ require_text "${api_script}" 'REHYDRATE_MAX_WORKERS=30'
 require_text "${api_script}" 'REHYDRATE_GZIP=1'
 require_text "${api_script}" 'NCBI_API_KEY="${NCBI_API_KEY:-}"'
 require_text "${api_script}" '唯一生产入口'
+
+require_text "${ftp_script}" 'LOCAL_ROOT="/data2/p252701008/refseq_genomes"'
+require_text "${ftp_script}" 'RUN_ROOT="/data2/p252701008/refseq_genomes_runlogs"'
+require_text "${release_script}" 'LOCAL_ROOT="/data2/p252701008/refseq_release"'
+require_text "${release_script}" 'RUN_ROOT="/data2/p252701008/refseq_release_runlogs"'
+require_text "${release_verifier}" 'LOCAL_ROOT="${1:-/data2/p252701008/refseq_release}"'
+require_text "${release_verifier}" 'RUN_ROOT="${2:-/data2/p252701008/refseq_release_runlogs}"'
+require_text "${release_python_verifier}" 'DEFAULT_LOCAL_ROOT = Path("/data2/p252701008/refseq_release")'
+require_text "${release_python_verifier}" 'DEFAULT_RUN_ROOT = Path("/data2/p252701008/refseq_release_runlogs")'
 
 require_text "${readme}" '唯一生产入口'
 require_text "${readme}" 'refseq_RefSeq_include_all_gzip_refseq_shards_size_5000_4067231603'

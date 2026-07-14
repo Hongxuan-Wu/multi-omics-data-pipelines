@@ -31,8 +31,8 @@ FILE_LIST_QUERY="q=annotation"
 SPECIES_LIST="${SCRIPT_DIR}/species_ids.txt"
 FROZEN_MANIFEST="${SCRIPT_DIR}/frozen_file_manifest.tsv"
 ALLOW_LIVE_MANIFEST=0
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/mycocosm}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/mycocosm_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/mycocosm}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/mycocosm_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 PARALLEL_DOWNLOADS=6
 VERIFY_AFTER_DOWNLOAD=1

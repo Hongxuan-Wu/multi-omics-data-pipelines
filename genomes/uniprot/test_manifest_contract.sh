@@ -109,6 +109,10 @@ fi
 
 grep -Fq 'DOWNLOAD_DATASETS="${DOWNLOAD_DATASETS:-uniref50}"' "${DOWNLOADER}" || \
   fail "downloader default is not UniRef50"
+grep -Fq 'LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/uniprot_${RELEASE}}"' "${DOWNLOADER}" || \
+  fail "downloader payload default is not /data2"
+grep -Fq 'RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/uniprot_${RELEASE}_runlogs}"' "${DOWNLOADER}" || \
+  fail "downloader runlog default is not /data"
 grep -Fq -- '--dataset' "${DOWNLOADER}" || fail "downloader lacks --dataset"
 grep -Fq -- '--all' "${DOWNLOADER}" || fail "downloader lacks --all"
 grep -Fq -- '--plan-only' "${DOWNLOADER}" || fail "downloader lacks --plan-only"

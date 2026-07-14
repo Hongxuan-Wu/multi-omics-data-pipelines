@@ -18,8 +18,8 @@ common_require_version "1.0"
 # ==================== 用户配置 ====================
 DB_NAME="rnacentral"
 RELEASE="Release_26"
-LOCAL_ROOT="${LOCAL_ROOT:-/data3/p252701008/genomes/rnacentral_release26}"
-RUN_ROOT="${RUN_ROOT:-/data3/p252701008/genomes/rnacentral_release26_runlogs}"
+LOCAL_ROOT="${LOCAL_ROOT:-/data2/p252701008/genomes/rnacentral_release26}"
+RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/rnacentral_release26_runlogs}"
 USE_PROXY="${USE_PROXY:-0}"
 
 ARIA2_CONNECTIONS=4
