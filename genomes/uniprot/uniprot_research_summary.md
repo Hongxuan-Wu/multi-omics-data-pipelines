@@ -4,7 +4,7 @@
 
 | 项 | 说明 |
 |---|---|
-| 调研日期 | 2026-07-13 |
+| 调研日期 | 2026-07-13；下载器运行机制复核于 2026-07-14 |
 | 当前官方版本 | UniProt Release `2026_02`，发布日期 2026-06-10 |
 | 当前下载脚本版本 | `download_uniprot.sh` 使用经过审核的 `2026_02` 静态 manifest |
 | 存储单位 | 十进制 GB，`1 GB = 10^9 bytes` |
@@ -257,11 +257,16 @@ Layer 5: cross_omics_alignment
 - 无参数默认选择 UniRef50 的 README、metalink 和 FASTA。
 - `--dataset` 支持 7 个 manifest 数据组、`swissprot`/`trembl` 子集视图，以及 `uniprotkb`、`uniref`、`multiomics` 预设；`--all` 选择全部 25 个文件。
 - `--plan-only` 离线生成可审阅计划，不访问网络。
+- `--verify-only` 只读执行完整性校验并生成最小文件级修复清单，不移动 payload。
+- `--status` 和 `--summary` 读取最近状态、进度与终态证据。
 - 下载前检查远端 metalink 版本和字节数，避免 `current_release` 静默漂移。
 - 静态文件按官方 MD5 强校验，metalink 按大小和 release version 校验。
-- 支持 aria2 断点续传、已验证文件跳过、manifest 快照、运行报告和异常文件移入 `trash`。
+- 支持绑定数据根目录的独占锁，避免两个进程并发写入相同 payload。
+- 支持 aria2 断点续传、已验证文件跳过、外层有界恢复、分轮错误日志、manifest 快照、运行报告和异常文件移入 `trash`。
+- 使用 `RATE_LIMITED`、`TRANSIENT_NETWORK`、`REMOTE_PERMANENT`、`STORAGE_BLOCKED`、`AUTH_CONFIG`、`CONFIG_BLOCKED`、`VALIDATION_FAILED` 和 `INTERNAL_INVARIANT` 区分补救动作。
+- 以强校验而非 aria2 退出码作为最终完成判据；中断时保留 partial 与 `.aria2` sidecar。
 
-机器可读合同见 `download_file_manifest_2026_02.tsv`，逐文件人工清单见 `download_file_manifest_2026_02.md`。
+机器可读合同见 `download_file_manifest_2026_02.tsv`，逐文件人工清单见 `download_file_manifest_2026_02.md`，运行合同与操作命令分别见 `download_contract.md` 和 `runbook.md`。
 
 ## 9. 已知差异与更正
 

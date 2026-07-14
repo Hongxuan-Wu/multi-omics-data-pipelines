@@ -6,6 +6,8 @@ MANIFEST="${SCRIPT_DIR}/download_file_manifest_2026_02.tsv"
 MANIFEST_DOC="${SCRIPT_DIR}/download_file_manifest_2026_02.md"
 GENERATOR="${SCRIPT_DIR}/generate_download_file_manifest.sh"
 DOWNLOADER="${SCRIPT_DIR}/download_uniprot.sh"
+OPERATIONAL_TEST="${SCRIPT_DIR}/test_operational_contract.sh"
+FAKE_ARIA2="${SCRIPT_DIR}/tests/fixtures/fake_aria2c.sh"
 
 fail() {
   printf '[FAIL] %s\n' "$*" >&2
@@ -28,8 +30,12 @@ assert_dataset_count() {
   assert_eq "${expected}" "${actual}" "dataset ${dataset} count"
 }
 
-for script in "${GENERATOR}" "${DOWNLOADER}" "${BASH_SOURCE[0]}"; do
+for script in "${GENERATOR}" "${DOWNLOADER}" "${OPERATIONAL_TEST}" "${FAKE_ARIA2}" "${BASH_SOURCE[0]}"; do
   bash -n "${script}" || fail "bash syntax: ${script}"
+done
+
+for document in download_contract.md decisions.md runbook.md implementation_plan.md; do
+  [[ -s "${SCRIPT_DIR}/${document}" ]] || fail "missing UniProt operational document: ${document}"
 done
 
 row_count="$(awk -F '\t' '!/^#/ && $1 != "scope" {count++} END {print count+0}' "${MANIFEST}")"
@@ -108,6 +114,18 @@ grep -Fq -- '--all' "${DOWNLOADER}" || fail "downloader lacks --all"
 grep -Fq -- '--plan-only' "${DOWNLOADER}" || fail "downloader lacks --plan-only"
 grep -Fq 'download_file_manifest_${RELEASE}.tsv' "${DOWNLOADER}" || \
   fail "downloader does not consume the versioned static manifest"
+for function_name in \
+  validate_safe_roots init_runtime_state write_state write_progress_snapshot \
+  write_summary_report acquire_run_lock classify_transfer_failure run_aria2_attempt \
+  build_repair_plan verify_selected_files run_download_with_recovery; do
+  grep -Eq "^${function_name}\\(\\)" "${DOWNLOADER}" || fail "downloader lacks ${function_name}"
+done
+for option in verify-only status summary download-attempts retry-wait progress-interval lock-wait; do
+  grep -Fq -- "--${option}" "${DOWNLOADER}" || fail "downloader lacks --${option}"
+done
+if grep -Eq '(^|[[:space:]])rm([[:space:]]|$)' "${DOWNLOADER}" "${OPERATIONAL_TEST}" "${FAKE_ARIA2}"; then
+  fail "UniProt operational scripts contain a destructive rm command"
+fi
 
 test_root="$(mktemp -d /tmp/uniprot_manifest_contract.XXXXXX)"
 "${DOWNLOADER}" --dataset uniprotkb --plan-only \
@@ -215,7 +233,7 @@ set +e
   > "${test_root}/tampered.stdout" 2> "${test_root}/tampered.stderr"
 tampered_status=$?
 set -e
-assert_eq 1 "${tampered_status}" "tampered manifest exit status"
+assert_eq 30 "${tampered_status}" "tampered manifest blocked exit status"
 
 set +e
 CHECK_REMOTE_RELEASE=0 "${DOWNLOADER}" --plan-only \
@@ -227,8 +245,8 @@ VERIFY_AFTER_DOWNLOAD=0 "${DOWNLOADER}" --plan-only \
   > "${test_root}/disabled-verify.stdout" 2> "${test_root}/disabled-verify.stderr"
 disabled_verify_status=$?
 set -e
-assert_eq 1 "${disabled_release_status}" "disabled remote release check exit status"
-assert_eq 1 "${disabled_verify_status}" "disabled post-download verification exit status"
+assert_eq 30 "${disabled_release_status}" "disabled remote release check blocked exit status"
+assert_eq 30 "${disabled_verify_status}" "disabled post-download verification blocked exit status"
 
 set +e
 "${DOWNLOADER}" --all --dataset uniref50 --plan-only \

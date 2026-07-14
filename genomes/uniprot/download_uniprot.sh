@@ -7,6 +7,18 @@
 # =============================================================================
 set -Eeuo pipefail
 
+early_unhandled_error() {
+  local exit_code="$1"
+  local line="$2"
+  local command="$3"
+  trap - ERR
+  printf '[uniprot] ERROR: initialization failed: exit=%s line=%s command=%q\n' \
+    "${exit_code}" "${line}" "${command}" >&2
+  exit "${exit_code}"
+}
+
+trap 'early_unhandled_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMMON_SH="${SCRIPT_DIR}/../common/common.sh"
 source "${COMMON_SH}"
@@ -26,10 +38,20 @@ ARIA2_MAX_CONCURRENT="${ARIA2_MAX_CONCURRENT:-4}"
 ARIA2_SPLIT="${ARIA2_SPLIT:-4}"
 ARIA2_MIN_SPLIT_SIZE="${ARIA2_MIN_SPLIT_SIZE:-128M}"
 ARIA2_SUMMARY_INTERVAL="${ARIA2_SUMMARY_INTERVAL:-120}"
+ARIA2_BIN="${ARIA2_BIN:-aria2c}"
+ARIA2_MAX_TRIES="${ARIA2_MAX_TRIES:-10}"
+ARIA2_RETRY_WAIT_SECONDS="${ARIA2_RETRY_WAIT_SECONDS:-30}"
+DOWNLOAD_MAX_ATTEMPTS="${DOWNLOAD_MAX_ATTEMPTS:-3}"
+DOWNLOAD_RETRY_WAIT_SECONDS="${DOWNLOAD_RETRY_WAIT_SECONDS:-60}"
+PROGRESS_INTERVAL_SECONDS="${PROGRESS_INTERVAL_SECONDS:-120}"
+LOCK_WAIT_SECONDS="${LOCK_WAIT_SECONDS:-0}"
 VERIFY_AFTER_DOWNLOAD="${VERIFY_AFTER_DOWNLOAD:-1}"
 SKIP_VERIFIED_FILES="${SKIP_VERIFIED_FILES:-1}"
 CHECK_REMOTE_RELEASE="${CHECK_REMOTE_RELEASE:-1}"
 PLAN_ONLY="${PLAN_ONLY:-0}"
+VERIFY_ONLY="${VERIFY_ONLY:-0}"
+STATUS_ONLY="${STATUS_ONLY:-0}"
+SUMMARY_ONLY="${SUMMARY_ONLY:-0}"
 MIN_DISK_GB_WAS_SET="${MIN_DISK_GB+x}"
 MIN_DISK_GB="${MIN_DISK_GB:-1}"
 
@@ -56,9 +78,36 @@ DOWNLOAD_BYTES=0
 SELECT_SWISSPROT=0
 SELECT_TREMBL=0
 SELECT_UNIPROTKB_METADATA=0
+RUNTIME_INITIALIZED=0
+FINALIZED=0
+HANDLING_FAILURE=0
+LOCK_HELD=0
+LOCK_FD=""
+MONITOR_PID=""
+ARIA_PID=""
+CURRENT_STAGE="INITIALIZING"
+CURRENT_STATE="INITIALIZING"
+CURRENT_ATTEMPT=0
+LAST_ERROR_CLASS="NONE"
+LAST_MESSAGE=""
+START_EPOCH=0
+END_EPOCH=0
+PROGRESS_BASE_BYTES=0
+PROGRESS_BASE_EPOCH=0
+PROGRESS_BASE_SET=0
+VERIFY_PASS_COUNT=0
+VERIFY_FAIL_COUNT=0
+VERIFY_MISSING_COUNT=0
+VERIFY_PARTIAL_COUNT=0
+LAST_ATTEMPT_LOG=""
+LAST_TRANSPORT_LOG=""
+LAST_ATTEMPT_EVIDENCE=""
+LAST_REPAIR_PLAN=""
 
 declare -A SELECTED_DATASETS=()
 declare -a SELECTED_ORDER=()
+declare -A LAST_VALIDATION_STATUS_BY_PATH=()
+declare -A LAST_VALIDATION_DETAIL_BY_PATH=()
 
 usage() {
   cat <<'EOF'
@@ -72,9 +121,28 @@ Dataset selection:
 
 Execution:
   --plan-only               Write and print the plan without network access
+  --verify-only             Read-only validation; never move payload files
+  --status                  Print the latest state and progress snapshots
+  --summary                 Print the latest terminal summary
   --manifest PATH           Override the approved 2026_02 manifest path
   --local-root PATH         Override the data output root
-  --run-root PATH           Override logs, plans, manifests and trash root
+  --run-root PATH           Override logs, plans, state, reports and trash root
+
+Recovery and monitoring:
+  --download-attempts N     Maximum outer transfer/repair rounds (default: 3)
+  --retry-wait SECONDS      Delay between outer repair rounds (default: 60)
+  --progress-interval SEC   Progress snapshot interval; 0 disables (default: 120)
+  --lock-wait SECONDS       Exclusive-lock wait; 0 fails immediately (default: 0)
+
+aria2 controls:
+  --connections N           Connections per server (default: 4)
+  --max-concurrent N        Concurrent files (default: 4)
+  --split N                 Split count per file (default: 4)
+  --min-split-size SIZE     aria2 split size from 1M through 1024M
+  --aria-max-tries N        Retries inside each aria2 round (default: 10)
+  --aria-retry-wait SEC     aria2 retry delay (default: 30)
+  --summary-interval SEC    aria2 console summary interval (default: 120)
+  --min-disk-gb N           Required free disk threshold in decimal GB
   -h, --help                Show this help
 
 Datasets:
@@ -97,7 +165,17 @@ Presets accepted by --dataset:
 Environment variables remain supported. Examples:
   DOWNLOAD_DATASETS=uniref50,uniref90 ./download_uniprot.sh
   ./download_uniprot.sh --dataset uniprotkb --plan-only
+  ./download_uniprot.sh --verify-only --all
+  ./download_uniprot.sh --status
   ./download_uniprot.sh --all
+
+Exit status:
+  0    COMPLETE, PLANNED, or a successful status/summary query
+  2    Invalid command-line arguments
+  20   NEEDS_REPAIR: required files remain missing, partial, or invalid
+  30   BLOCKED: unsafe configuration, lock contention, or local preflight failure
+  130  Interrupted by SIGINT
+  143  Interrupted by SIGTERM
 EOF
 }
 
@@ -113,7 +191,29 @@ require_argument() {
   [[ -n "${value}" ]] || argument_error "${option} requires a value"
 }
 
+require_positive_cli_int() {
+  local option="$1"
+  local value="$2"
+  [[ "${value}" =~ ^[1-9][0-9]*$ ]] || argument_error "${option} requires a positive integer"
+}
+
+require_nonnegative_cli_int() {
+  local option="$1"
+  local value="$2"
+  [[ "${value}" =~ ^[0-9]+$ ]] || argument_error "${option} requires a non-negative integer"
+}
+
+require_cli_size() {
+  local option="$1"
+  local value="$2"
+  [[ "${value}" =~ ^([1-9][0-9]*)[Mm]$ ]] || \
+    argument_error "${option} requires an aria2 size from 1M through 1024M"
+  (( 10#${BASH_REMATCH[1]} <= 1024 )) || \
+    argument_error "${option} must not exceed 1024M"
+}
+
 parse_args() {
+  local execution_mode_count mode_name mode_value
   while (( $# > 0 )); do
     case "$1" in
       --dataset)
@@ -142,6 +242,18 @@ parse_args() {
         ;;
       --plan-only)
         PLAN_ONLY=1
+        shift
+        ;;
+      --verify-only)
+        VERIFY_ONLY=1
+        shift
+        ;;
+      --status)
+        STATUS_ONLY=1
+        shift
+        ;;
+      --summary)
+        SUMMARY_ONLY=1
         shift
         ;;
       --list-datasets)
@@ -178,6 +290,154 @@ parse_args() {
         RUN_ROOT="${1#*=}"
         shift
         ;;
+      --download-attempts)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        DOWNLOAD_MAX_ATTEMPTS="$2"
+        shift 2
+        ;;
+      --download-attempts=*)
+        require_argument "--download-attempts" "${1#*=}"
+        require_positive_cli_int "--download-attempts" "${1#*=}"
+        DOWNLOAD_MAX_ATTEMPTS="${1#*=}"
+        shift
+        ;;
+      --retry-wait)
+        require_argument "$1" "${2:-}"
+        require_nonnegative_cli_int "$1" "$2"
+        DOWNLOAD_RETRY_WAIT_SECONDS="$2"
+        shift 2
+        ;;
+      --retry-wait=*)
+        require_argument "--retry-wait" "${1#*=}"
+        require_nonnegative_cli_int "--retry-wait" "${1#*=}"
+        DOWNLOAD_RETRY_WAIT_SECONDS="${1#*=}"
+        shift
+        ;;
+      --progress-interval)
+        require_argument "$1" "${2:-}"
+        require_nonnegative_cli_int "$1" "$2"
+        PROGRESS_INTERVAL_SECONDS="$2"
+        shift 2
+        ;;
+      --progress-interval=*)
+        require_argument "--progress-interval" "${1#*=}"
+        require_nonnegative_cli_int "--progress-interval" "${1#*=}"
+        PROGRESS_INTERVAL_SECONDS="${1#*=}"
+        shift
+        ;;
+      --lock-wait)
+        require_argument "$1" "${2:-}"
+        require_nonnegative_cli_int "$1" "$2"
+        LOCK_WAIT_SECONDS="$2"
+        shift 2
+        ;;
+      --lock-wait=*)
+        require_argument "--lock-wait" "${1#*=}"
+        require_nonnegative_cli_int "--lock-wait" "${1#*=}"
+        LOCK_WAIT_SECONDS="${1#*=}"
+        shift
+        ;;
+      --connections)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        (( 10#$2 <= 16 )) || argument_error "$1 must not exceed aria2's limit of 16"
+        ARIA2_CONNECTIONS="$2"
+        shift 2
+        ;;
+      --connections=*)
+        require_argument "--connections" "${1#*=}"
+        require_positive_cli_int "--connections" "${1#*=}"
+        (( 10#${1#*=} <= 16 )) || argument_error "--connections must not exceed aria2's limit of 16"
+        ARIA2_CONNECTIONS="${1#*=}"
+        shift
+        ;;
+      --max-concurrent)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        ARIA2_MAX_CONCURRENT="$2"
+        shift 2
+        ;;
+      --max-concurrent=*)
+        require_argument "--max-concurrent" "${1#*=}"
+        require_positive_cli_int "--max-concurrent" "${1#*=}"
+        ARIA2_MAX_CONCURRENT="${1#*=}"
+        shift
+        ;;
+      --split)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        ARIA2_SPLIT="$2"
+        shift 2
+        ;;
+      --split=*)
+        require_argument "--split" "${1#*=}"
+        require_positive_cli_int "--split" "${1#*=}"
+        ARIA2_SPLIT="${1#*=}"
+        shift
+        ;;
+      --min-split-size)
+        require_argument "$1" "${2:-}"
+        require_cli_size "$1" "$2"
+        ARIA2_MIN_SPLIT_SIZE="$2"
+        shift 2
+        ;;
+      --min-split-size=*)
+        require_argument "--min-split-size" "${1#*=}"
+        require_cli_size "--min-split-size" "${1#*=}"
+        ARIA2_MIN_SPLIT_SIZE="${1#*=}"
+        shift
+        ;;
+      --aria-max-tries)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        ARIA2_MAX_TRIES="$2"
+        shift 2
+        ;;
+      --aria-max-tries=*)
+        require_argument "--aria-max-tries" "${1#*=}"
+        require_positive_cli_int "--aria-max-tries" "${1#*=}"
+        ARIA2_MAX_TRIES="${1#*=}"
+        shift
+        ;;
+      --aria-retry-wait)
+        require_argument "$1" "${2:-}"
+        require_nonnegative_cli_int "$1" "$2"
+        ARIA2_RETRY_WAIT_SECONDS="$2"
+        shift 2
+        ;;
+      --aria-retry-wait=*)
+        require_argument "--aria-retry-wait" "${1#*=}"
+        require_nonnegative_cli_int "--aria-retry-wait" "${1#*=}"
+        ARIA2_RETRY_WAIT_SECONDS="${1#*=}"
+        shift
+        ;;
+      --summary-interval)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        ARIA2_SUMMARY_INTERVAL="$2"
+        shift 2
+        ;;
+      --summary-interval=*)
+        require_argument "--summary-interval" "${1#*=}"
+        require_positive_cli_int "--summary-interval" "${1#*=}"
+        ARIA2_SUMMARY_INTERVAL="${1#*=}"
+        shift
+        ;;
+      --min-disk-gb)
+        require_argument "$1" "${2:-}"
+        require_positive_cli_int "$1" "$2"
+        MIN_DISK_GB="$2"
+        MIN_DISK_GB_WAS_SET=1
+        shift 2
+        ;;
+      --min-disk-gb=*)
+        require_argument "--min-disk-gb" "${1#*=}"
+        require_positive_cli_int "--min-disk-gb" "${1#*=}"
+        MIN_DISK_GB="${1#*=}"
+        MIN_DISK_GB_WAS_SET=1
+        shift
+        ;;
       -h|--help)
         usage
         exit 0
@@ -198,6 +458,28 @@ parse_args() {
   if [[ "${SELECT_ALL}" == "1" && "${DATASET_ARG_SEEN}" == "1" ]]; then
     argument_error "--all cannot be combined with --dataset"
   fi
+
+  for mode_name in PLAN_ONLY VERIFY_ONLY STATUS_ONLY SUMMARY_ONLY; do
+    mode_value="${!mode_name}"
+    case "${mode_value}" in
+      0|1) ;;
+      *) die "${mode_name} 必须是 0 或 1，当前值为：${mode_value}" ;;
+    esac
+  done
+  execution_mode_count=$((PLAN_ONLY + VERIFY_ONLY + STATUS_ONLY + SUMMARY_ONLY))
+  (( execution_mode_count <= 1 )) || \
+    argument_error "--plan-only, --verify-only, --status and --summary are mutually exclusive"
+  if [[ "${LIST_DATASETS}" == "1" && "${execution_mode_count}" -gt 0 ]]; then
+    argument_error "--list-datasets cannot be combined with an execution mode"
+  fi
+  if [[ "${LIST_DATASETS}" == "1" && \
+        ("${SELECT_ALL}" == "1" || "${DATASET_ARG_SEEN}" == "1") ]]; then
+    argument_error "--list-datasets does not accept dataset selectors"
+  fi
+  if [[ ("${STATUS_ONLY}" == "1" || "${SUMMARY_ONLY}" == "1") && \
+        ("${SELECT_ALL}" == "1" || "${DATASET_ARG_SEEN}" == "1") ]]; then
+    argument_error "--status and --summary do not accept dataset selectors"
+  fi
   if [[ "${DATASET_ARG_SEEN}" == "1" ]]; then
     DOWNLOAD_DATASETS="${CLI_DATASETS}"
   elif [[ "${SELECT_ALL}" == "1" ]]; then
@@ -205,11 +487,15 @@ parse_args() {
   fi
 }
 
+# Runtime evidence lives under RUN_ROOT; payloads remain under LOCAL_ROOT.
 init_runtime_paths() {
-  RUN_ID="$(date -u '+%Y%m%dT%H%M%SZ').$$"
+  RUN_ID="${RUN_ID:-$(date -u '+%Y%m%dT%H%M%SZ').$$}"
   LOG_DIR="${RUN_ROOT}/logs"
   PLAN_DIR="${RUN_ROOT}/plans"
   MANIFEST_DIR="${RUN_ROOT}/manifests"
+  STATUS_DIR="${RUN_ROOT}/status"
+  REPORT_DIR="${RUN_ROOT}/reports"
+  LOCK_DIR="${RUN_ROOT}/locks"
   TMP_DIR="${RUN_ROOT}/tmp/${RUN_ID}"
   TRASH_DIR="${RUN_ROOT}/trash"
 
@@ -219,14 +505,300 @@ init_runtime_paths() {
   ARIA_INPUT="${PLAN_DIR}/aria_${DB_NAME}_${RUN_ID}.txt"
   MANIFEST_SNAPSHOT="${MANIFEST_DIR}/download_file_manifest_${RELEASE}_${RUN_ID}.tsv"
   VERIFY_REPORT="${MANIFEST_DIR}/verification_${RUN_ID}.tsv"
+  STATE_FILE="${STATUS_DIR}/state_${RUN_ID}.tsv"
+  PROGRESS_FILE="${STATUS_DIR}/progress_${RUN_ID}.tsv"
+  LATEST_STATUS_FILE="${STATUS_DIR}/latest_status.tsv"
+  LATEST_PROGRESS_FILE="${STATUS_DIR}/latest_progress.tsv"
+  SUMMARY_REPORT="${REPORT_DIR}/summary_${RUN_ID}.md"
+  LATEST_SUMMARY_REPORT="${REPORT_DIR}/latest_summary.md"
+}
+
+init_control_dirs() {
+  mkdir -p "${RUN_ROOT}" "${LOG_DIR}" "${PLAN_DIR}" "${MANIFEST_DIR}" \
+    "${STATUS_DIR}" "${REPORT_DIR}" "${LOCK_DIR}" "${TMP_DIR}" "${TRASH_DIR}"
+}
+
+# State/error messages are single-line and redact common credential assignments.
+sanitize_message() {
+  printf '%s' "$*" \
+    | sed -E 's/((token|password|authorization|api[_-]?key)=)[^[:space:]]+/\1REDACTED/Ig' \
+    | tr '\t\r\n' '   '
+}
+
+die() {
+  local message
+  message="$(sanitize_message "$*")"
+  HANDLING_FAILURE=1
+  if [[ "${message}" =~ 磁盘|disk|space ]]; then
+    LAST_ERROR_CLASS="STORAGE_BLOCKED"
+  elif [[ "${LAST_ERROR_CLASS}" == "NONE" ]]; then
+    LAST_ERROR_CLASS="CONFIG_BLOCKED"
+  fi
+  if [[ "${RUNTIME_INITIALIZED}" == "1" ]]; then
+    errlog "${message}"
+    finish_run "BLOCKED" 30 "${message}"
+  else
+    printf '[uniprot] ERROR: %s\n' "${message}" >&2
+  fi
+  exit 30
+}
+
+path_parent_is_writable() {
+  local path="$1"
+  local parent="${path}"
+  while [[ ! -e "${parent}" ]]; do
+    parent="$(dirname "${parent}")"
+  done
+  [[ -d "${parent}" && -w "${parent}" ]]
+}
+
+# Reject ambiguous or dangerous roots before creating any directory.
+validate_safe_roots() {
+  local candidate
+  for candidate in "${LOCAL_ROOT}" "${RUN_ROOT}"; do
+    [[ -n "${candidate}" ]] || die "数据目录和运行目录不能为空"
+    [[ "${candidate}" == /* ]] || die "目录必须是绝对路径：${candidate}"
+    [[ "${candidate}" != *$'\n'* && "${candidate}" != *$'\r'* && "${candidate}" != *$'\t'* ]] || \
+      die "目录包含控制字符"
+  done
+
+  LOCAL_ROOT="$(readlink -m -- "${LOCAL_ROOT}")"
+  RUN_ROOT="$(readlink -m -- "${RUN_ROOT}")"
+  [[ "${LOCAL_ROOT}" != "/" ]] || die "LOCAL_ROOT 不能是根目录 /"
+  [[ "${RUN_ROOT}" != "/" ]] || die "RUN_ROOT 不能是根目录 /"
+  [[ "${LOCAL_ROOT}" != "${RUN_ROOT}" ]] || die "LOCAL_ROOT 与 RUN_ROOT 不能相同"
+
+  case "${LOCAL_ROOT}/" in
+    "${RUN_ROOT}/"*) die "LOCAL_ROOT 不能位于 RUN_ROOT 内：${LOCAL_ROOT}" ;;
+  esac
+  case "${RUN_ROOT}/" in
+    "${LOCAL_ROOT}/"*) die "RUN_ROOT 不能位于 LOCAL_ROOT 内：${RUN_ROOT}" ;;
+  esac
+
+  path_parent_is_writable "${LOCAL_ROOT}" || die "LOCAL_ROOT 的现有父目录不可写：${LOCAL_ROOT}"
+  path_parent_is_writable "${RUN_ROOT}" || die "RUN_ROOT 的现有父目录不可写：${RUN_ROOT}"
+}
+
+validate_safe_run_root() {
+  [[ -n "${RUN_ROOT}" ]] || die "RUN_ROOT 不能为空"
+  [[ "${RUN_ROOT}" == /* ]] || die "RUN_ROOT 必须是绝对路径：${RUN_ROOT}"
+  [[ "${RUN_ROOT}" != *$'\n'* && "${RUN_ROOT}" != *$'\r'* && "${RUN_ROOT}" != *$'\t'* ]] || \
+    die "RUN_ROOT 包含控制字符"
+  RUN_ROOT="$(readlink -m -- "${RUN_ROOT}")"
+  [[ "${RUN_ROOT}" != "/" ]] || die "RUN_ROOT 不能是根目录 /"
+}
+
+atomic_publish() {
+  local source_file="$1"
+  local destination="$2"
+  local temp_file="${destination}.tmp.${RUN_ID}.$$"
+  cp -- "${source_file}" "${temp_file}"
+  mv -f -- "${temp_file}" "${destination}"
+}
+
+write_state() {
+  local state="$1"
+  local exit_code="${2:-0}"
+  local message="${3:-}"
+  local timestamp
+  timestamp="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  message="$(sanitize_message "${message}")"
+  CURRENT_STATE="${state}"
+  LAST_MESSAGE="${message}"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${timestamp}" "${RUN_ID}" "${state}" "${exit_code}" "${CURRENT_STAGE}" \
+    "${CURRENT_ATTEMPT}" "${LAST_ERROR_CLASS}" "${message}" >> "${STATE_FILE}"
+  atomic_publish "${STATE_FILE}" "${LATEST_STATUS_FILE}"
+}
+
+write_summary_report() {
+  local now_epoch duration temp_report
+  now_epoch="$(date +%s)"
+  if (( START_EPOCH > 0 )); then
+    duration=$((now_epoch - START_EPOCH))
+  else
+    duration=0
+  fi
+  temp_report="${SUMMARY_REPORT}.tmp.$$"
+  {
+    printf '# UniProt download run summary\n\n'
+    printf -- '- Run ID: `%s`\n' "${RUN_ID}"
+    printf -- '- Release: `%s`\n' "${RELEASE}"
+    printf -- '- Datasets: `%s`\n' "${SELECTED_LABEL:-not-resolved}"
+    printf -- '- State: `%s`\n' "${CURRENT_STATE}"
+    printf -- '- Stage: `%s`\n' "${CURRENT_STAGE}"
+    printf -- '- Exit code: `%s`\n' "${1:-0}"
+    printf -- '- Attempt: `%s/%s`\n' "${CURRENT_ATTEMPT}" "${DOWNLOAD_MAX_ATTEMPTS}"
+    printf -- '- Last error class: `%s`\n' "${LAST_ERROR_CLASS}"
+    printf -- '- Duration seconds: `%s`\n' "${duration}"
+    printf -- '- Planned files: `%s`\n' "${TARGET_COUNT}"
+    printf -- '- Planned bytes: `%s`\n' "${TARGET_BYTES}"
+    printf -- '- Verification passed: `%s`\n' "${VERIFY_PASS_COUNT}"
+    printf -- '- Verification failed: `%s`\n' "${VERIFY_FAIL_COUNT}"
+    printf -- '- Verification missing: `%s`\n' "${VERIFY_MISSING_COUNT}"
+    printf -- '- Verification partial: `%s`\n' "${VERIFY_PARTIAL_COUNT}"
+    printf -- '- Message: %s\n\n' "${LAST_MESSAGE:-none}"
+    printf '## Evidence\n\n'
+    printf -- '- Plan: `%s`\n' "${PLAN_FILE:-not-created}"
+    printf -- '- State history: `%s`\n' "${STATE_FILE}"
+    printf -- '- Progress history: `%s`\n' "${PROGRESS_FILE}"
+    printf -- '- Verification report: `%s`\n' "${VERIFY_REPORT:-not-created}"
+    printf -- '- Download log: `%s`\n' "${DL_LOG}"
+    printf -- '- Error log: `%s`\n' "${ERR_LOG}"
+  } > "${temp_report}"
+  mv -f -- "${temp_report}" "${SUMMARY_REPORT}"
+  atomic_publish "${SUMMARY_REPORT}" "${LATEST_SUMMARY_REPORT}"
+}
+
+finish_run() {
+  local state="$1"
+  local exit_code="$2"
+  local message="$3"
+  [[ "${FINALIZED}" == "0" ]] || return 0
+  END_EPOCH="$(date +%s)"
+  write_state "${state}" "${exit_code}" "${message}"
+  if [[ -n "${PLAN_FILE:-}" && -r "${PLAN_FILE}" ]]; then
+    write_progress_snapshot "${CURRENT_ATTEMPT}" "${LAST_ERROR_CLASS}"
+  fi
+  write_summary_report "${exit_code}"
+  FINALIZED=1
+}
+
+exit_with_state() {
+  local state="$1"
+  local exit_code="$2"
+  local message="$3"
+  finish_run "${state}" "${exit_code}" "${message}"
+  exit "${exit_code}"
+}
+
+stop_progress_monitor() {
+  if [[ -n "${MONITOR_PID}" ]] && kill -0 "${MONITOR_PID}" 2>/dev/null; then
+    kill "${MONITOR_PID}" 2>/dev/null || true
+    wait "${MONITOR_PID}" 2>/dev/null || true
+  fi
+  MONITOR_PID=""
+}
+
+stop_active_transfer() {
+  if [[ -n "${ARIA_PID}" ]] && kill -0 "${ARIA_PID}" 2>/dev/null; then
+    kill -TERM "${ARIA_PID}" 2>/dev/null || true
+    wait "${ARIA_PID}" 2>/dev/null || true
+  fi
+  ARIA_PID=""
+}
+
+release_run_lock() {
+  if [[ "${LOCK_HELD}" == "1" && -n "${LOCK_FD}" ]]; then
+    flock -u "${LOCK_FD}" 2>/dev/null || true
+    exec {LOCK_FD}>&-
+    LOCK_FD=""
+    LOCK_HELD=0
+  fi
+}
+
+on_exit() {
+  stop_progress_monitor
+  stop_active_transfer
+  release_run_lock
+}
+
+on_signal() {
+  local signal_name="$1"
+  local exit_code=143
+  [[ "${signal_name}" == "INT" ]] && exit_code=130
+  trap - ERR INT TERM
+  HANDLING_FAILURE=1
+  LAST_ERROR_CLASS="INTERRUPTED"
+  CURRENT_STAGE="INTERRUPTED"
+  stop_progress_monitor
+  stop_active_transfer
+  if [[ "${RUNTIME_INITIALIZED}" == "1" ]]; then
+    warnlog "收到 SIG${signal_name}，保留现有文件和 .aria2 sidecar"
+    finish_run "INTERRUPTED" "${exit_code}" "received SIG${signal_name}; resumable artifacts retained"
+  fi
+  exit "${exit_code}"
+}
+
+on_unhandled_error() {
+  local exit_code="$1"
+  local line="$2"
+  local command="$3"
+  local message
+  [[ "${FINALIZED}" == "0" ]] || exit "${exit_code}"
+  [[ "${HANDLING_FAILURE}" == "0" ]] || exit 30
+  HANDLING_FAILURE=1
+  trap - ERR
+  LAST_ERROR_CLASS="INTERNAL_INVARIANT"
+  CURRENT_STAGE="UNHANDLED_ERROR"
+  message="unhandled error: original_exit=${exit_code} line=${line} command=$(sanitize_message "${command}")"
+  if [[ "${RUNTIME_INITIALIZED}" == "1" ]]; then
+    errlog "${message}"
+    finish_run "BLOCKED" 30 "${message}"
+  else
+    printf '[uniprot] ERROR: %s\n' "${message}" >&2
+  fi
+  exit 30
+}
+
+init_runtime_state() {
+  mkdir -p "${STATUS_DIR}" "${REPORT_DIR}" "${LOCK_DIR}"
+  START_EPOCH="$(date +%s)"
+  PROGRESS_BASE_EPOCH="${START_EPOCH}"
+  printf 'timestamp\trun_id\tstate\texit_code\tstage\tattempt\terror_class\tmessage\n' > "${STATE_FILE}"
+  printf 'timestamp\tepoch\trun_id\tattempt\ttarget_files\tcomplete_files\tpartial_files\ttarget_bytes\tpresent_bytes\telapsed_seconds\tspeed_10m_Bps\tspeed_30m_Bps\tspeed_60m_Bps\teta_seconds\tlast_error_class\n' > "${PROGRESS_FILE}"
+  RUNTIME_INITIALIZED=1
+  trap 'on_unhandled_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
+  trap 'on_signal INT' INT
+  trap 'on_signal TERM' TERM
+  trap 'on_exit' EXIT
+  write_state "INITIALIZED" 0 "runtime paths initialized"
+}
+
+# The lock is derived from LOCAL_ROOT, so a different RUN_ROOT cannot bypass it.
+acquire_run_lock() {
+  local lock_digest
+  require_command flock
+  lock_digest="$(printf '%s' "${LOCAL_ROOT}" | sha256sum | awk '{print substr($1, 1, 16)}')"
+  LOCK_FILE="$(dirname "${LOCAL_ROOT}")/.uniprot_download_${lock_digest}.lock"
+  exec {LOCK_FD}>>"${LOCK_FILE}"
+  if ! flock -w "${LOCK_WAIT_SECONDS}" "${LOCK_FD}"; then
+    die "已有下载进程持有数据目录锁：${LOCK_FILE}"
+  fi
+  LOCK_HELD=1
+  printf 'run_id=%s\npid=%s\nlocal_root=%s\nstarted_utc=%s\n' \
+    "${RUN_ID}" "$$" "${LOCAL_ROOT}" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "${LOCK_FILE}"
+  printf 'lock_file\t%s\nlocal_root\t%s\nrun_id\t%s\n' \
+    "${LOCK_FILE}" "${LOCAL_ROOT}" "${RUN_ID}" > "${LOCK_DIR}/lock_${lock_digest}.${RUN_ID}.tsv"
+  write_state "LOCKED" 0 "exclusive lock acquired"
+}
+
+show_latest_status() {
+  local status_file="${RUN_ROOT}/status/latest_status.tsv"
+  local progress_file="${RUN_ROOT}/status/latest_progress.tsv"
+  if [[ ! -r "${status_file}" ]]; then
+    printf '[uniprot] No status snapshot: %s\n' "${status_file}" >&2
+    exit 20
+  fi
+  cat "${status_file}"
+  if [[ -r "${progress_file}" ]]; then
+    printf '\n'
+    cat "${progress_file}"
+  fi
+}
+
+show_latest_summary() {
+  local summary_file="${RUN_ROOT}/reports/latest_summary.md"
+  if [[ ! -r "${summary_file}" ]]; then
+    printf '[uniprot] No summary report: %s\n' "${summary_file}" >&2
+    exit 20
+  fi
+  cat "${summary_file}"
 }
 
 print_dataset_catalog() {
   local dataset count bytes gib
-  [[ -r "${MANIFEST_FILE}" ]] || {
-    printf '[uniprot] ERROR: manifest is not readable: %s\n' "${MANIFEST_FILE}" >&2
-    exit 1
-  }
+  [[ -r "${MANIFEST_FILE}" ]] || die "manifest is not readable: ${MANIFEST_FILE}"
 
   printf 'dataset\tfiles\tbytes\tGiB\n'
   read -r count bytes < <(
@@ -420,13 +992,38 @@ resolve_datasets() {
   SELECTED_LABEL="${requested_order[*]}"
 }
 
+validate_nonnegative_int() {
+  local name="$1"
+  local value="$2"
+  [[ "${value}" =~ ^[0-9]+$ ]] || die "${name} 必须是非负整数，当前值为：${value}"
+}
+
+validate_aria_limits() {
+  [[ "${ARIA2_CONNECTIONS}" -le 16 ]] || die "ARIA2_CONNECTIONS 不能超过 aria2 上限 16"
+  [[ "${ARIA2_MIN_SPLIT_SIZE}" =~ ^([1-9][0-9]*)[Mm]$ ]] || \
+    die "ARIA2_MIN_SPLIT_SIZE 必须位于 1M 到 1024M"
+  (( 10#${BASH_REMATCH[1]} <= 1024 )) || die "ARIA2_MIN_SPLIT_SIZE 不能超过 1024M"
+}
+
 validate_config() {
   common_validate_download_config
+  validate_aria_limits
   validate_flag CHECK_REMOTE_RELEASE "${CHECK_REMOTE_RELEASE}"
   validate_flag PLAN_ONLY "${PLAN_ONLY}"
+  validate_flag VERIFY_ONLY "${VERIFY_ONLY}"
+  validate_flag STATUS_ONLY "${STATUS_ONLY}"
+  validate_flag SUMMARY_ONLY "${SUMMARY_ONLY}"
   validate_positive_int MIN_DISK_GB "${MIN_DISK_GB}"
+  validate_positive_int DOWNLOAD_MAX_ATTEMPTS "${DOWNLOAD_MAX_ATTEMPTS}"
+  validate_positive_int ARIA2_MAX_TRIES "${ARIA2_MAX_TRIES}"
+  validate_nonnegative_int DOWNLOAD_RETRY_WAIT_SECONDS "${DOWNLOAD_RETRY_WAIT_SECONDS}"
+  validate_nonnegative_int ARIA2_RETRY_WAIT_SECONDS "${ARIA2_RETRY_WAIT_SECONDS}"
+  validate_nonnegative_int PROGRESS_INTERVAL_SECONDS "${PROGRESS_INTERVAL_SECONDS}"
+  validate_nonnegative_int LOCK_WAIT_SECONDS "${LOCK_WAIT_SECONDS}"
   [[ "${CHECK_REMOTE_RELEASE}" == "1" ]] || die "CHECK_REMOTE_RELEASE 是强制安全门，不能设为 0"
   [[ "${VERIFY_AFTER_DOWNLOAD}" == "1" ]] || die "VERIFY_AFTER_DOWNLOAD 是强制安全门，不能设为 0"
+  [[ "${SKIP_VERIFIED_FILES}" == "1" ]] || die "SKIP_VERIFIED_FILES 是幂等安全门，不能设为 0"
+  [[ -n "${ARIA2_BIN}" ]] || die "ARIA2_BIN 不能为空"
   validate_manifest
 }
 
@@ -446,6 +1043,131 @@ plan_records() {
       print $1, $2, $3, $4, $5, $6, $7, $8
     }
   ' "${PLAN_FILE}"
+}
+
+# Progress snapshots use size only; repeated whole-file MD5 scans are reserved
+# for verification boundaries because the selected payload may exceed 600 GB.
+calculate_plan_progress() {
+  local dataset relpath url local_file bytes md5 source_kind notes
+  local actual_bytes capped_bytes
+  PROGRESS_COMPLETE_FILES=0
+  PROGRESS_PARTIAL_FILES=0
+  PROGRESS_PRESENT_BYTES=0
+
+  while IFS=$'\034' read -r dataset relpath url local_file bytes md5 source_kind notes; do
+    [[ -f "${local_file}" ]] || continue
+    actual_bytes="$(stat -c '%s' "${local_file}")"
+    capped_bytes="${actual_bytes}"
+    (( capped_bytes > bytes )) && capped_bytes="${bytes}"
+    PROGRESS_PRESENT_BYTES=$((PROGRESS_PRESENT_BYTES + capped_bytes))
+    if [[ ! -f "${local_file}.aria2" && "${actual_bytes}" == "${bytes}" ]]; then
+      PROGRESS_COMPLETE_FILES=$((PROGRESS_COMPLETE_FILES + 1))
+    else
+      PROGRESS_PARTIAL_FILES=$((PROGRESS_PARTIAL_FILES + 1))
+    fi
+  done < <(plan_records)
+}
+
+progress_speed_for_window() {
+  local now_epoch="$1"
+  local present_bytes="$2"
+  local window_seconds="$3"
+  local cutoff prior_epoch prior_bytes elapsed delta
+  cutoff=$((now_epoch - window_seconds))
+  read -r prior_epoch prior_bytes < <(
+    awk -F '\t' -v cutoff="${cutoff}" '
+      NR > 1 && $2 <= cutoff {epoch=$2; bytes=$9}
+      END {if (epoch != "") print epoch, bytes}
+    ' "${PROGRESS_FILE}"
+  ) || true
+  prior_epoch="${prior_epoch:-${PROGRESS_BASE_EPOCH}}"
+  prior_bytes="${prior_bytes:-${PROGRESS_BASE_BYTES}}"
+  elapsed=$((now_epoch - prior_epoch))
+  delta=$((present_bytes - prior_bytes))
+  (( delta < 0 )) && delta=0
+  if (( elapsed <= 0 )); then
+    printf '0'
+  else
+    awk -v bytes="${delta}" -v seconds="${elapsed}" 'BEGIN {printf "%.3f", bytes / seconds}'
+  fi
+}
+
+write_progress_snapshot() {
+  local attempt="${1:-${CURRENT_ATTEMPT}}"
+  local error_class="${2:-${LAST_ERROR_CLASS}}"
+  local now_epoch timestamp elapsed speed_10m speed_30m speed_60m eta speed_for_eta remaining
+  local temp_latest
+  [[ -r "${PLAN_FILE}" ]] || return 0
+  calculate_plan_progress
+  now_epoch="$(date +%s)"
+  timestamp="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  if [[ "${PROGRESS_BASE_SET}" == "0" ]]; then
+    PROGRESS_BASE_BYTES="${PROGRESS_PRESENT_BYTES}"
+    PROGRESS_BASE_EPOCH="${now_epoch}"
+    PROGRESS_BASE_SET=1
+  fi
+  elapsed=$((now_epoch - START_EPOCH))
+  speed_10m="$(progress_speed_for_window "${now_epoch}" "${PROGRESS_PRESENT_BYTES}" 600)"
+  speed_30m="$(progress_speed_for_window "${now_epoch}" "${PROGRESS_PRESENT_BYTES}" 1800)"
+  speed_60m="$(progress_speed_for_window "${now_epoch}" "${PROGRESS_PRESENT_BYTES}" 3600)"
+  speed_for_eta="${speed_10m}"
+  awk -v speed="${speed_for_eta}" 'BEGIN {exit !(speed <= 0)}' && speed_for_eta="${speed_30m}"
+  remaining=$((TARGET_BYTES - PROGRESS_PRESENT_BYTES))
+  (( remaining < 0 )) && remaining=0
+  if (( remaining == 0 )); then
+    eta=0
+  elif awk -v speed="${speed_for_eta}" 'BEGIN {exit !(speed > 0)}'; then
+    eta="$(awk -v bytes="${remaining}" -v speed="${speed_for_eta}" 'BEGIN {printf "%d", (bytes / speed) + 0.999}')"
+  else
+    eta=-1
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${timestamp}" "${now_epoch}" "${RUN_ID}" "${attempt}" "${TARGET_COUNT}" \
+    "${PROGRESS_COMPLETE_FILES}" "${PROGRESS_PARTIAL_FILES}" "${TARGET_BYTES}" \
+    "${PROGRESS_PRESENT_BYTES}" "${elapsed}" "${speed_10m}" "${speed_30m}" \
+    "${speed_60m}" "${eta}" "${error_class}" >> "${PROGRESS_FILE}"
+
+  temp_latest="${LATEST_PROGRESS_FILE}.tmp.${RUN_ID}.$$"
+  {
+    sed -n '1p' "${PROGRESS_FILE}"
+    tail -n 1 "${PROGRESS_FILE}"
+  } > "${temp_latest}"
+  mv -f -- "${temp_latest}" "${LATEST_PROGRESS_FILE}"
+}
+
+monitor_transfer_progress() {
+  local attempt="$1"
+  local parent_pid="$2"
+  trap - ERR INT TERM EXIT
+  (( PROGRESS_INTERVAL_SECONDS > 0 )) || return 0
+  while kill -0 "${parent_pid}" 2>/dev/null; do
+    write_progress_snapshot "${attempt}" "${LAST_ERROR_CLASS}"
+    sleep "${PROGRESS_INTERVAL_SECONDS}"
+  done
+}
+
+classify_transfer_failure() {
+  local evidence_file="$1"
+  [[ -r "${evidence_file}" ]] || {
+    printf 'INTERNAL_INVARIANT'
+    return 0
+  }
+  if grep -Eqi 'no space left|disk quota|read-only file system|input/output error' "${evidence_file}"; then
+    printf 'STORAGE_BLOCKED'
+  elif grep -Eqi 'checksum|hash mismatch|digest mismatch|integrity check|range not satisfiable|(^|[^0-9])416([^0-9]|$)' "${evidence_file}"; then
+    printf 'VALIDATION_FAILED'
+  elif grep -Eqi '(^|[^0-9])(401|403)([^0-9]|$)|unauthorized|forbidden|permission denied' "${evidence_file}"; then
+    printf 'AUTH_CONFIG'
+  elif grep -Eqi '(^|[^0-9])429([^0-9]|$)|too many requests|retry-after' "${evidence_file}"; then
+    printf 'RATE_LIMITED'
+  elif grep -Eqi '(^|[^0-9])(404|410)([^0-9]|$)|not found|gone' "${evidence_file}"; then
+    printf 'REMOTE_PERMANENT'
+  elif grep -Eqi '(^|[^0-9])(408|5[0-9][0-9])([^0-9]|$)|timeout|timed out|temporary failure|could not resolve|name resolution|tls|ssl|connection reset|connection refused|got eof|network is unreachable' "${evidence_file}"; then
+    printf 'TRANSIENT_NETWORK'
+  else
+    printf 'INTERNAL_INVARIANT'
+  fi
 }
 
 manifest_record_is_selected() {
@@ -520,20 +1242,28 @@ verify_remote_release() {
 
     probe="${TMP_DIR}/remote_release_$(safe_name "${relpath}")"
     log "检查远端版本：${url}"
-    fetch_to_file "${url}" "${probe}" || die "无法读取远端 release manifest：${url}"
+    if ! fetch_to_file "${url}" "${probe}"; then
+      LAST_ERROR_CLASS="TRANSIENT_NETWORK"
+      die "无法读取远端 release manifest：${url}"
+    fi
     actual_bytes="$(stat -c '%s' "${probe}")"
     if [[ "${actual_bytes}" != "${bytes}" ]]; then
       move_to_trash "${probe}" "remote_manifest_size_mismatch"
+      LAST_ERROR_CLASS="REMOTE_PERMANENT"
       die "远端 release manifest 大小已漂移：${relpath}，expected=${bytes} actual=${actual_bytes}"
     fi
     if ! grep -Fq "<version>${RELEASE}</version>" "${probe}"; then
       move_to_trash "${probe}" "remote_release_mismatch"
+      LAST_ERROR_CLASS="REMOTE_PERMANENT"
       die "远端版本已不再是 ${RELEASE}：${url}。请先重新生成并审核清单。"
     fi
     count=$((count + 1))
   done < <(plan_records)
 
-  [[ "${count}" -eq "${#SELECTED_ORDER[@]}" ]] || die "远端版本检查数量异常：expected=${#SELECTED_ORDER[@]} actual=${count}"
+  if [[ "${count}" -ne "${#SELECTED_ORDER[@]}" ]]; then
+    LAST_ERROR_CLASS="INTERNAL_INVARIANT"
+    die "远端版本检查数量异常：expected=${#SELECTED_ORDER[@]} actual=${count}"
+  fi
   log "远端版本检查通过：${count} 个 RELEASE.metalink 均为 ${RELEASE}"
 }
 
@@ -612,75 +1342,304 @@ quarantine_invalid_completed_files() {
   log "aria2 失败清理：有效完整文件 ${valid} 个，保留可续传 partial ${retained_partial} 个，移入 trash ${quarantined} 个"
 }
 
-verify_after_download() {
+# This helper never mutates payloads. Callers decide whether invalid complete
+# files should be quarantined or only reported.
+file_is_valid_readonly() {
+  local relpath="$1"
+  local local_file="$2"
+  local bytes="$3"
+  local md5="$4"
+  local source_kind="$5"
+  local actual_bytes actual_md5
+  VALIDATION_STATUS="FAIL"
+  VALIDATION_DETAIL="unknown"
+
+  if [[ ! -f "${local_file}" ]]; then
+    VALIDATION_STATUS="MISSING"
+    VALIDATION_DETAIL="missing"
+    return 1
+  fi
+  if [[ -f "${local_file}.aria2" ]]; then
+    VALIDATION_STATUS="PARTIAL"
+    VALIDATION_DETAIL="aria2_sidecar_present"
+    return 1
+  fi
+
+  actual_bytes="$(stat -c '%s' "${local_file}")"
+  if [[ "${actual_bytes}" != "${bytes}" ]]; then
+    VALIDATION_DETAIL="size expected=${bytes} actual=${actual_bytes}"
+    return 1
+  fi
+  if [[ -n "${md5}" ]]; then
+    actual_md5="$(md5sum "${local_file}" | awk '{print $1}')"
+    if [[ "${actual_md5}" != "${md5}" ]]; then
+      VALIDATION_DETAIL="md5 expected=${md5} actual=${actual_md5}"
+      return 1
+    fi
+    VALIDATION_STATUS="PASS"
+    VALIDATION_DETAIL="size+md5"
+    return 0
+  fi
+  if [[ "${source_kind}" == "release_manifest" ]]; then
+    if ! grep -Fq "<version>${RELEASE}</version>" "${local_file}"; then
+      VALIDATION_DETAIL="release_version expected=${RELEASE}"
+      return 1
+    fi
+    VALIDATION_STATUS="PASS"
+    VALIDATION_DETAIL="size+release_version"
+    return 0
+  fi
+
+  VALIDATION_DETAIL="missing_verification_rule relpath=${relpath}"
+  return 1
+}
+
+verify_selected_files() {
+  local quarantine_invalid="${1:-0}"
   local dataset relpath url local_file bytes md5 source_kind notes
-  local actual_bytes actual_md5 failed=0
+  local total_failed=0
+  VERIFY_PASS_COUNT=0
+  VERIFY_FAIL_COUNT=0
+  VERIFY_MISSING_COUNT=0
+  VERIFY_PARTIAL_COUNT=0
+  LAST_VALIDATION_STATUS_BY_PATH=()
+  LAST_VALIDATION_DETAIL_BY_PATH=()
   : > "${VERIFY_REPORT}"
-  printf '# relative_path\tstatus\tdetail\n' >> "${VERIFY_REPORT}"
+  printf 'relative_path\tstatus\tdetail\n' >> "${VERIFY_REPORT}"
 
   while IFS=$'\034' read -r dataset relpath url local_file bytes md5 source_kind notes; do
-
-    if [[ ! -f "${local_file}" ]]; then
-      printf '%s\tFAIL\tmissing\n' "${relpath}" >> "${VERIFY_REPORT}"
-      errlog "下载后校验失败，文件缺失：${relpath}"
-      failed=1
+    if file_is_valid_readonly "${relpath}" "${local_file}" "${bytes}" "${md5}" "${source_kind}"; then
+      VERIFY_PASS_COUNT=$((VERIFY_PASS_COUNT + 1))
+      LAST_VALIDATION_STATUS_BY_PATH["${relpath}"]="PASS"
+      LAST_VALIDATION_DETAIL_BY_PATH["${relpath}"]="${VALIDATION_DETAIL}"
+      printf '%s\tPASS\t%s\n' "${relpath}" "${VALIDATION_DETAIL}" >> "${VERIFY_REPORT}"
       continue
     fi
 
-    actual_bytes="$(stat -c '%s' "${local_file}")"
-    if [[ "${actual_bytes}" != "${bytes}" ]]; then
-      printf '%s\tFAIL\tsize expected=%s actual=%s\n' "${relpath}" "${bytes}" "${actual_bytes}" >> "${VERIFY_REPORT}"
-      errlog "下载后校验失败，大小不匹配：${relpath}"
-      move_to_trash "${local_file}" "size_verify_failed"
-      failed=1
-      continue
-    fi
-
-    if [[ -n "${md5}" ]]; then
-      actual_md5="$(md5sum "${local_file}" | awk '{print $1}')"
-      if [[ "${actual_md5}" != "${md5}" ]]; then
-        printf '%s\tFAIL\tmd5 expected=%s actual=%s\n' "${relpath}" "${md5}" "${actual_md5}" >> "${VERIFY_REPORT}"
-        errlog "下载后校验失败，MD5 不匹配：${relpath}"
-        move_to_trash "${local_file}" "md5_verify_failed"
-        failed=1
-        continue
-      fi
-      printf '%s\tPASS\tsize+md5\n' "${relpath}" >> "${VERIFY_REPORT}"
-    elif [[ "${source_kind}" == "release_manifest" ]]; then
-      if ! grep -Fq "<version>${RELEASE}</version>" "${local_file}"; then
-        printf '%s\tFAIL\trelease_version\n' "${relpath}" >> "${VERIFY_REPORT}"
-        errlog "下载后校验失败，release 版本不匹配：${relpath}"
-        move_to_trash "${local_file}" "release_verify_failed"
-        failed=1
-        continue
-      fi
-      printf '%s\tPASS\tsize+release_version\n' "${relpath}" >> "${VERIFY_REPORT}"
-    else
-      printf '%s\tFAIL\tmissing_verification_rule\n' "${relpath}" >> "${VERIFY_REPORT}"
-      errlog "下载后校验失败，无校验规则：${relpath}"
-      move_to_trash "${local_file}" "verification_rule_missing"
-      failed=1
-    fi
+    total_failed=$((total_failed + 1))
+    LAST_VALIDATION_STATUS_BY_PATH["${relpath}"]="${VALIDATION_STATUS}"
+    LAST_VALIDATION_DETAIL_BY_PATH["${relpath}"]="${VALIDATION_DETAIL}"
+    case "${VALIDATION_STATUS}" in
+      MISSING)
+        VERIFY_MISSING_COUNT=$((VERIFY_MISSING_COUNT + 1))
+        ;;
+      PARTIAL)
+        VERIFY_PARTIAL_COUNT=$((VERIFY_PARTIAL_COUNT + 1))
+        ;;
+      *)
+        VERIFY_FAIL_COUNT=$((VERIFY_FAIL_COUNT + 1))
+        if [[ "${quarantine_invalid}" == "1" && -f "${local_file}" && ! -f "${local_file}.aria2" ]]; then
+          move_to_trash "${local_file}" "verification_failed"
+        fi
+        ;;
+    esac
+    printf '%s\t%s\t%s\n' "${relpath}" "${VALIDATION_STATUS}" "${VALIDATION_DETAIL}" >> "${VERIFY_REPORT}"
   done < <(plan_records)
 
-  [[ "${failed}" -eq 0 ]] || die "至少一个文件校验失败；报告：${VERIFY_REPORT}"
-  log "下载后校验通过：${VERIFY_REPORT}"
+  if (( total_failed > 0 )); then
+    warnlog "校验未通过：pass=${VERIFY_PASS_COUNT} missing=${VERIFY_MISSING_COUNT} partial=${VERIFY_PARTIAL_COUNT} invalid=${VERIFY_FAIL_COUNT}；报告：${VERIFY_REPORT}"
+    return 1
+  fi
+  log "校验通过：${VERIFY_PASS_COUNT} 个文件；报告：${VERIFY_REPORT}"
+  return 0
+}
+
+build_repair_plan() {
+  local round="$1"
+  local dataset relpath url local_file bytes md5 source_kind notes
+  local repair_status repair_detail
+  local repair_count=0
+  LAST_REPAIR_PLAN="${PLAN_DIR}/repair_plan_${RUN_ID}.attempt${round}.tsv"
+  printf 'dataset\trelative_path\turl\tlocal_file\tbytes\tmd5\tsource_kind\tstatus\tdetail\n' > "${LAST_REPAIR_PLAN}"
+  while IFS=$'\034' read -r dataset relpath url local_file bytes md5 source_kind notes; do
+    if [[ -n "${LAST_VALIDATION_STATUS_BY_PATH[${relpath}]+x}" ]]; then
+      repair_status="${LAST_VALIDATION_STATUS_BY_PATH[${relpath}]}"
+      repair_detail="${LAST_VALIDATION_DETAIL_BY_PATH[${relpath}]}"
+    elif file_is_valid_readonly "${relpath}" "${local_file}" "${bytes}" "${md5}" "${source_kind}"; then
+      repair_status="PASS"
+      repair_detail="${VALIDATION_DETAIL}"
+    else
+      repair_status="${VALIDATION_STATUS}"
+      repair_detail="${VALIDATION_DETAIL}"
+    fi
+    if [[ "${repair_status}" == "PASS" ]]; then
+      continue
+    fi
+    repair_count=$((repair_count + 1))
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "${dataset}" "${relpath}" "${url}" "${local_file}" "${bytes}" "${md5}" \
+      "${source_kind}" "${repair_status}" "${repair_detail}" >> "${LAST_REPAIR_PLAN}"
+  done < <(plan_records)
+  log "修复计划已生成：${LAST_REPAIR_PLAN}；待修复 ${repair_count} 个文件"
+}
+
+# One outer round gets independent console, transport, and failure-evidence logs.
+run_aria2_attempt() {
+  local attempt="$1"
+  local aria_status=0 parent_pid
+  LAST_ATTEMPT_LOG="${LOG_DIR}/aria2_console_${RUN_ID}.attempt${attempt}.log"
+  LAST_TRANSPORT_LOG="${LOG_DIR}/aria2_transport_${RUN_ID}.attempt${attempt}.log"
+  LAST_ATTEMPT_EVIDENCE="${LOG_DIR}/aria2_failure_${RUN_ID}.attempt${attempt}.log"
+  : > "${LAST_ATTEMPT_LOG}"
+  : > "${LAST_ATTEMPT_EVIDENCE}"
+
+  check_disk_space
+  log "启动 aria2 round ${attempt}/${DOWNLOAD_MAX_ATTEMPTS}：files=${DOWNLOAD_COUNT} max_concurrent=${ARIA2_MAX_CONCURRENT} connections=${ARIA2_CONNECTIONS} split=${ARIA2_SPLIT} aria_max_tries=${ARIA2_MAX_TRIES} aria_retry_wait=${ARIA2_RETRY_WAIT_SECONDS}s"
+
+  parent_pid="${BASHPID}"
+  if (( PROGRESS_INTERVAL_SECONDS > 0 )); then
+    monitor_transfer_progress "${attempt}" "${parent_pid}" &
+    MONITOR_PID=$!
+  fi
+
+  "${ARIA2_BIN}" \
+    --input-file="${ARIA_INPUT}" \
+    --continue=true \
+    --auto-file-renaming=false \
+    --allow-overwrite=true \
+    --check-integrity=true \
+    --max-connection-per-server="${ARIA2_CONNECTIONS}" \
+    --split="${ARIA2_SPLIT}" \
+    --max-concurrent-downloads="${ARIA2_MAX_CONCURRENT}" \
+    --min-split-size="${ARIA2_MIN_SPLIT_SIZE}" \
+    --retry-wait="${ARIA2_RETRY_WAIT_SECONDS}" \
+    --max-tries="${ARIA2_MAX_TRIES}" \
+    --timeout=600 \
+    --connect-timeout=60 \
+    --console-log-level=notice \
+    --summary-interval="${ARIA2_SUMMARY_INTERVAL}" \
+    --log="${LAST_TRANSPORT_LOG}" \
+    --log-level=info > "${LAST_ATTEMPT_LOG}" 2>&1 &
+  ARIA_PID=$!
+  if wait "${ARIA_PID}"; then
+    aria_status=0
+  else
+    aria_status=$?
+  fi
+  ARIA_PID=""
+  stop_progress_monitor
+  write_progress_snapshot "${attempt}" "${LAST_ERROR_CLASS}"
+
+  {
+    printf '# console log\n'
+    cat "${LAST_ATTEMPT_LOG}"
+    if [[ -r "${LAST_TRANSPORT_LOG}" ]]; then
+      printf '\n# transport log\n'
+      cat "${LAST_TRANSPORT_LOG}"
+    fi
+  } > "${LAST_ATTEMPT_EVIDENCE}"
+
+  if [[ "${aria_status}" -ne 0 ]]; then
+    errlog "aria2 round ${attempt} 失败：exit=${aria_status}；证据：${LAST_ATTEMPT_EVIDENCE}"
+    tail -n 30 "${LAST_ATTEMPT_EVIDENCE}" | while IFS= read -r line; do
+      [[ -n "${line}" ]] && errlog "  ${line}"
+    done || true
+    return "${aria_status}"
+  fi
+  log "aria2 round ${attempt} 进程正常结束；进入强校验"
+  return 0
+}
+
+# Reconcile actual files after every aria2 exit. A nonzero transport exit is
+# accepted when all targets nevertheless pass the frozen size/checksum contract.
+run_download_with_recovery() {
+  local attempt aria_status
+  CURRENT_STAGE="TRANSFER_PREP"
+  for ((attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++)); do
+    CURRENT_ATTEMPT="${attempt}"
+    write_aria_input
+    write_progress_snapshot "${attempt}" "${LAST_ERROR_CLASS}"
+
+    if (( DOWNLOAD_COUNT == 0 )); then
+      CURRENT_STAGE="VERIFYING"
+      if verify_selected_files 1; then
+        LAST_ERROR_CLASS="NONE"
+        finish_run "COMPLETE" 0 "all selected files were already complete and verified"
+        return 0
+      fi
+      LAST_ERROR_CLASS="VALIDATION_FAILED"
+      build_repair_plan "${attempt}"
+    else
+      CURRENT_STAGE="TRANSFERRING"
+      write_state "TRANSFERRING" 0 "aria2 round ${attempt} started"
+      if run_aria2_attempt "${attempt}"; then
+        aria_status=0
+        LAST_ERROR_CLASS="NONE"
+      else
+        aria_status=$?
+        LAST_ERROR_CLASS="$(classify_transfer_failure "${LAST_ATTEMPT_EVIDENCE}")"
+        quarantine_invalid_completed_files
+      fi
+
+      CURRENT_STAGE="VERIFYING"
+      write_state "VERIFYING" "${aria_status}" "strong verification after aria2 round ${attempt}"
+      if verify_selected_files 1; then
+        LAST_ERROR_CLASS="NONE"
+        finish_run "COMPLETE" 0 "all selected files passed size and checksum/release validation"
+        return 0
+      fi
+      [[ "${LAST_ERROR_CLASS}" != "NONE" ]] || LAST_ERROR_CLASS="VALIDATION_FAILED"
+      build_repair_plan "${attempt}"
+    fi
+
+    case "${LAST_ERROR_CLASS}" in
+      STORAGE_BLOCKED|AUTH_CONFIG|INTERNAL_INVARIANT)
+        CURRENT_STAGE="RECOVERY_BLOCKED"
+        exit_with_state "BLOCKED" 30 "recovery blocked by ${LAST_ERROR_CLASS}; repair plan: ${LAST_REPAIR_PLAN}"
+        ;;
+      REMOTE_PERMANENT)
+        CURRENT_STAGE="RECOVERY_EXHAUSTED"
+        exit_with_state "NEEDS_REPAIR" 20 "remote target is permanently unavailable; repair plan: ${LAST_REPAIR_PLAN}"
+        ;;
+    esac
+
+    if (( attempt >= DOWNLOAD_MAX_ATTEMPTS )); then
+      CURRENT_STAGE="RECOVERY_EXHAUSTED"
+      exit_with_state "NEEDS_REPAIR" 20 "retry budget exhausted; repair plan: ${LAST_REPAIR_PLAN}"
+    fi
+    CURRENT_STAGE="RECOVERING"
+    write_state "RECOVERING" 0 "${LAST_ERROR_CLASS}; next round in ${DOWNLOAD_RETRY_WAIT_SECONDS}s"
+    if (( DOWNLOAD_RETRY_WAIT_SECONDS > 0 )); then
+      sleep "${DOWNLOAD_RETRY_WAIT_SECONDS}"
+    fi
+  done
 }
 
 main() {
-  local aria_status
   parse_args "$@"
 
   if [[ "${LIST_DATASETS}" == "1" ]]; then
+    require_command awk
+    require_command sha256sum
+    validate_manifest
     print_dataset_catalog
     return 0
   fi
 
+  if [[ "${STATUS_ONLY}" == "1" ]]; then
+    command -v readlink >/dev/null 2>&1 || die "缺少命令：readlink"
+    validate_safe_run_root
+    show_latest_status
+    return 0
+  fi
+  if [[ "${SUMMARY_ONLY}" == "1" ]]; then
+    command -v readlink >/dev/null 2>&1 || die "缺少命令：readlink"
+    validate_safe_run_root
+    show_latest_summary
+    return 0
+  fi
+
+  command -v readlink >/dev/null 2>&1 || die "缺少命令：readlink"
+  validate_safe_roots
+
   init_runtime_paths
-  common_init_dirs
+  init_control_dirs
+  init_runtime_state
   require_command awk
   require_command install
   require_command md5sum
+  require_command readlink
+  require_command sed
   require_command sha256sum
   require_command stat
   validate_config
@@ -692,23 +1651,31 @@ main() {
   log "运行目录：${RUN_ROOT}"
 
   if [[ "${PLAN_ONLY}" == "1" ]]; then
+    CURRENT_STAGE="PLANNED"
     log "PLAN_ONLY=1：未访问网络，未启动下载"
     cat "${PLAN_FILE}"
+    finish_run "PLANNED" 0 "network-free plan generated"
     return 0
   fi
 
-  require_command curl
-  require_command aria2c
-  verify_remote_release
-  write_aria_input
-  if run_aria2_input "${DB_NAME}_${SELECTED_LABEL//,/+}" "${ARIA_INPUT}"; then
-    :
-  else
-    aria_status=$?
-    quarantine_invalid_completed_files
-    die "aria2 未完成，exit=${aria_status}；带 .aria2 的 partial 已保留供断点续传"
+  if [[ "${VERIFY_ONLY}" == "1" ]]; then
+    CURRENT_STAGE="VERIFYING"
+    if verify_selected_files 0; then
+      finish_run "COMPLETE" 0 "read-only verification passed"
+      return 0
+    fi
+    LAST_ERROR_CLASS="VALIDATION_FAILED"
+    build_repair_plan 0
+    exit_with_state "NEEDS_REPAIR" 20 "read-only verification found incomplete targets; repair plan: ${LAST_REPAIR_PLAN}"
   fi
-  verify_after_download
+
+  require_command curl
+  require_command "${ARIA2_BIN}"
+  acquire_run_lock
+  CURRENT_STAGE="REMOTE_PREFLIGHT"
+  write_state "PREFLIGHT" 0 "checking frozen release manifests"
+  verify_remote_release
+  run_download_with_recovery
 
   log "========== UniProt ${RELEASE} 下载完成 =========="
   log "下载计划：${PLAN_FILE}"
