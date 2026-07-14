@@ -98,26 +98,26 @@ awk -F '\t' '!/^#/ && $1 != "scope" {print $5}' download_file_manifest_2026_02.t
 查看可选数据组：
 
 ```bash
-./download_uniprot_uniref50.sh --list-datasets
+./download_uniprot.sh --list-datasets
 ```
 
 分别规划 Swiss-Prot 与 TrEMBL：
 
 ```bash
-./download_uniprot_uniref50.sh --dataset swissprot --plan-only
-./download_uniprot_uniref50.sh --dataset trembl --plan-only
+./download_uniprot.sh --dataset swissprot --plan-only
+./download_uniprot.sh --dataset trembl --plan-only
 ```
 
 默认生成 UniRef50 计划，不访问网络：
 
 ```bash
-./download_uniprot_uniref50.sh --plan-only
+./download_uniprot.sh --plan-only
 ```
 
 生成全量 25 文件计划：
 
 ```bash
-./download_uniprot_uniref50.sh --all --plan-only
+./download_uniprot.sh --all --plan-only
 ```
 
 ## 6. 重新生成

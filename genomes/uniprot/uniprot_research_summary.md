@@ -6,7 +6,7 @@
 |---|---|
 | 调研日期 | 2026-07-13 |
 | 当前官方版本 | UniProt Release `2026_02`，发布日期 2026-06-10 |
-| 当前下载脚本版本 | `download_uniprot_uniref50.sh` 使用经过审核的 `2026_02` 静态 manifest |
+| 当前下载脚本版本 | `download_uniprot.sh` 使用经过审核的 `2026_02` 静态 manifest |
 | 存储单位 | 十进制 GB，`1 GB = 10^9 bytes` |
 | 存储口径 | 官方压缩下载文件大小，不含解压、索引、训练缓存和文件系统冗余 |
 
@@ -251,7 +251,7 @@ Layer 5: cross_omics_alignment
 
 ## 8. 当前项目实现边界
 
-当前目录中的 `download_uniprot_uniref50.sh`：
+当前目录中的 `download_uniprot.sh`：
 
 - release 与静态 manifest 固定为 `2026_02`。
 - 无参数默认选择 UniRef50 的 README、metalink 和 FASTA。

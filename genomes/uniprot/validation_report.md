@@ -1,4 +1,4 @@
-# uniprot_uniref50 校验报告
+# UniProt 校验报告
 
 ## 1. 结论
 
@@ -65,8 +65,6 @@
 - 未对数据库正文做解压、索引或下游生物学内容抽检。
 - 因此本报告证明的是清单、控制流、选择逻辑和官方元数据的一致性，不等同于真实数据已落盘。
 
-## 6. 范围外旧门禁
+## 6. 仓库级门禁
 
-仓库级 `genomes/tests/test_static_contracts.sh` 仍绑定已废弃合同，要求旧变量 `DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE`、UniRef XML、Pan Proteomes 和 13,524 行清单。当前实测在旧变量断言处失败。
-
-用户明确要求本次只修改 `genomes/uniprot_uniref50`，因此未修改 `genomes/tests/test_static_contracts.sh`，也未在新脚本中加入无效兼容字符串来伪造通过。当前目录的有效门禁为 `test_manifest_contract.sh`；仓库级旧测试需要在另行授权后更新。
+仓库级 `genomes/tests/test_static_contracts.sh` 已改为引用 `genomes/uniprot/download_uniprot.sh`，并按当前 25 文件、618,535,806,550 bytes 合同检查 UniProt 清单，不再要求已废弃的 UniRef XML、Pan Proteomes 和旧版清单规模。

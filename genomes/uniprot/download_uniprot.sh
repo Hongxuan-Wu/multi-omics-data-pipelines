@@ -2,9 +2,8 @@
 # =============================================================================
 # UniProt 2026_02 manifest-driven downloader
 #
-# The historical file name is retained for compatibility. With no arguments,
-# the downloader selects UniRef50. Other approved datasets can be selected
-# independently, combined, or downloaded together with --all.
+# With no arguments, the downloader selects UniRef50. Other approved datasets
+# can be selected independently, combined, or downloaded together with --all.
 # =============================================================================
 set -Eeuo pipefail
 
@@ -64,7 +63,7 @@ declare -a SELECTED_ORDER=()
 usage() {
   cat <<'EOF'
 Usage:
-  download_uniprot_uniref50.sh [options]
+  download_uniprot.sh [options]
 
 Dataset selection:
   --dataset NAME[,NAME...]  Select one or more datasets; may be repeated
@@ -96,9 +95,9 @@ Presets accepted by --dataset:
   all                       all datasets
 
 Environment variables remain supported. Examples:
-  DOWNLOAD_DATASETS=uniref50,uniref90 ./download_uniprot_uniref50.sh
-  ./download_uniprot_uniref50.sh --dataset uniprotkb --plan-only
-  ./download_uniprot_uniref50.sh --all
+  DOWNLOAD_DATASETS=uniref50,uniref90 ./download_uniprot.sh
+  ./download_uniprot.sh --dataset uniprotkb --plan-only
+  ./download_uniprot.sh --all
 EOF
 }
 

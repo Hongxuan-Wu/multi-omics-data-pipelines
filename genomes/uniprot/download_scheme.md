@@ -15,7 +15,7 @@
 
 ## 2. 下载器
 
-脚本名 `download_uniprot_uniref50.sh` 为兼容既有调用而保留，内部已经是 UniProt 通用下载器。
+`download_uniprot.sh` 是 UniProt 通用下载器；无参数时默认选择 UniRef50。
 
 | 调用 | 选择 |
 |---|---|
@@ -34,21 +34,21 @@
 
 ```bash
 # 默认 UniRef50
-./download_uniprot_uniref50.sh
+./download_uniprot.sh
 
 # 先下载高可信 Swiss-Prot，后续再下载 TrEMBL
-./download_uniprot_uniref50.sh --dataset swissprot
-./download_uniprot_uniref50.sh --dataset trembl
+./download_uniprot.sh --dataset swissprot
+./download_uniprot.sh --dataset trembl
 
 # UniProtKB complete、secondary accession 与跨库映射
-./download_uniprot_uniref50.sh \
+./download_uniprot.sh \
   --dataset uniprotkb,idmapping
 
 # 先审阅全量计划
-./download_uniprot_uniref50.sh --all --plan-only
+./download_uniprot.sh --all --plan-only
 
 # 下载全部目标
-./download_uniprot_uniref50.sh --all
+./download_uniprot.sh --all
 ```
 
 也可通过环境变量配置：
@@ -57,7 +57,7 @@
 DOWNLOAD_DATASETS=uniref50,uniref90 \
 LOCAL_ROOT=/data3/p252701008/genomes/uniprot_2026_02 \
 RUN_ROOT=/data3/p252701008/genomes/uniprot_2026_02_runlogs \
-nohup bash download_uniprot_uniref50.sh \
+nohup bash download_uniprot.sh \
   1>uniprot_2026_02.log 2>&1 &
 ```
 

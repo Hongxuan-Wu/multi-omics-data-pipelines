@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST="${SCRIPT_DIR}/download_file_manifest_2026_02.tsv"
 MANIFEST_DOC="${SCRIPT_DIR}/download_file_manifest_2026_02.md"
 GENERATOR="${SCRIPT_DIR}/generate_download_file_manifest.sh"
-DOWNLOADER="${SCRIPT_DIR}/download_uniprot_uniref50.sh"
+DOWNLOADER="${SCRIPT_DIR}/download_uniprot.sh"
 
 fail() {
   printf '[FAIL] %s\n' "$*" >&2

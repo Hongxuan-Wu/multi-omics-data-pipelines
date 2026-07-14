@@ -36,9 +36,9 @@ genbank="${ROOT_DIR}/genbank/download_genbank.sh"
 gencode="${ROOT_DIR}/gencode/download_gencode.sh"
 rnacentral="${ROOT_DIR}/rnacentral/download_rnacentral.sh"
 ucsc="${ROOT_DIR}/ucsc/download_ucsc.sh"
-uniprot="${ROOT_DIR}/uniprot_uniref50/download_uniprot_uniref50.sh"
-uniprot_manifest_generator="${ROOT_DIR}/uniprot_uniref50/generate_download_file_manifest.sh"
-uniprot_manifest="${ROOT_DIR}/uniprot_uniref50/download_file_manifest_2026_02.tsv"
+uniprot="${ROOT_DIR}/uniprot/download_uniprot.sh"
+uniprot_manifest_generator="${ROOT_DIR}/uniprot/generate_download_file_manifest.sh"
+uniprot_manifest="${ROOT_DIR}/uniprot/download_file_manifest_2026_02.tsv"
 phytozome="${ROOT_DIR}/phytozome/download_phytozome.sh"
 mycocosm="${ROOT_DIR}/mycocosm/download_mycocosm.sh"
 veupathdb="${ROOT_DIR}/veupathdb/download_veupathdb.sh"
@@ -86,25 +86,25 @@ assert_contains "${rnacentral}" 'should_include_target_record'
 assert_contains "${ucsc}" 'DOWNLOAD_UCSC_2BIT="\$\{DOWNLOAD_UCSC_2BIT:-0\}"'
 assert_contains "${ucsc}" 'should_include_target_record'
 
-assert_contains "${uniprot}" 'DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE="\$\{DOWNLOAD_UNIREF50_SEQUENCE_ARCHIVE:-1\}"'
-assert_contains "${uniprot}" 'FULL_SEQUENCE_MIN_DISK_GB='
-assert_contains "${uniprot}" 'should_include_target_record'
+assert_contains "${uniprot}" '^DOWNLOAD_DATASETS="\$\{DOWNLOAD_DATASETS:-uniref50\}"$'
+assert_contains "${uniprot}" 'Select all 25 approved files'
+assert_contains "${uniprot}" 'Write and print the plan without network access'
 assert_executable "${uniprot_manifest_generator}"
 bash -n "${uniprot_manifest_generator}"
-assert_contains "${uniprot_manifest_generator}" 'expected_count=3195'
-assert_contains "${uniprot_manifest_generator}" '\[pan_proteomes\]=12789'
+assert_contains "${uniprot_manifest_generator}" "approved_target_count.*25"
+assert_contains "${uniprot_manifest_generator}" "approved_compressed_bytes.*618535806550"
 [[ -s "${uniprot_manifest}" ]] || fail "UniProt 2026_02 file manifest is missing"
 assert_contains "${uniprot_manifest}" 'uniprot_sprot\.fasta\.gz'
 assert_contains "${uniprot_manifest}" 'uniprot_trembl\.fasta\.gz'
-assert_contains "${uniprot_manifest}" 'uniref50\.xml\.gz'
-assert_contains "${uniprot_manifest}" 'uniref90\.xml\.gz'
-assert_contains "${uniprot_manifest}" 'uniref100\.xml\.gz'
-[[ "$(awk -F '\t' '$1 == "required" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 13323 ]] || \
-  fail "UniProt required manifest count is not 13323"
-[[ "$(awk -F '\t' '$1 == "conditional" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 201 ]] || \
-  fail "UniProt conditional manifest count is not 201"
-[[ "$(awk -F '\t' '$3 == "pan_proteomes" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 12789 ]] || \
-  fail "UniProt Pan Proteomes manifest count is not 12789"
+assert_contains "${uniprot_manifest}" 'uniref50\.fasta\.gz'
+assert_contains "${uniprot_manifest}" 'uniref90\.fasta\.gz'
+assert_contains "${uniprot_manifest}" 'uniref100\.fasta\.gz'
+assert_contains "${uniprot_manifest}" 'idmapping\.dat\.gz'
+assert_contains "${uniprot_manifest}" 'Reference_Proteomes_2026_02\.tar\.gz'
+[[ "$(awk -F '\t' '!/^#/ && $1 != "scope" {count++} END {print count+0}' "${uniprot_manifest}")" -eq 25 ]] || \
+  fail "UniProt manifest count is not 25"
+[[ "$(awk -F '\t' '!/^#/ && $1 != "scope" {bytes += $7} END {printf "%.0f", bytes+0}' "${uniprot_manifest}")" -eq 618535806550 ]] || \
+  fail "UniProt manifest byte sum is not 618535806550"
 [[ "$(awk -F '\t' '!/^#/ && $1 != "scope" {seen[$5]++} END {duplicates=0; for (url in seen) if (seen[url] > 1) duplicates++; print duplicates}' "${uniprot_manifest}")" -eq 0 ]] || \
   fail "UniProt manifest contains duplicate URLs"
 
