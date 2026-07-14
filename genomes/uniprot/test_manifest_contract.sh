@@ -116,6 +116,8 @@ grep -Fq 'RUN_ROOT="${RUN_ROOT:-/data/p252701008/datasets/uniprot_${RELEASE}_run
 grep -Fq -- '--dataset' "${DOWNLOADER}" || fail "downloader lacks --dataset"
 grep -Fq -- '--all' "${DOWNLOADER}" || fail "downloader lacks --all"
 grep -Fq -- '--plan-only' "${DOWNLOADER}" || fail "downloader lacks --plan-only"
+grep -Fq -- '--follow-metalink=false' "${DOWNLOADER}" || \
+  fail "downloader permits aria2 to expand RELEASE.metalink"
 grep -Fq 'download_file_manifest_${RELEASE}.tsv' "${DOWNLOADER}" || \
   fail "downloader does not consume the versioned static manifest"
 for function_name in \

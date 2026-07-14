@@ -757,10 +757,12 @@ init_runtime_state() {
 
 # The lock is derived from LOCAL_ROOT, so a different RUN_ROOT cannot bypass it.
 acquire_run_lock() {
-  local lock_digest
+  local lock_digest lock_parent
   require_command flock
   lock_digest="$(printf '%s' "${LOCAL_ROOT}" | sha256sum | awk '{print substr($1, 1, 16)}')"
-  LOCK_FILE="$(dirname "${LOCAL_ROOT}")/.uniprot_download_${lock_digest}.lock"
+  lock_parent="$(dirname "${LOCAL_ROOT}")"
+  mkdir -p "${lock_parent}"
+  LOCK_FILE="${lock_parent}/.uniprot_download_${lock_digest}.lock"
   exec {LOCK_FD}>>"${LOCK_FILE}"
   if ! flock -w "${LOCK_WAIT_SECONDS}" "${LOCK_FD}"; then
     die "已有下载进程持有数据目录锁：${LOCK_FILE}"
@@ -1492,8 +1494,10 @@ run_aria2_attempt() {
     MONITOR_PID=$!
   fi
 
+  # RELEASE.metalink is an audited payload; aria2 must not expand its contents.
   "${ARIA2_BIN}" \
     --input-file="${ARIA_INPUT}" \
+    --follow-metalink=false \
     --continue=true \
     --auto-file-renaming=false \
     --allow-overwrite=true \

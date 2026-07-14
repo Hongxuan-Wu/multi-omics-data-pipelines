@@ -150,6 +150,30 @@ printf 'Checksum error: digest mismatch\n' > "${classification_root}/checksum.lo
   assert_eq VALIDATION_FAILED "$(classify_transfer_failure "${classification_root}/checksum.log")" "checksum classification"
 )
 
+first_run_parent="${test_root}/first-run/genomes"
+first_run_data="${first_run_parent}/uniprot_2026_02"
+first_run_run="${test_root}/first-run-run"
+[[ ! -e "${first_run_parent}" ]] || fail "first-run lock parent fixture already exists"
+set +e
+(
+  source "${DOWNLOADER}"
+  LOCAL_ROOT="${first_run_data}"
+  RUN_ROOT="${first_run_run}"
+  RUN_ID="first-run"
+  validate_safe_roots
+  init_runtime_paths
+  init_control_dirs
+  init_runtime_state
+  LOCK_WAIT_SECONDS=0
+  acquire_run_lock
+  [[ -f "${LOCK_FILE}" ]] || fail "first-run data-root lock is missing"
+  release_run_lock
+) > "${test_root}/first-run.stdout" 2> "${test_root}/first-run.stderr"
+first_run_status=$?
+set -e
+assert_eq 0 "${first_run_status}" "first run with missing data parent exit"
+[[ -d "${first_run_parent}" ]] || fail "first run did not create the data parent"
+
 lock_root="${test_root}/lock"
 marker="${lock_root}/holder.ready"
 mkdir -p "${lock_root}"

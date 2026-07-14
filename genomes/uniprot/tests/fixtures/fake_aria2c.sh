@@ -2,14 +2,20 @@
 set -Eeuo pipefail
 
 input_file=""
+follow_metalink=""
 for arg in "$@"; do
   case "${arg}" in
     --input-file=*) input_file="${arg#*=}" ;;
+    --follow-metalink=*) follow_metalink="${arg#*=}" ;;
   esac
 done
 
 [[ -n "${input_file}" && -r "${input_file}" ]] || {
   printf 'fake aria2: missing readable --input-file\n' >&2
+  exit 2
+}
+[[ "${follow_metalink}" == "false" ]] || {
+  printf 'fake aria2: --follow-metalink=false is required\n' >&2
   exit 2
 }
 : "${FAKE_ARIA_COUNTER:?FAKE_ARIA_COUNTER is required}"

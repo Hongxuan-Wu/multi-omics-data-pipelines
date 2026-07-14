@@ -59,3 +59,9 @@
 **决定：** UniProt payload 默认写入 `/data2/p252701008/genomes/uniprot_2026_02`，日志、计划、状态、报告、tmp 和 trash 默认写入 `/data/p252701008/datasets/uniprot_2026_02_runlogs`。
 
 **原因：** `/data2` 作为大容量正文盘，`/data` 作为控制与运行证据盘；两者分离可以避免大文件下载与日志、状态更新争用同一存储路径，并明确排除 `/data3`。
+
+## D011：RELEASE.metalink 作为普通审计文件下载
+
+**决定：** aria2 固定使用 `--follow-metalink=false`。清单中的 7 个 `RELEASE.metalink` 只按原文件下载和校验，不允许 aria2 展开其中引用的其他产品。
+
+**原因：** 下载范围必须严格受 25 文件冻结清单约束；自动展开 metalink 会绕过批准列表，并引入 XML 等未纳入容量与校验合同的文件。
